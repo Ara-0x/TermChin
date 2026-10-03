@@ -107,6 +107,9 @@ import kotlinx.coroutines.withContext
 
 private const val MAX_IMPORT_CHARS = 15_000_000
 
+/** Byte cap for the portal picker: single-file (.mht) archives embed images. */
+private const val MAX_IMPORT_BYTES = 24_000_000
+
 /**
  * Reads user-selected text without letting a huge file block the app.
  *
@@ -129,6 +132,32 @@ private fun readImportText(context: Context, uri: Uri): String {
             builder.append(buffer, 0, read)
         }
         builder.toString()
+    }
+}
+
+/**
+ * Byte twin of [readImportText] for the portal picker: MHTML (.mht) archives
+ * are multipart MIME, so decoding the file as UTF-8 text first would corrupt
+ * binary parts and the transfer-decoding step ([MhtHtmlExtractor]). Returns
+ * raw bytes; the ViewModel sniffs the format and picks the decoder.
+ *
+ * Throws exactly like [readImportText] when the content cannot be opened.
+ */
+private fun readImportBytes(context: Context, uri: Uri): ByteArray {
+    val stream = context.contentResolver.openInputStream(uri)
+        ?: throw java.io.IOException("input stream unavailable for $uri")
+    return stream.use { input ->
+        val out = java.io.ByteArrayOutputStream(65536)
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            require(total <= MAX_IMPORT_BYTES) { "فایل انتخاب‌شده بزرگ‌تر از حد مجاز است." }
+            out.write(buffer, 0, read)
+        }
+        out.toByteArray()
     }
 }
 
@@ -185,8 +214,8 @@ fun SettingsScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch(Dispatchers.IO) {
             val displayName = queryDisplayName(context, uri)
-            val content = try {
-                readImportText(context, uri)
+            val bytes = try {
+                readImportBytes(context, uri)
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     portalFileName = displayName
@@ -196,10 +225,10 @@ fun SettingsScreen(
             }
             withContext(Dispatchers.Main) {
                 portalFileName = displayName
-                if (content.isBlank()) {
+                if (bytes.isEmpty()) {
                     viewModel.reportImportFileEmpty(displayName)
                 } else {
-                    viewModel.importPortalHtml(content, clearExisting = false)
+                    viewModel.importPortalBytes(bytes, displayName, clearExisting = false)
                 }
             }
         }
@@ -792,7 +821,7 @@ fun SettingsScreen(
                     ) {
                         listOf(
                             "۱. صفحه «دروس ارائه‌شده» دانشگاه را باز کنید.",
-                            "۲. صفحه را به‌صورت HTML ذخیره کنید (Save as HTML).",
+                            "۲. صفحه را به‌صورت HTML ذخیره کنید (Save as HTML) یا تک‌فایل (.mht).",
                             "۳. همین‌جا فایل را انتخاب کنید."
                         ).forEach { step ->
                             Text(
@@ -814,7 +843,7 @@ fun SettingsScreen(
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        if (portalFileName != null) "فایل پرتال: $portalFileName" else "ورود فایل HTML پرتال (پویا)",
+                        if (portalFileName != null) "فایل پرتال: $portalFileName" else "ورود فایل HTML/MHT پرتال (پویا)",
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -822,7 +851,7 @@ fun SettingsScreen(
                     )
                 }
                 Text(
-                    text = "صفحه «لیست دروس ارائه‌شده» پرتال را ذخیره (Save as HTML) و همین‌جا انتخاب کنید؛ " +
+                    text = "صفحه «لیست دروس ارائه‌شده» پرتال را ذخیره (Save as HTML یا تک‌فایل .mht) و همین‌جا انتخاب کنید؛ " +
                         "همه دروس با ساعت کلاس، استاد و ظرفیت وارد کاتالوگ می‌شوند و جلوی چشم نیستند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1120,8 +1149,29 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showExportDialog = false }) {
-                    Text("بستن")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Copies the full JSON (not just the visible preview) so
+                    // the user can back it up outside the phone — the only
+                    // backup path while OS backup stays disabled.
+                    OutlinedButton(
+                        onClick = {
+                            TimetableExporter.copyTextToClipboard(
+                                context = context,
+                                text = exportedJson,
+                                label = "TermChin JSON Export",
+                                toastMessage = "متن JSON در کلیپ‌بورد کپی شد"
+                            )
+                        },
+                        modifier = Modifier.testTag("export_json_copy_button")
+                    ) {
+                        Text("کپی")
+                    }
+                    TextButton(onClick = { showExportDialog = false }) {
+                        Text("بستن")
+                    }
                 }
             }
         )

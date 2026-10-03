@@ -95,7 +95,9 @@ object TimetableExporter {
     }
 
     /**
-     * Copies the formatted schedule to clipboard and shows a toast.
+     * Copies arbitrary plain text to the clipboard and shows a toast.
+     * Used by the JSON-export dialog (and anything else that only shows
+     * text today but should let the user take it elsewhere).
      */
     fun copyToClipboard(
         context: Context,
@@ -105,11 +107,29 @@ object TimetableExporter {
         semester: String = ""
     ) {
         val text = formatScheduleAsText(sections, studentName, major, semester)
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Weekly Schedule", text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "متن مرتب برنامه در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
+        copyTextToClipboard(context, text, "Weekly Schedule", "متن مرتب برنامه در کلیپ‌بورد کپی شد")
     }
+
+    /**
+     * Copies [text] to the clipboard under [label] and shows [toastMessage].
+     * Single clipboard choke-point: every copy in the app funnels through
+     * here, so permission/toast behaviour stays in one place.
+     */
+    fun copyTextToClipboard(
+        context: Context,
+        text: String,
+        label: String,
+        toastMessage: String
+    ) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Opens Android's native share sheet (100% offline).
+     */
 
     /**
      * Opens Android's native share sheet (100% offline).

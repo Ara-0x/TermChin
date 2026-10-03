@@ -94,6 +94,31 @@ object PooyaHtmlParser {
     fun cleanText(htmlFragment: String): String = stripTags(decodeEntities(htmlFragment))
 
     /**
+     * Scores one table body for the presented-courses list (0 = not it).
+     *
+     * The header row must carry شماره درس + نام درس (the list's identity).
+     * Bonus points for the remaining list columns let the real table win over
+     * the filter-form table (faculty select) and the submit-form table on
+     * full-page saves. A data-table check on title=/جلسه tooltips mirrors the
+     * row parser below: header-only tables never parse.
+     */
+    internal fun scoreCoursesTable(tableBody: String): Int {
+        val headerRow = rowRegex.find(tableBody)?.groupValues?.getOrNull(1).orEmpty()
+        val headerText = stripTags(headerRow)
+        var score = 0
+        if (headerText.contains("شماره درس")) score += 30
+        if (headerText.contains("نام درس")) score += 30
+        if (headerText.contains("ظرفیت")) score += 10
+        if (headerText.contains("نام استاد") || headerText.contains("استاد")) score += 10
+        if (tableBody.contains("title=") && tableBody.contains("جلسه")) score += 10
+        return score
+    }
+
+    /** Shared MIME sniff: both the byte path and the paste safety net use it. */
+    internal fun looksLikeMht(content: String): Boolean =
+        MhtHtmlExtractor.looksLikeMhtml(content.take(4096), null)
+
+    /**
      * Single entry point. Returns [ImportResult] so the ViewModel import path
      * is identical to JSON/CSV imports.
      */
@@ -101,8 +126,31 @@ object PooyaHtmlParser {
         if (html.isBlank()) {
             return ImportResult.Failure("فایل HTML خالی است.")
         }
+        // MHTML single-file archives (.mht) share this entry point in tests and
+        // in the paste flow: unwrap the courses frame before table parsing so
+        // MIME headers/boundaries are never read as course rows. The picker
+        // path (ViewModel.importPortalBytes) already unwraps, so this is a
+        // no-op for plain HTML and a safety net for everything else.
+        val effectiveHtml = when (val extraction = MhtHtmlExtractor.extract(html)) {
+            is MhtHtmlExtractor.Extraction.Html -> extraction.html
+            is MhtHtmlExtractor.Extraction.Missing ->
+                if (looksLikeMht(html)) {
+                    return ImportResult.Failure(
+                        when (extraction.reason) {
+                            MhtHtmlExtractor.Reason.NO_HTML_PART ->
+                                "در فایل تک‌فایل (.mht) هیچ سند HTML پیدا نشد؛ فایل سالم را دوباره ذخیره کنید."
+                            MhtHtmlExtractor.Reason.NO_COURSE_CONTENT ->
+                                "فایل تک‌فایل (.mht) جدول «دروس ارائه‌شده» را ندارد؛ مطمئن شوید صفحهٔ دروس را (نه صفحهٔ ورود) ذخیره کرده‌اید."
+                            MhtHtmlExtractor.Reason.NOT_MHTML ->
+                                "فایل HTML خالی است."
+                        }
+                    )
+                } else {
+                    html
+                }
+        }
         return try {
-            val parsed = parseRowsDetailed(html)
+            val parsed = parseRowsDetailed(effectiveHtml)
             if (parsed.items.isEmpty()) {
                 ImportResult.Failure(
                     "هیچ درسی در فایل HTML یافت نشد. مطمئن شوید فایل ذخیره‌شده " +
@@ -277,19 +325,16 @@ object PooyaHtmlParser {
     internal data class ParsedExam(val date: String, val time: String, val durationMin: Int)
 
     private fun findCoursesTable(html: String): String? {
-        val tables = tableRegex.findAll(html).map { it.groupValues[1] }.toList()
-        // Prefer the table that actually holds the course list headers.
-        for (t in tables) {
-            val text = stripTags(t)
-            if (text.contains("شماره درس") && text.contains("نام درس")) return t
-        }
-        // Fallback: Pooya renders the list with border="1".
-        val borderTable = Regex(
-            "<table[^>]*border\\s*=\\s*[\"']?1[\"']?[^>]*>(.*?)</table>",
-            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
-        ).find(html)
-        if (borderTable != null) return borderTable.groupValues[1]
-        return null
+        // Score every table by how much it looks like the presented-courses
+        // list. A first-match rule would grab the filter-form table (faculty
+        // <select>) on full-page saves; scoring still lands on the border=1
+        // list with the course headers.
+        val scored = tableRegex.findAll(html).map { it.groupValues[1] }.map { body ->
+            body to scoreCoursesTable(body)
+        }.toList()
+        return scored.maxByOrNull { it.second }
+            ?.takeIf { it.second > 0 }
+            ?.first
     }
 
     private fun extractTooltip(rowHtml: String): String {

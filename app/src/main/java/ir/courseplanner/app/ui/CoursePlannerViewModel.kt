@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import ir.courseplanner.app.data.importer.CourseImporter
 import ir.courseplanner.app.data.importer.ImportItem
 import ir.courseplanner.app.data.importer.ImportResult
+import ir.courseplanner.app.data.importer.MhtHtmlExtractor
 import ir.courseplanner.app.data.importer.PooyaHtmlParser
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.Conflict
@@ -897,7 +898,108 @@ class CoursePlannerViewModel @Inject constructor(
      */
     fun reportImportFileEmpty(displayName: String? = null) {
         val name = displayName?.takeIf { it.isNotBlank() } ?: "انتخاب‌شده"
-        showError("فایل «$name» خالی است؛ لطفاً صفحهٔ «دروس ارائه‌شده» را دوباره به‌صورت HTML ذخیره کنید.")
+        showError("فایل «$name» خالی است؛ لطفاً صفحهٔ «دروس ارائه‌شده» را دوباره به‌صورت HTML یا تک‌فایل (.mht) ذخیره کنید.")
+    }
+
+    /** MHTML (.mht) archives never reach the parser: report the archive state. */
+    fun reportMhtExtractionFailed(
+        reason: MhtHtmlExtractor.Reason,
+        displayName: String? = null,
+    ) {
+        val name = displayName?.takeIf { it.isNotBlank() } ?: "انتخاب‌شده"
+        when (reason) {
+            MhtHtmlExtractor.Reason.NO_HTML_PART ->
+                showError("در فایل «$name» هیچ سند HTML پیدا نشد؛ فایل تک‌فایل (.mht) سالم را دوباره ذخیره کنید.")
+            MhtHtmlExtractor.Reason.NO_COURSE_CONTENT ->
+                showError("فایل «$name» جدول «دروس ارائه‌شده» را ندارد؛ مطمئن شوید صفحهٔ دروس را (نه صفحهٔ ورود) ذخیره کرده‌اید.")
+            MhtHtmlExtractor.Reason.NOT_MHTML ->
+                reportImportFileEmpty(displayName)
+        }
+    }
+
+    /**
+     * Byte entry point for the portal picker: sniffs MHTML vs plain HTML,
+     * decodes accordingly, then follows the same stage-3/4 reporting as
+     * [importPortalHtml]. The String path stays untouched for paste flows.
+     */
+    fun importPortalBytes(bytes: ByteArray, displayName: String?, clearExisting: Boolean) {
+        if (bytes.isEmpty()) {
+            reportImportFileEmpty(displayName)
+            return
+        }
+        viewModelScope.launch {
+            // Sniff on the head only: decoding the whole archive as text here
+            // would defeat the byte path (binary parts must stay raw until
+            // their own transfer-decoding step).
+            val head = decodeHeadForSniff(bytes)
+            val html = if (MhtHtmlExtractor.looksLikeMhtml(head, displayName)) {
+                when (val extraction = MhtHtmlExtractor.extractFromBytes(bytes)) {
+                    is MhtHtmlExtractor.Extraction.Html -> extraction.html
+                    is MhtHtmlExtractor.Extraction.Missing -> {
+                        reportMhtExtractionFailed(extraction.reason, displayName)
+                        return@launch
+                    }
+                }
+            } else {
+                decodePortalText(bytes)
+            }
+            if (html.isBlank()) {
+                reportImportFileEmpty(displayName)
+                return@launch
+            }
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                PooyaHtmlParser.parsePortalHtml(html)
+            }
+            when (result) {
+                is ImportResult.Success -> {
+                    try {
+                        repository.importPortalItems(result.items, clearExisting = clearExisting)
+                        showInfo(
+                            result.message +
+                                " از تب «دروس» با وارد کردن کد درس، به دروس خود اضافه کنید."
+                        )
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        android.util.Log.e("CoursePlannerVM", "Portal import failed", e)
+                        showError("درون‌ریزی کاتالوگ پرتال ناموفق بود؛ لطفاً دوباره تلاش کنید.")
+                    }
+                }
+                is ImportResult.Failure -> {
+                    showError(result.errorMessage)
+                }
+            }
+        }
+    }
+
+    /**
+     * Decodes a plain (non-MHTML) portal file the way the old text path did:
+     * strict UTF-8 first, Windows-1256 fallback. MHTML archives never reach
+     * this: [MhtHtmlExtractor] decodes each part with its own charset.
+     */
+    internal fun decodePortalText(bytes: ByteArray): String {
+        return try {
+            val decoder = Charsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+            decoder.decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+        } catch (_: Exception) {
+            try {
+                bytes.toString(charset("windows-1256"))
+            } catch (_: Exception) {
+                bytes.toString(Charsets.ISO_8859_1)
+            }
+        }
+    }
+
+    /** First bytes as text for MHTML sniffing only (never for parsing). */
+    private fun decodeHeadForSniff(bytes: ByteArray): String {
+        val head = bytes.take(4096).toByteArray()
+        return try {
+            head.toString(Charsets.UTF_8)
+        } catch (_: Exception) {
+            head.toString(Charsets.ISO_8859_1)
+        }
     }
 
     /**
