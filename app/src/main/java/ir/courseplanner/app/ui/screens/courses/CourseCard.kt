@@ -13,6 +13,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -102,6 +104,7 @@ import ir.courseplanner.app.ui.components.AddSectionDialog
 import ir.courseplanner.app.ui.components.EditCourseDialog
 import ir.courseplanner.app.data.model.Conflict
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CourseCard(
     courseWithSections: CourseWithSections,
@@ -132,27 +135,41 @@ internal fun CourseCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             // Course Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+            // Layout contract: the course name owns the full first line and
+            // may wrap to a second one; chips (units, documents) live on a
+            // dedicated second Row, and code/department on a third. No name
+            // is ever cut by a same-row chip — the ... suffix appears only
+            // past two full lines. Structure of this block:
+            //   Column
+            //   ├─ nameRow        (name Text only)
+            //   ├─ metaRow        (credits chip + documents chip + spacer + actions)
+            //   └─ codeRow        (کد + دانشکده)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 1) Name: full-width, wraps to a second line.
+                Text(
+                    text = course.name,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("course_card_name_${course.code}")
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 2) Chips row: the action cluster keeps a fixed slot at the
+                // line end; chips take the rest and wrap to a second line.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = course.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            // Long course names wrap to a second line instead of
-                            // being cut off with "..." after the first one.
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
@@ -198,35 +215,13 @@ internal fun CourseCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "کد: ${course.code}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
-                        )
-                        if (course.department.isNotBlank()) {
-                            Text(
-                                text = "•  دانشکده: ${course.department}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                softWrap = false
-                            )
-                        }
-                    }
-                }
-
-                // Top Actions: Checkbox for Schedule Generator + Delete Course
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                    // Top Actions: Checkbox for Schedule Generator + Delete Course
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -273,6 +268,31 @@ internal fun CourseCard(
                             contentDescription = "حذف درس",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    }
+                }
+
+                // 3) Code row: wraps instead of eating name space.
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "کد: ${course.code}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (course.department.isNotBlank()) {
+                        Text(
+                            text = "•  دانشکده: ${course.department}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
