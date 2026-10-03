@@ -22,10 +22,12 @@ import java.util.Locale
  * - The winner is picked by scoring, not position: location hints for the
  *   presented-courses form plus body keywords/table count. Frame pages that
  *   carry only a frameset and no courses lose on the content score.
- * - Binary parts decode as UTF-8 with a Windows-1256 fallback: Blink writes
- *   the portal's UTF-8 bytes through a `binary` part, and strict UTF-8
- *   decoding recovers clean Persian text. Real HTML files never reach this
- *   file: it is only consulted for MHTML input.
+ * - Parsing is BYTE-LEVEL: the archive is never decoded as one text blob
+ *   (Blink embeds raw binary images that are not valid UTF-8, and a whole
+ *   file charset fallback would corrupt the Persian HTML). Bytes are mapped
+ *   1:1 to ISO-8859-1 for structure scanning, and each part's body is decoded
+ *   individually by its transfer encoding + charset (UTF-8 with a
+ *   Windows-1256 fallback for legacy portals).
  * - Never throws for malformed archives: [Extraction] is either the decoded
  *   HTML or a short machine-checkable [Reason] the UI turns into a Persian
  *   message (see CoursePlannerViewModel).
@@ -73,23 +75,29 @@ object MhtHtmlExtractor {
         NO_COURSE_CONTENT,
     }
 
-    /** Extracts the courses HTML from raw MHTML text (used by unit tests). */
-    fun extract(raw: String): Extraction {
-        val boundary = findBoundary(raw) ?: return Extraction.Missing(Reason.NOT_MHTML)
-        val parts = splitParts(raw, boundary)
-        if (parts.isEmpty()) return Extraction.Missing(Reason.NOT_MHTML)
-        return pickCoursesHtml(parts)
-    }
+    /** Extracts the courses HTML from raw MHTML text (fixtures/paste path). */
+    fun extract(raw: String): Extraction = extractFromBytes(raw.toByteArray(Charsets.UTF_8))
 
     /**
-     * Entry point for real files: strict-decodes the bytes as UTF-8 and
-     * falls back to Windows-1256 only when they are not valid UTF-8.
-     * (MHTML headers are ASCII, so this never corrupts the boundary scan.)
+     * PRIMARY entry point: byte-level MHTML parsing.
+     *
+     * The whole file must NEVER be decoded as text: Blink archives embed raw
+     * binary images (invalid UTF-8), so decoding the file as UTF-8 fails and a
+     * charset fallback (windows-1256) then corrupts the Persian HTML body —
+     * the parser would report "no courses". Instead the bytes are mapped
+     * 1:1 to ISO-8859-1 (char index == byte index, so slicing is byte-exact),
+     * headers/boundaries are scanned as ASCII, and each part's body is decoded
+     * on its own by transfer encoding + charset.
      */
     fun extractFromBytes(bytes: ByteArray): Extraction {
         if (bytes.isEmpty()) return Extraction.Missing(Reason.NOT_MHTML)
-        val asUtf8 = decodeSafely(bytes, Charsets.UTF_8) ?: decodeWith1256(bytes)
-        return extract(asUtf8)
+        // Lossless 1 byte <-> 1 char: structure work stays byte-exact; only the
+        // per-part body decoders below interpret character encoding.
+        val archive = String(bytes, Charsets.ISO_8859_1)
+        val boundary = findBoundary(archive) ?: return Extraction.Missing(Reason.NOT_MHTML)
+        val parts = splitParts(archive, boundary)
+        if (parts.isEmpty()) return Extraction.Missing(Reason.NOT_MHTML)
+        return pickCoursesHtml(parts)
     }
 
     /**
@@ -113,6 +121,11 @@ object MhtHtmlExtractor {
     // MIME plumbing (headers are ASCII; only the body carries Persian text).
     // ------------------------------------------------------------------
 
+    /**
+     * One MIME part. [rawBody] is an ISO-8859-1 view of the part's bytes:
+     * every char maps 1:1 to one byte, so the body decoders below can slice it
+     * byte-exactly and only interpret encoding at decode time.
+     */
     private class Part(val headers: Map<String, String>, val rawBody: String)
 
     private fun findBoundary(raw: String): String? {
@@ -255,21 +268,27 @@ object MhtHtmlExtractor {
         }
     }
 
+    /**
+     * Decodes a raw ("binary"/"8bit"/"7bit") part — the encoding Blink uses
+     * for its HTML frames. [rawBody] is the byte-exact ISO-8859-1 view, so it
+     * is turned back into bytes first, then decoded with the part's declared
+     * charset: strict UTF-8 by default (Pooya saves are UTF-8), falling back
+     * to Windows-1256 for legacy portals, Latin-1 as the never-failing last
+     * resort. Blank bodies yield null.
+     */
     private fun decodeRawBody(rawBody: String, declared: String?): String? {
-        // The file bytes were already interpreted once (extractFromBytes), so
-        // the body text is only wrong when a real charset was declared. Then
-        // re-interpret the code points as raw bytes (Latin-1 round-trip is
-        // lossless for 0x00-0xFF) and decode with the declared charset.
-        val charset = resolveCharset(declared)
-        if (charset != null && charset != Charsets.UTF_8 && charset != Charsets.US_ASCII) {
-            return try {
-                val bytes = rawBody.map { (it.code and 0xFF).toByte() }.toByteArray()
-                decodeSafely(bytes, charset) ?: rawBody.trim()
-            } catch (_: Exception) {
-                rawBody.trim()
+        if (rawBody.isBlank()) return null
+        val bytes = rawBody.toByteArray(Charsets.ISO_8859_1)
+        val declaredCharset = resolveCharset(declared)
+        if (declaredCharset != null) {
+            // A wrong/deceptive label must not lose the content: fall through
+            // to the UTF-8 attempt when the declared charset rejects the bytes.
+            decodeSafely(bytes, declaredCharset)?.let { decoded ->
+                decoded.trim().ifEmpty { null }?.let { return it }
             }
         }
-        return rawBody.trim().ifEmpty { null }
+        return decodeSafely(bytes, Charsets.UTF_8)?.trim()?.ifEmpty { null }
+            ?: decodeWith1256(bytes).trim().ifEmpty { null }
     }
 
     private fun decodeBase64Body(rawBody: String, declared: String?): String? {

@@ -2,6 +2,7 @@ package ir.courseplanner.app.data.importer
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -209,30 +210,104 @@ class MhtHtmlExtractorTest {
     }
 
     /**
-     * Real Chrome single-file save (.mht) of the Pooya presented-courses
-     * page. Runs only when TERMCHIN_MHT_FIXTURE points at the file (local
-     * verification); otherwise returns silently so CI stays hermetic and no
-     * binary fixture is committed.
+     * Real Chrome single-file saves (.mht) — raw binary image parts included,
+     * the exact shape that broke on device (whole-file UTF-8 decode fails and
+     * a windows-1256 fallback then corrupts the Persian table, so the app
+     * reported "no courses"). Runs only when TERMCHIN_MHT_FIXTURE points at
+     * file(s) separated by ';'; otherwise returns silently so CI stays
+     * hermetic and no binary fixture is committed. Look for "MHT_FIXTURE_USED"
+     * in the JUnit XML to prove the assertions really ran.
      */
     @Test
     fun `real chrome mht fixture unwraps and parses`() {
-        val path = System.getenv("TERMCHIN_MHT_FIXTURE") ?: return
-        val file = java.io.File(path)
-        if (!file.isFile) return
-        val out = MhtHtmlExtractor.extractFromBytes(file.readBytes())
-        assertTrue(out is MhtHtmlExtractor.Extraction.Html)
-        val html = (out as MhtHtmlExtractor.Extraction.Html).html
-        assertTrue(html.contains("شماره درس"))
-        assertTrue(html.contains("نام درس"))
-        val result = PooyaHtmlParser.parsePortalHtml(html)
-        assertTrue(result is ImportResult.Success)
-        val items = (result as ImportResult.Success).items
-        assertTrue(items.size >= 100)
+        val rawPaths = System.getenv("TERMCHIN_MHT_FIXTURE") ?: return
+        val files = rawPaths.split(';')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .map { java.io.File(it) }
+        assertTrue("TERMCHIN_MHT_FIXTURE points at no existing file", files.isNotEmpty())
+        var lastResult: ImportResult? = null
+        for (file in files) {
+            val out = MhtHtmlExtractor.extractFromBytes(file.readBytes())
+            assertTrue("expected courses HTML from ${file.name}", out is MhtHtmlExtractor.Extraction.Html)
+            val html = (out as MhtHtmlExtractor.Extraction.Html).html
+            assertTrue(html.contains("شماره درس"))
+            assertTrue(html.contains("نام درس"))
+            val result = PooyaHtmlParser.parsePortalHtml(html)
+            assertTrue("expected parse success from ${file.name}", result is ImportResult.Success)
+            val items = (result as ImportResult.Success).items
+            assertTrue("expected >=100 courses from ${file.name}, got ${items.size}", items.size >= 100)
+            println("MHT_FIXTURE_USED ${file.name} courses=${items.size}")
+            lastResult = result
+        }
+        val items = (lastResult as ImportResult.Success).items
         val lang = items.first { it.course.code == "10014" }
         assertEquals("زبان خارجی", lang.course.name)
         val sessions = lang.sections.first { it.section.sectionCode == "1" }.sessions
         assertEquals(2, sessions.size)
         assertTrue(sessions.any { it.dayOfWeek == 2 && it.startTime == "10:00" && it.endTime == "12:00" })
         assertTrue(sessions.any { it.dayOfWeek == 2 && it.startTime == "12:00" && it.endTime == "14:00" })
+    }
+
+    /**
+     * Regression: an archive whose image part is RAW binary (JPEG magic with
+     * bytes that are not valid UTF-8). Decoding the whole file as text fails
+     * there and a charset fallback would corrupt the Persian table — the
+     * byte-level pipeline must still yield a parseable courses frame.
+     */
+    @Test
+    fun `raw binary image part does not corrupt the courses table`() {
+        val jpegLike = byteArrayOf(
+            0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10,
+            0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x80.toByte(), 0x90.toByte(), 0xFE.toByte(),
+        )
+        val head =
+            "From: <Saved by Blink>\r\n" +
+                "MIME-Version: 1.0\r\n" +
+                "Content-Type: multipart/related;\r\n" +
+                "\ttype=\"text/html\";\r\n" +
+                "\tboundary=\"----BB2----\"\r\n" +
+                "\r\n\r\n"
+        val imagePart =
+            "------BB2----\r\n" +
+                "Content-Type: image/jpeg\r\n" +
+                "Content-Transfer-Encoding: binary\r\n" +
+                "Content-Location: https://pooya.example.ir/serial/photo.jpg\r\n" +
+                "\r\n"
+        val htmlPart =
+            "------BB2----\r\n" +
+                "Content-Type: text/html; charset=UTF-8\r\n" +
+                "Content-Transfer-Encoding: binary\r\n" +
+                "Content-Location: https://pooya.example.ir/educ/stu_portal/PresentedCoursesForm.php\r\n" +
+                "\r\n" +
+                "<html><body><table border=\"1\"><tbody>\n" +
+                "<tr><th>نام درس</th><th>کد درس</th><th>واحد</th><th>گروه</th><th>ظرفیت</th><th>ثبت نام شده</th><th>دانشکده</th><th>نام استاد</th><th>جزئیات</th></tr>\n" +
+                "<tr><td>آمار و احتمالات مهندسی</td><td>10234</td><td>3.00</td><td>1</td><td>30</td><td>11</td><td>دانشکده اصلي</td><td>محمدی</td><td><img src=\"info.gif\" title=\"\"></td></tr>\n" +
+                "</tbody></table></body></html>\r\n" +
+                "------BB2------"
+        val bytes = head.toByteArray(Charsets.ISO_8859_1) +
+            imagePart.toByteArray(Charsets.ISO_8859_1) + jpegLike +
+            "\r\n".toByteArray(Charsets.ISO_8859_1) +
+            htmlPart.toByteArray(Charsets.UTF_8)
+
+        // Sanity: this fixture must NOT be decodable as whole-file UTF-8 —
+        // otherwise the regression is no longer reproduced by this test.
+        val wholeFileUtf8 = runCatching {
+            Charsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(bytes))
+                .toString()
+        }.getOrNull()
+        assertNull("sanity: raw image bytes must break whole-file UTF-8", wholeFileUtf8)
+
+        val out = MhtHtmlExtractor.extractFromBytes(bytes)
+        assertTrue(out is MhtHtmlExtractor.Extraction.Html)
+        val result = PooyaHtmlParser.parsePortalHtml((out as MhtHtmlExtractor.Extraction.Html).html)
+        assertTrue(result is ImportResult.Success)
+        val items = (result as ImportResult.Success).items
+        assertEquals(1, items.size)
+        assertEquals("10234", items[0].course.code)
+        assertEquals("آمار و احتمالات مهندسی", items[0].course.name)
     }
 }
