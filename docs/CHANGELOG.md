@@ -4,6 +4,23 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.1] — 2026-10-04 byte-level .mht parsing (import fix)
+
+### Data import
+
+- **Picking a Chrome/Edge `.mht` no longer fails with "no courses found".**
+  The extractor decoded the whole archive as text; raw binary images inside a
+  Blink single-file save are not valid UTF-8, so the charset fallback
+  corrupted the Persian HTML and the courses table could not match. Parsing is
+  now byte-level: headers/boundaries are scanned on a 1:1 ISO-8859-1 view and
+  each part body is decoded by its own transfer encoding + charset.
+- **Regression tests.** `raw binary image part does not corrupt the courses
+  table` reproduces the on-device failure (with a sanity assertion that
+  whole-file UTF-8 decoding of the fixture fails), and the real-save fixture
+  test now prints `MHT_FIXTURE_USED` so a silently-skipped run cannot pass
+  again. Suite: 126 tests / 18 suites, 0 failures; verified against a real
+  portal `.mht` (157 courses parsed).
+
 ## [2.7.0] — 2026-10-04 MHTML (.mht) portal import, full-line course names & export copy
 
 ### Data import
