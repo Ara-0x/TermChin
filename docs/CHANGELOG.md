@@ -4,6 +4,46 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.0] — 2026-10-04 MHTML (.mht) portal import, full-line course names & export copy
+
+### Data import
+
+- **Portal picker accepts Chrome/Edge single-file saves (.mht).**
+  `SettingsScreen` now reads the picked portal file as bytes and
+  `CoursePlannerViewModel.importPortalBytes` sniffs MHTML vs plain HTML:
+  MHTML is unwrapped by the new `MhtHtmlExtractor` (RFC 2046 boundary
+  splitting, header folding, quoted-printable/base64 decoding, UTF-8 with a
+  Windows-1256 fallback), then parsed by the unchanged `PooyaHtmlParser`.
+  HTML files behave exactly as before. Copy-paste flows still use the same
+  `importPortalHtml` path.
+- **Archive-aware errors.** A menu-only save (login page, no courses table)
+  no longer parses as "zero courses found": it reports which archive state
+  was found (no HTML part / no courses table / unreadable file).
+- **Scored table selection.** `PooyaHtmlParser` now scores every `<table>`
+  by its header row (شماره درس + نام درس + ظرفیت/استاد + tooltips) instead
+  of taking the first match, so the filter-form table (faculty select) on
+  full-page saves can no longer win over the courses list.
+- **New tests.** `MhtHtmlExtractorTest` (+9, suite green): frame picking,
+  QP/base64 decoding, menu-only and html-less archives, malformed input,
+  end-to-end MHT→parser, plus an env-gated (`TERMCHIN_MHT_FIXTURE`) check
+  against a real Chrome .mht save. Suite is 125 tests / 18 suites, 0 failures.
+
+### Courses UI
+
+- **Course names own the full card line.** `CourseCard` header is now three
+  rows: full-width name (wraps to a second line), a chips `FlowRow` (units +
+  documents) sharing a row with the fixed action cluster, then a wrapping
+  code/department row — long Persian names like «برنامه نویسی مبتنی بر وب»
+  no longer lose characters to same-row chips. `CatalogQuickAddCard` got the
+  same treatment (full-width two-line name; the add button keeps its slot).
+  No colors, paddings, testTags or behaviour changed.
+
+- **Copy button on the JSON export dialog.** The dialog only previewed the
+  JSON; it now has a «کپی» button (testTag `export_json_copy_button`) that
+  copies the **full** export text via the shared `copyTextToClipboard`
+  choke-point in `TimetableExporter` — the schedule copy on Home is
+  unchanged and now funnels through the same function.
+
 ## [2.6.0] — 2026-09-29 signing-key migration, data-integrity fixes & UI polish
 
 ### Security / build
