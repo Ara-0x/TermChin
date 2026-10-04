@@ -205,23 +205,40 @@ jobs:
           echo "=== permissions declared by the APK ==="
           PERMS=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK")
           echo "$PERMS"
-          # Allow-list, not a deny-list: INTERNET is the ONLY permission TermChin
-          # may ever request. Anything else (location, contacts, storage,
-          # REQUEST_INSTALL_PACKAGES, ...) is a build failure, because the app
-          # stores everything locally and hands APK downloads to the browser.
+          # Allow-list, not a deny-list: INTERNET is the ONLY *capability*
+          # permission TermChin may ever request. Anything else (location,
+          # contacts, storage, REQUEST_INSTALL_PACKAGES, ...) is a build failure,
+          # because the app stores everything locally and hands APK downloads to
+          # the browser.
+          #
+          # One exception is structural, not a capability: androidx merges the
+          # app's own "<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+          # into every APK. It is a signature-level guard for dynamic receivers —
+          # it protects the app's own broadcasts and grants zero access — so it
+          # is expected on the allow-list. The package name is read from the APK
+          # itself (both old and new `aapt` formats) rather than hardcoded.
           ALLOWED="android.permission.INTERNET"
+          APP_ID=$(printf '%s\n' "$PERMS" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
+          if [ -z "$APP_ID" ]; then
+            APP_ID=$(printf '%s\n' "$PERMS" | sed -n "s/^package: \([^ ]*\).*/\1/p")
+          fi
+          SELF_GUARD="${APP_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Could not read the package name from the APK."
+            exit 1
+          fi
           while read -r PERM; do
             [ -n "$PERM" ] || continue
-            if [ "$PERM" != "$ALLOWED" ]; then
-              echo "::error::Release APK requests an unexpected permission: $PERM (only $ALLOWED is allowed)."
+            if [ "$PERM" != "$ALLOWED" ] && [ "$PERM" != "$SELF_GUARD" ]; then
+              echo "::error::Release APK requests an unexpected permission: $PERM (only $ALLOWED and the app's own $SELF_GUARD are allowed)."
               exit 1
             fi
-          done <<< "$(echo "$PERMS" | sed -n "s/.*uses-permission.*name='\([^']*\)'.*/\1/p")"
+          done <<< "$(echo "$PERMS" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p")"
           if ! echo "$PERMS" | grep -q "$ALLOWED"; then
             echo "::error::Release APK no longer declares $ALLOWED - the update check could not work."
             exit 1
           fi
-          echo "Only $ALLOWED is declared - the update check is the app's sole network capability."
+          echo "Permission surface OK: INTERNET (+ the app's own dynamic-receiver guard) — the update check is the sole network capability."
           echo "=== allowBackup in the merged manifest ==="
           ALLOW_BACKUP_LINE=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep "android:allowBackup" || true)
           echo "${ALLOW_BACKUP_LINE:-<allowBackup attribute absent>}"
