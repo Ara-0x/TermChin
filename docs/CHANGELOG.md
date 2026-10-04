@@ -4,6 +4,30 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.2] — 2026-10-04 seven-theme palette pass (colour polish)
+
+### Theming & colour
+
+- **Every light theme now separates page, card and chip by the same measured
+  steps.** The page tint was deepened so a white card clears it by a consistent
+  ~1.11 contrast (was 1.05–1.07; Violet/Ocean were the lowest at 1.053/1.056),
+  and the pale tone-100 containers were deepened so selected chips and the
+  "even weeks" badge keep a clear fill against the page (`container/page` ≥ 1.09,
+  previously as low as 1.044). Dark schemes whose card barely cleared the page
+  (~1.07) were lifted to ~1.11.
+- **Amber's second accent is finally a second colour.** Its `secondary` was a
+  burnt orange only ~9° from the amber primary, so the home metric cards and the
+  settings swatch drew one colour twice; it is now a plum (light) / violet
+  (dark), giving a gold–plum–teal triad.
+- **Ocean's accents were pulled apart.** Teal primary plus royal-blue secondary
+  sat only ~25–28° apart (visually close to the indigo theme); the secondary
+  moved to indigo and the tertiary to a fuchsia dusk, so every accent pair is now
+  46–52° apart.
+- **New regression guard.** `AppThemePaletteTest` now fails if any theme's
+  primary/secondary/tertiary hues come within 20° of one another; the suite keeps
+  re-verifying WCAG contrast for all 14 schemes (light + dark).
+
+
 ## [2.7.1] — 2026-10-04 byte-level .mht parsing (import fix)
 
 ### Data import
