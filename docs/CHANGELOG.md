@@ -4,7 +4,7 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
-## [2.7.4] — one-shot update prompt (GitHub-backed)
+## [2.7.4] — 2026-10-04 one-shot update prompt (GitHub-backed)
 
 ### Updating
 

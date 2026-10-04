@@ -7,7 +7,7 @@
 
 | Version | Supported |
 |---|---|
-| 2.6.x (signed with the current release key) | ✅ |
+| 2.6.x – 2.7.x (signed with the current release key) | ✅ |
 | 2.0.0 – 2.5.0 (signed with the retired key) | ⚠️ installable, but must be replaced — see [Migration impact](#migration-impact) |
 | older | ❌ |
 

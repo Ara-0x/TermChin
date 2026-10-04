@@ -149,8 +149,9 @@ The workflow must pass these gates, in order:
 4. `Build Release APK` — `assembleRelease` with the four `RELEASE_*` variables.
 5. `Verify APK carries new version` — `versionCode`/`versionName` match
    `app/build.gradle.kts`.
-6. `Offline & backup gate` — the APK must not request `android.permission.INTERNET`
-   and `android:allowBackup` must stay `false`.
+6. `Network & backup gate` — the APK must request `android.permission.INTERNET`
+   and nothing else except the app's own `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`
+   self-guard; `android:allowBackup` must stay `false`.
 7. `Signature gate` — signer SHA-256 equals the current release certificate
    **and** differs from the retired certificate.
 8. `Version regression gate` (tags only) — `versionName` equals the tag and
