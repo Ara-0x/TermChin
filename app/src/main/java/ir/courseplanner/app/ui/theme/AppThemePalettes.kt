@@ -17,6 +17,15 @@ import ir.courseplanner.app.data.preferences.AppColorTheme
  * same indigo/teal values - and each accent's dark variant was never tuned for
  * the navy surface. All roles are raw 0xAARRGGBB [Long] literals so the table
  * stays diff-friendly and is assertable from plain JVM tests.
+ *
+ * Colour discipline: the page chrome (background, surface, surfaceVariant,
+ * onSurface / onSurfaceVariant text, outline, outlineVariant) is always an
+ * achromatic grey - at the same relative luminance as the tinted value it
+ * replaced - so the accents, not a single-hue wash, carry the identity of the
+ * theme. The Forest theme used to tint all seven chrome roles green and read
+ * as "a green app"; neutral chrome keeps every contrast ratio and the
+ * light/dark classification intact while the screen no longer drowns in one
+ * hue. AppThemePaletteTest guards this with a chroma assertion.
  */
 data class ThemePalette(
     val light: ColorScheme,
@@ -137,10 +146,10 @@ private val IndigoLight = SchemeTokens(
     secondaryContainer = 0xFFC5F3E9L, onSecondaryContainer = 0xFF115E59L,
     tertiary = 0xFF7C3AEDL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFEAE7FBL, onTertiaryContainer = 0xFF4C1D95L,
-    background = 0xFFF1F3F7L, onSurface = 0xFF0F172AL,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFE9EEF8L,
-    onSurfaceVariant = 0xFF475569L, outline = 0xFF7C899FL,
-    outlineVariant = 0xFFDCE3EFL
+    background = 0xFFF3F3F3L, onSurface = 0xFF171717L,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEEEEEEL,
+    onSurfaceVariant = 0xFF545454L, outline = 0xFF888888L,
+    outlineVariant = 0xFFE2E2E2L
 )
 
 private val IndigoDark = SchemeTokens(
@@ -150,10 +159,10 @@ private val IndigoDark = SchemeTokens(
     secondaryContainer = 0xFF115E59L, onSecondaryContainer = 0xFFB8F2E6L,
     tertiary = 0xFFB39DFFL, onTertiary = 0xFF241366L,
     tertiaryContainer = 0xFF4C1D95L, onTertiaryContainer = 0xFFE2DAFFL,
-    background = 0xFF0A0F1BL, onSurface = 0xFFE7EDF9L,
-    surface = 0xFF121A2AL, surfaceVariant = 0xFF1E293BL,
-    onSurfaceVariant = 0xFF9FB0C9L, outline = 0xFF64748BL,
-    outlineVariant = 0xFF26334AL
+    background = 0xFF0F0F0FL, onSurface = 0xFFEDEDEDL,
+    surface = 0xFF1A1A1AL, surfaceVariant = 0xFF292929L,
+    onSurfaceVariant = 0xFFAFAFAFL, outline = 0xFF737373L,
+    outlineVariant = 0xFF333333L
 )
 
 private val EmeraldLight = SchemeTokens(
@@ -163,10 +172,10 @@ private val EmeraldLight = SchemeTokens(
     secondaryContainer = 0xFFDAECF7L, onSecondaryContainer = 0xFF0C4A6EL,
     tertiary = 0xFFB45309L, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFF4EABFL, onTertiaryContainer = 0xFF78350FL,
-    background = 0xFFEFF5F1L, onSurface = 0xFF0B1F17L,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFE4F1EAL,
-    onSurfaceVariant = 0xFF3D5A4EL, outline = 0xFF6B857AL,
-    outlineVariant = 0xFFD5E6DCL
+    background = 0xFFF3F3F3L, onSurface = 0xFF1B1B1BL,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEEEEEEL,
+    onSurfaceVariant = 0xFF545454L, outline = 0xFF7F7F7FL,
+    outlineVariant = 0xFFE2E2E2L
 )
 
 private val EmeraldDark = SchemeTokens(
@@ -176,10 +185,10 @@ private val EmeraldDark = SchemeTokens(
     secondaryContainer = 0xFF075985L, onSecondaryContainer = 0xFFBAE6FDL,
     tertiary = 0xFFFBBF24L, onTertiary = 0xFF3A2404L,
     tertiaryContainer = 0xFF92400EL, onTertiaryContainer = 0xFFFDE68AL,
-    background = 0xFF07120EL, onSurface = 0xFFE3F1E9L,
-    surface = 0xFF0F1D17L, surfaceVariant = 0xFF18291FL,
-    onSurfaceVariant = 0xFF93AE9FL, outline = 0xFF6E8A7DL,
-    outlineVariant = 0xFF1F3327L
+    background = 0xFF101010L, onSurface = 0xFFEEEEEEL,
+    surface = 0xFF1A1A1AL, surfaceVariant = 0xFF252525L,
+    onSurfaceVariant = 0xFFA8A8A8L, outline = 0xFF848484L,
+    outlineVariant = 0xFF2F2F2FL
 )
 private val VioletLight = SchemeTokens(
     primary = 0xFF7C3AEDL, onPrimary = 0xFFFFFFFFL,
@@ -188,10 +197,10 @@ private val VioletLight = SchemeTokens(
     secondaryContainer = 0xFFF8E4EFL, onSecondaryContainer = 0xFF831843L,
     tertiary = 0xFF0F766EL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFC5F3E9L, onTertiaryContainer = 0xFF134E4AL,
-    background = 0xFFF4F2F8L, onSurface = 0xFF17122BL,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEFEAFCL,
-    onSurfaceVariant = 0xFF544B72L, outline = 0xFF7A7096L,
-    outlineVariant = 0xFFE3DCF6L
+    background = 0xFFF3F3F3L, onSurface = 0xFF161616L,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFECECECL,
+    onSurfaceVariant = 0xFF515151L, outline = 0xFF757575L,
+    outlineVariant = 0xFFE0E0E0L
 )
 
 private val VioletDark = SchemeTokens(
@@ -201,10 +210,10 @@ private val VioletDark = SchemeTokens(
     secondaryContainer = 0xFF9D174DL, onSecondaryContainer = 0xFFFBCFE8L,
     tertiary = 0xFF4FD8C4L, onTertiary = 0xFF04332EL,
     tertiaryContainer = 0xFF115E59L, onTertiaryContainer = 0xFFB6F2E8L,
-    background = 0xFF0D0A18L, onSurface = 0xFFECE8FBL,
-    surface = 0xFF171233L, surfaceVariant = 0xFF221B40L,
-    onSurfaceVariant = 0xFFA79FC6L, outline = 0xFF837AA3L,
-    outlineVariant = 0xFF2E2652L
+    background = 0xFF0C0C0CL, onSurface = 0xFFEAEAEAL,
+    surface = 0xFF171717L, surfaceVariant = 0xFF212121L,
+    onSurfaceVariant = 0xFFA4A4A4L, outline = 0xFF7F7F7FL,
+    outlineVariant = 0xFF2D2D2DL
 )
 
 // Amber keeps gold as its primary but pairs it with a plum secondary. The old
@@ -220,10 +229,10 @@ private val AmberLight = SchemeTokens(
     secondaryContainer = 0xFFF0E5FBL, onSecondaryContainer = 0xFF581C87L,
     tertiary = 0xFF0F766EL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFC5F3E9L, onTertiaryContainer = 0xFF134E4AL,
-    background = 0xFFF7F3EBL, onSurface = 0xFF231A0FL,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFF5EBDAL,
-    onSurfaceVariant = 0xFF6B5B44L, outline = 0xFF8F7C62L,
-    outlineVariant = 0xFFE9DCC6L
+    background = 0xFFF3F3F3L, onSurface = 0xFF1C1C1CL,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFECECECL,
+    onSurfaceVariant = 0xFF5D5D5DL, outline = 0xFF7F7F7FL,
+    outlineVariant = 0xFFDDDDDDL
 )
 
 private val AmberDark = SchemeTokens(
@@ -233,10 +242,10 @@ private val AmberDark = SchemeTokens(
     secondaryContainer = 0xFF6B21A8L, onSecondaryContainer = 0xFFF3E8FFL,
     tertiary = 0xFF2DD4BFL, onTertiary = 0xFF04332EL,
     tertiaryContainer = 0xFF115E59L, onTertiaryContainer = 0xFFCCFBF1L,
-    background = 0xFF150F07L, onSurface = 0xFFF6EBDAL,
-    surface = 0xFF211A12L, surfaceVariant = 0xFF2C2317L,
-    onSurfaceVariant = 0xFFBFA98AL, outline = 0xFF8E7C64L,
-    outlineVariant = 0xFF3A2E1DL
+    background = 0xFF101010L, onSurface = 0xFFECECECL,
+    surface = 0xFF1B1B1BL, surfaceVariant = 0xFF242424L,
+    onSurfaceVariant = 0xFFACACACL, outline = 0xFF7F7F7FL,
+    outlineVariant = 0xFF303030L
 )
 // Ocean keeps turquoise as its primary, but the old secondary (royal blue) sat
 // only ~28 deg from it, so the theme read as a bluer "indigo" and the metric
@@ -249,10 +258,10 @@ private val OceanLight = SchemeTokens(
     secondaryContainer = 0xFFE0E7FFL, onSecondaryContainer = 0xFF312E81L,
     tertiary = 0xFFA21CAFL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFF5E4FAL, onTertiaryContainer = 0xFF701A75L,
-    background = 0xFFEEF4F6L, onSurface = 0xFF081E24L,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFE2F0F4L,
-    onSurfaceVariant = 0xFF3E5A63L, outline = 0xFF5F7C85L,
-    outlineVariant = 0xFFD4E6EBL
+    background = 0xFFF3F3F3L, onSurface = 0xFF1B1B1BL,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEDEDEDL,
+    onSurfaceVariant = 0xFF565656L, outline = 0xFF777777L,
+    outlineVariant = 0xFFE3E3E3L
 )
 
 private val OceanDark = SchemeTokens(
@@ -262,10 +271,10 @@ private val OceanDark = SchemeTokens(
     secondaryContainer = 0xFF3730A3L, onSecondaryContainer = 0xFFE0E7FFL,
     tertiary = 0xFFE879F9L, onTertiary = 0xFF4A044EL,
     tertiaryContainer = 0xFF86198FL, onTertiaryContainer = 0xFFFAE8FFL,
-    background = 0xFF06131AL, onSurface = 0xFFE1F2F8L,
-    surface = 0xFF0E1D26L, surfaceVariant = 0xFF162C36L,
-    onSurfaceVariant = 0xFF93AEB9L, outline = 0xFF6C8A96L,
-    outlineVariant = 0xFF1D3A46L
+    background = 0xFF111111L, onSurface = 0xFFEFEFEFL,
+    surface = 0xFF1B1B1BL, surfaceVariant = 0xFF292929L,
+    onSurfaceVariant = 0xFFAAAAAAL, outline = 0xFF858585L,
+    outlineVariant = 0xFF363636L
 )
 
 private val RoseLight = SchemeTokens(
@@ -275,10 +284,10 @@ private val RoseLight = SchemeTokens(
     secondaryContainer = 0xFFEAE7FBL, onSecondaryContainer = 0xFF4C1D95L,
     tertiary = 0xFF0F766EL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFC5F3E9L, onTertiaryContainer = 0xFF134E4AL,
-    background = 0xFFF8F2F2L, onSurface = 0xFF251014L,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFF7E7EAL,
-    onSurfaceVariant = 0xFF6C4A51L, outline = 0xFF8B666EL,
-    outlineVariant = 0xFFF0D8DCL
+    background = 0xFFF3F3F3L, onSurface = 0xFF161616L,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEBEBEBL,
+    onSurfaceVariant = 0xFF535353L, outline = 0xFF707070L,
+    outlineVariant = 0xFFDEDEDEL
 )
 
 private val RoseDark = SchemeTokens(
@@ -288,10 +297,10 @@ private val RoseDark = SchemeTokens(
     secondaryContainer = 0xFF5B21B6L, onSecondaryContainer = 0xFFE6DBFFL,
     tertiary = 0xFF4FD8C4L, onTertiary = 0xFF04332EL,
     tertiaryContainer = 0xFF115E59L, onTertiaryContainer = 0xFFB6F2E8L,
-    background = 0xFF17090EL, onSurface = 0xFFF9E7EBL,
-    surface = 0xFF26141AL, surfaceVariant = 0xFF33161DL,
-    onSurfaceVariant = 0xFFC79AA2L, outline = 0xFF97727AL,
-    outlineVariant = 0xFF43222BL
+    background = 0xFF0D0D0DL, onSurface = 0xFFEBEBEBL,
+    surface = 0xFF191919L, surfaceVariant = 0xFF1F1F1FL,
+    onSurfaceVariant = 0xFFA5A5A5L, outline = 0xFF7C7C7CL,
+    outlineVariant = 0xFF2C2C2CL
 )
 
 private val SlateLight = SchemeTokens(
@@ -301,10 +310,10 @@ private val SlateLight = SchemeTokens(
     secondaryContainer = 0xFFC5F3E9L, onSecondaryContainer = 0xFF134E4AL,
     tertiary = 0xFFB45309L, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFF4EABFL, onTertiaryContainer = 0xFF78350FL,
-    background = 0xFFF2F3F4L, onSurface = 0xFF15191FL,
-    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEBEFF4L,
-    onSurfaceVariant = 0xFF475569L, outline = 0xFF6B7A8CL,
-    outlineVariant = 0xFFDDE3EBL
+    background = 0xFFF3F3F3L, onSurface = 0xFF191919L,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEFEFEFL,
+    onSurfaceVariant = 0xFF545454L, outline = 0xFF787878L,
+    outlineVariant = 0xFFE2E2E2L
 )
 
 private val SlateDark = SchemeTokens(
@@ -314,10 +323,10 @@ private val SlateDark = SchemeTokens(
     secondaryContainer = 0xFF115E59L, onSecondaryContainer = 0xFFB8F2E6L,
     tertiary = 0xFFFBBF24L, onTertiary = 0xFF3A2404L,
     tertiaryContainer = 0xFF92400EL, onTertiaryContainer = 0xFFFDE68AL,
-    background = 0xFF0B0F17L, onSurface = 0xFFF1F5F9L,
-    surface = 0xFF151B24L, surfaceVariant = 0xFF212A36L,
-    onSurfaceVariant = 0xFF9DAAB9L, outline = 0xFF78869AL,
-    outlineVariant = 0xFF293341L
+    background = 0xFF0F0F0FL, onSurface = 0xFFF4F4F4L,
+    surface = 0xFF1B1B1BL, surfaceVariant = 0xFF292929L,
+    onSurfaceVariant = 0xFFA9A9A9L, outline = 0xFF858585L,
+    outlineVariant = 0xFF323232L
 )
 
 private val indigoPalette = buildPalette(IndigoLight, IndigoDark)

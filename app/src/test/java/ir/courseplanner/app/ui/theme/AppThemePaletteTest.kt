@@ -9,6 +9,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Guards the seven hand-tuned palettes in AppThemePalettes.kt.
@@ -16,8 +17,9 @@ import kotlin.math.abs
  * The previous implementation reused one shared secondary/container set for all
  * themes and never tuned the dark accents, so this test asserts that (a) every
  * theme ships a complete light + dark scheme, (b) the accent roles of a theme
- * differ from each other and from the other themes, and (c) text stays readable
- * on each scheme's own surfaces in both modes.
+ * differ from each other and from the other themes, (c) text stays readable
+ * on each scheme's own surfaces in both modes, and (d) the page chrome stays
+ * achromatic so the accents - not a single-hue wash - carry the theme.
  */
 class AppThemePaletteTest {
 
@@ -222,6 +224,58 @@ class AppThemePaletteTest {
                         "${"%.1f".format(dTertiary)} deg apart",
                     dTertiary >= 20.0
                 )
+            }
+        }
+    }
+
+    /** Chroma of a colour: max-min RGB channel in 0..255 (0 = pure grey). */
+    private fun chromaOf(color: Color): Int {
+        val r = (color.red * 255).roundToInt()
+        val g = (color.green * 255).roundToInt()
+        val b = (color.blue * 255).roundToInt()
+        return maxOf(r, g, b) - minOf(r, g, b)
+    }
+
+    /**
+     * A theme must read as "neutral canvas + coloured accents", not as a wash
+     * of one hue. The Forest theme used to tint every chrome role - canvas,
+     * cards, dividers, secondary text - green, so selecting it turned the whole
+     * screen green. The chrome must stay achromatic while the three accents
+     * stay clearly chromatic (each theme's identity lives in the accents).
+     */
+    @Test
+    fun `page chrome stays neutral while accents stay chromatic`() {
+        for (theme in AppColorTheme.values()) {
+            val palette = paletteOf(theme)
+            for ((mode, scheme) in modesOf(palette)) {
+                val chrome = listOf(
+                    "background" to scheme.background,
+                    "surface" to scheme.surface,
+                    "surfaceVariant" to scheme.surfaceVariant,
+                    "onSurface" to scheme.onSurface,
+                    "onSurfaceVariant" to scheme.onSurfaceVariant,
+                    "outline" to scheme.outline,
+                    "outlineVariant" to scheme.outlineVariant
+                )
+                for ((role, color) in chrome) {
+                    val chroma = chromaOf(color)
+                    assertTrue(
+                        "$mode/${theme.id}: chrome role $role is tinted (chroma $chroma > 6)",
+                        chroma <= 6
+                    )
+                }
+                val accents = listOf(
+                    "primary" to scheme.primary,
+                    "secondary" to scheme.secondary,
+                    "tertiary" to scheme.tertiary
+                )
+                for ((role, color) in accents) {
+                    val chroma = chromaOf(color)
+                    assertTrue(
+                        "$mode/${theme.id}: accent $role lost its colour (chroma $chroma < 30)",
+                        chroma >= 30
+                    )
+                }
             }
         }
     }
