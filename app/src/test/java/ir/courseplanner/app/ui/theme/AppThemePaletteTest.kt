@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 
 /**
  * Guards the seven hand-tuned palettes in AppThemePalettes.kt.
@@ -166,6 +167,62 @@ class AppThemePaletteTest {
                 createCustomColorScheme(theme, isDark = false).primary,
                 createCustomColorScheme(theme, isDark = true).primary
             )
+        }
+    }
+
+    /**
+     * Hue in degrees (0..360) of a colour. Achromatic colours report 0.
+     * Compose [Color] exposes plain sRGB channels, so this is enough to compare
+     * how the three accents of a theme read to the eye.
+     */
+    private fun hue(color: Color): Double {
+        val r = color.red
+        val g = color.green
+        val b = color.blue
+        val max = maxOf(r, g, b)
+        val min = minOf(r, g, b)
+        val delta = max - min
+        if (delta < 1e-4f) return 0.0
+        val h = when (max) {
+            r -> 60.0 * (((g - b) / delta) % 6.0)
+            g -> 60.0 * (((b - r) / delta) + 2.0)
+            else -> 60.0 * (((r - g) / delta) + 4.0)
+        }
+        return (h + 360.0) % 360.0
+    }
+
+    /** Shortest angular distance between two hues, in degrees (0..180). */
+    private fun hueDistance(a: Double, b: Double): Double {
+        val d = abs(a - b) % 360.0
+        return minOf(d, 360.0 - d)
+    }
+
+    /**
+     * The three accent hues must be far enough apart to be told apart at a
+     * glance. The Amber theme once shipped a burnt-orange secondary only ~9 deg
+     * from its gold primary, so the Home metric cards and the settings swatch
+     * showed what looked like a single colour; this guards the perceptual gap,
+     * not just `secondary != primary`.
+     */
+    @Test
+    fun `the three accent hues of a theme are well separated`() {
+        for (theme in AppColorTheme.values()) {
+            val palette = paletteOf(theme)
+            for ((mode, scheme) in modesOf(palette)) {
+                val hp = hue(scheme.primary)
+                val dSecondary = hueDistance(hp, hue(scheme.secondary))
+                val dTertiary = hueDistance(hp, hue(scheme.tertiary))
+                assertTrue(
+                    "$mode/${theme.id}: primary/secondary hues only " +
+                        "${"%.1f".format(dSecondary)} deg apart",
+                    dSecondary >= 20.0
+                )
+                assertTrue(
+                    "$mode/${theme.id}: primary/tertiary hues only " +
+                        "${"%.1f".format(dTertiary)} deg apart",
+                    dTertiary >= 20.0
+                )
+            }
         }
     }
 
