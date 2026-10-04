@@ -349,13 +349,13 @@ class CoursePlannerViewModel @Inject constructor(
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
     private fun showInfo(message: String) {
-        _userMessage.value = message
         _isErrorMessage.value = false
+        _userMessage.value = message
     }
 
     private fun showError(message: String) {
-        _userMessage.value = message
         _isErrorMessage.value = true
+        _userMessage.value = message
     }
 
     /**

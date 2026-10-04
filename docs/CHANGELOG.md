@@ -8,6 +8,12 @@ Versions are written as `versionName (versionCode)` exactly as they appear in
 
 ### Theming & colour
 
+- **Message flag is written before the message text.** `showInfo`/`showError`
+  update `_isErrorMessage` first and `_userMessage` second, so no observer can
+  ever see a `LaunchedEffect(userMessage, isErrorMessage)` recomposition with
+  the new text but the stale flag — the banner and the snackbar always render
+  the matching pair.
+
 - **Every light theme now separates page, card and chip by the same measured
   steps.** The page tint was deepened so a white card clears it by a consistent
   ~1.11 contrast (was 1.05–1.07; Violet/Ocean were the lowest at 1.053/1.056),
