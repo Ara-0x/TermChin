@@ -4,6 +4,26 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.3] — 2026-10-04 neutral page chrome (professional colour)
+
+### Theming & colour
+
+- **The page chrome is achromatic in every theme now.** `background`,
+  `surface`, `surfaceVariant`, the secondary text (`onSurfaceVariant`) and
+  the outline roles used to be tinted with the theme's primary hue: Forest
+  tinted 6 of its 7 light-mode chrome roles green (chroma up to 29) and all
+  7 dark ones, so selecting it washed the whole screen green while the blue
+  and amber accents stayed small islands. All 98 neutral-role literals
+  across the 14 schemes are now pure greys **at the same relative
+  luminance**, so every WCAG contrast ratio, the light/dark classification
+  and the measured card/page separation (~1.11) are mathematically
+  unchanged; the screen reads as "neutral canvas + coloured accents"
+  instead of a single-hue wash. The accent triads themselves were already
+  sound (every pair 36-180 deg apart) and are untouched.
+- **New regression guard.** `AppThemePaletteTest` fails if any chrome role
+  gains chroma > 6 or an accent drops below chroma 30, in both modes of
+  every theme. Suite: 128 tests / 18 suites, 0 failures.
+
 ## [2.7.2] — 2026-10-04 seven-theme palette pass (colour polish)
 
 ### Messaging
