@@ -6,13 +6,15 @@ Versions are written as `versionName (versionCode)` exactly as they appear in
 
 ## [2.7.2] — 2026-10-04 seven-theme palette pass (colour polish)
 
-### Theming & colour
+### Messaging
 
 - **Message flag is written before the message text.** `showInfo`/`showError`
   update `_isErrorMessage` first and `_userMessage` second, so no observer can
   ever see a `LaunchedEffect(userMessage, isErrorMessage)` recomposition with
   the new text but the stale flag — the banner and the snackbar always render
   the matching pair.
+
+### Theming & colour
 
 - **Every light theme now separates page, card and chip by the same measured
   steps.** The page tint was deepened so a white card clears it by a consistent
@@ -31,8 +33,8 @@ Versions are written as `versionName (versionCode)` exactly as they appear in
   46–52° apart.
 - **New regression guard.** `AppThemePaletteTest` now fails if any theme's
   primary/secondary/tertiary hues come within 20° of one another; the suite keeps
-  re-verifying WCAG contrast for all 14 schemes (light + dark).
-
+  re-verifying WCAG contrast for all 14 schemes (light + dark). Suite: 127 tests
+  / 18 suites, 0 failures.
 
 ## [2.7.1] — 2026-10-04 byte-level .mht parsing (import fix)
 
