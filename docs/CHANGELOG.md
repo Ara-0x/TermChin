@@ -4,6 +4,49 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.4] — one-shot update prompt (GitHub-backed)
+
+### Updating
+
+- **One prompt per release, then silence.** On a cold start the app makes a
+  single unauthenticated HTTPS request to
+  `https://api.github.com/repos/Ara-0x/TermChin/releases/latest` and compares the
+  release tag with the installed `versionName`. Only when the release is strictly
+  newer does a Persian dialog appear — and it is shown at most **once per
+  version**: choosing «بعداً» (Later) records that version, so the dialog never
+  nags on later launches. Only a genuinely newer release can prompt again.
+- **Download goes through the browser.** «دانلود» opens the APK's
+  `browser_download_url` from the release (not a fixed `latest` link — the
+  versioned asset name is what the release actually publishes) with a plain
+  `ACTION_VIEW` intent. TermChin itself never downloads, stores, verifies or
+  installs an APK, so there is no `DownloadManager`, no `FileProvider`, no
+  `REQUEST_INSTALL_PACKAGES`, and no install-permission prompt. Android's system
+  installer handles the install and shows its own confirmation screen.
+- **Any failure is silent.** No network, a rate limit, or a malformed payload
+  produces no dialog, no snackbar and no error state — the app behaves as if no
+  update exists and retries on the next cold start. The request is also guarded:
+  HTTPS-only, GitHub hosts only (redirects re-validated), 8-second timeouts, a
+  512 KB response cap.
+
+### Networking
+
+- **`android.permission.INTERNET` is now the app's only permission.** Everything
+  else in TermChin remains offline: no account, no analytics, no cookies, and no
+  user data (courses, schedule, documents, preferences) ever leaves the device.
+  The CI gate flipped with it — from "no INTERNET" to "only INTERNET, anything
+  else fails the build" — and `docs/SECURITY.md` plus the release-verification
+  checklist were updated to match.
+### Tests
+
+- **Six new suites pin the prompt contract** (`ReleaseVersionTest`,
+  `JsonParserTest`, `GitHubReleaseParserTest` — 9 tests incl. twin-asset
+  selection and the release-page fallback — `UpdateCheckerTest`,
+  `UpdatePromptGateTest`, `UpdateDownloadLauncherTest`): newer/equal/older
+  comparisons, malformed payloads as silent no-ops, once-per-version behaviour,
+  and the exact browser hand-off. New baseline: **24 suites / 158 tests,
+  0 failures**.
+
+
 ## [2.7.3] — 2026-10-04 neutral page chrome (professional colour)
 
 ### Theming & colour

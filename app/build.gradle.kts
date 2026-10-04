@@ -21,8 +21,8 @@ android {
     // NOTE: versionCode MUST be bumped on every user-facing APK release.
     // Android refuses to install an "update" with the same versionCode,
     // which is exactly why latest changes looked "missing" on the APK.
-    versionCode = 20
-    versionName = "2.7.3"
+    versionCode = 21
+    versionName = "2.7.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

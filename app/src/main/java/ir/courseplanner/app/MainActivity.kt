@@ -58,12 +58,14 @@ import dagger.hilt.android.AndroidEntryPoint
 import ir.courseplanner.app.data.preferences.ThemeMode
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.UpdateAvailableDialog
 import ir.courseplanner.app.ui.screens.CoursesScreen
 import ir.courseplanner.app.ui.screens.DocumentsScreen
 import ir.courseplanner.app.ui.screens.HomeScreen
 import ir.courseplanner.app.ui.screens.ScheduleScreen
 import ir.courseplanner.app.ui.screens.SettingsScreen
 import ir.courseplanner.app.ui.theme.MyApplicationTheme
+import ir.courseplanner.app.update.downloadInBrowser
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -114,7 +116,36 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
     val currentDestination by viewModel.currentDestination.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
+    val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Exactly one update check per cold start, kicked off after the first frame
+    // rather than during composition. The ViewModel guards against a second run,
+    // so a recomposition or a configuration change cannot re-query the network.
+    LaunchedEffect(Unit) {
+        viewModel.checkForUpdateOnce()
+    }
+
+    // The prompt hands the download to the browser and does nothing else: the app
+    // neither downloads nor installs the APK itself.
+    val updateContext = LocalContext.current
+    availableUpdate?.let { update ->
+        UpdateAvailableDialog(
+            update = update,
+            currentVersionName = BuildConfig.VERSION_NAME,
+            onDownload = {
+                viewModel.onUpdateDownloadRequested()
+                val opened = downloadInBrowser(updateContext, update.downloadUrl)
+                if (!opened) {
+                    viewModel.showUserFacingMessage(
+                        "مرورگری برای باز کردن لینک دانلود پیدا نشد. لینک را از صفحهٔ Releases در گیت‌هاب باز کنید.",
+                        isError = true
+                    )
+                }
+            },
+            onLater = { viewModel.dismissUpdatePrompt() }
+        )
+    }
 
     // App-wide result channel: every repository write in the ViewModel reports
     // through userMessage/isErrorMessage, so no DB failure can die silently in

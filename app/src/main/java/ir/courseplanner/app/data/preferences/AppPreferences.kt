@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -176,6 +177,25 @@ class PreferencesManager @Inject constructor(
         update { it[KEY_FIRST_WEEK_IS_ODD] = firstWeekIsOdd }
     }
 
+    /**
+     * Version whose update prompt was already shown to this user.
+     *
+     * Persisting it is what makes the prompt appear exactly once per released
+     * version: a null value means "never shown", so a fresh install sees the
+     * prompt for a newer release, and choosing "بعداً" (Later) writes the version
+     * here so it is never shown again for that same release. Only a genuinely
+     * newer version (a different string) re-arms the prompt.
+     */
+    val lastPromptedUpdateVersion: Flow<String?> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { it[KEY_LAST_PROMPTED_UPDATE_VERSION] }
+
+    fun setLastPromptedUpdateVersion(versionName: String) {
+        update { it[KEY_LAST_PROMPTED_UPDATE_VERSION] = versionName }
+    }
+
     private fun Preferences.toUserPreferences(): UserPreferences {
         return UserPreferences(
             theme = AppColorTheme.fromId(this[KEY_THEME]),
@@ -203,6 +223,8 @@ class PreferencesManager @Inject constructor(
         private val KEY_DENSITY = stringPreferencesKey("timetable_density")
         private val KEY_SEMESTER_START_EPOCH_DAY = longPreferencesKey("semester_start_epoch_day")
         private val KEY_FIRST_WEEK_IS_ODD = booleanPreferencesKey("first_week_is_odd")
+        private val KEY_LAST_PROMPTED_UPDATE_VERSION =
+            stringPreferencesKey("last_prompted_update_version")
         // NOTE: the old "release_clean_courses_v1" marker was removed in v2.5.0.
         // It gated an automatic `clearAllData()` on startup ("marker missing →
         // wipe the database"), which could erase a real student's data whenever

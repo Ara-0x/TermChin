@@ -28,12 +28,16 @@ import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.engine.ScheduleMetrics
 import ir.courseplanner.app.engine.ScoredSchedule
+import ir.courseplanner.app.update.AvailableUpdate
+import ir.courseplanner.app.update.UpdateChecker
+import ir.courseplanner.app.update.UpdatePromptGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -116,7 +120,10 @@ enum class CourseSortOrder(val titleFa: String) {
 class CoursePlannerViewModel @Inject constructor(
     application: Application,
     private val repository: CourseRepository,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    // Defaults to the real updater because most unit tests construct the
+    // ViewModel by hand; Hilt resolves the binding in production.
+    private val updateChecker: UpdateChecker = UpdateChecker()
 ) : AndroidViewModel(application) {
 
     val userPreferences: StateFlow<UserPreferences> = preferencesManager.preferences
@@ -1150,6 +1157,75 @@ class CoursePlannerViewModel @Inject constructor(
         launchDbWrite(onErrorMessage = { "تغییر وضعیت نشان‌گذاری جزوه ناموفق بود." }) {
             repository.toggleDocumentBookmark(id, !current)
         }
+    }
+
+    /**
+     * The newer release to offer, or null when there is nothing to show.
+     *
+     * Only ever set by [checkForUpdateOnce]; every other path leaves it null so a
+     * network failure can never surface as an error dialog or a snackbar.
+     */
+    private val _availableUpdate = MutableStateFlow<AvailableUpdate?>(null)
+    val availableUpdate: StateFlow<AvailableUpdate?> = _availableUpdate.asStateFlow()
+
+    // Guards against a second check in the same process. The prompt is a
+    // once-per-cold-start, one-shot operation — recomposition must never re-run it.
+    private var updateCheckStarted = false
+
+    /**
+     * Asks GitHub whether a newer TermChin exists. Called once from MainActivity.
+     *
+     * The check is a cancellable background request, so it never blocks startup
+     * and never delays the first frame.
+     */
+    fun checkForUpdateOnce() {
+        if (updateCheckStarted) return
+        updateCheckStarted = true
+        viewModelScope.launch {
+            val update = runCatching { updateChecker.checkForUpdate() }.getOrNull()
+            if (update == null) return@launch
+            // One prompt per published version: if this exact version was already
+            // offered (and dismissed with "بعداً"), stay quiet until a newer one.
+            val lastSeen = preferencesManager.lastPromptedUpdateVersion.first()
+            if (UpdatePromptGate.shouldPrompt(update, lastSeen)) {
+                _availableUpdate.value = update
+            }
+        }
+    }
+
+    /**
+     * Dismisses the prompt without downloading.
+     *
+     * The version is recorded as prompted, so "بعداً" really does mean "not again
+     * for this release" and the dialog cannot become a startup annoyance.
+     */
+    fun dismissUpdatePrompt() {
+        val update = _availableUpdate.value
+        _availableUpdate.value = null
+        if (update != null) {
+            preferencesManager.setLastPromptedUpdateVersion(update.version.versionName)
+        }
+    }
+
+    /**
+     * Records that the user chose "دانلود". The prompt is also marked as seen so
+     * returning from the browser does not immediately re-offer the same version.
+     */
+    fun onUpdateDownloadRequested() {
+        val update = _availableUpdate.value
+        _availableUpdate.value = null
+        if (update != null) {
+            preferencesManager.setLastPromptedUpdateVersion(update.version.versionName)
+        }
+    }
+
+    /**
+     * Reports a message the user must actually see (currently only: no browser
+     * could open the update link). Same snackbar path as internal results, so the
+     * existing flag-then-text ordering guarantee still applies.
+     */
+    fun showUserFacingMessage(message: String, isError: Boolean = false) {
+        if (isError) showError(message) else showInfo(message)
     }
 
     fun dismissUserMessage() {

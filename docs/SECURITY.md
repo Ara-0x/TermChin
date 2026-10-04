@@ -123,10 +123,17 @@ releases; it cannot un-publish a key that was already public.
 
 ## Data & Privacy
 
-- **Offline by construction.** The app declares no `INTERNET` permission, so it
-  cannot make network connections. A CI gate re-checks this on the **built
-  APK** (`aapt dump permissions`), not only on the source manifest, and fails
-  the build if `INTERNET` ever appears there.
+- **One narrow, documented network request — nothing else.** TermChin asks
+  `https://api.github.com/repos/Ara-0x/TermChin/releases/latest` whether a newer
+  release exists. It is an unauthenticated HTTPS `GET`: no account, no token, no
+  cookie, no analytics SDK, and **no user data** (courses, schedule, documents or
+  preferences are never part of the request). A CI gate re-checks this on the
+  **built APK** (`aapt dump permissions`) and fails if *any* permission other than
+  `android.permission.INTERNET` is present — so the update check cannot silently
+  become a broader network surface. No location, storage, contacts or
+  `REQUEST_INSTALL_PACKAGES` permission exists; TermChin neither downloads nor
+  installs an APK itself (the browser and Android's system installer do that).
+  Every other feature of the app is offline.
 - **OS backup is disabled.** The manifest sets `android:allowBackup="false"`,
   and the `dataExtractionRules` / `fullBackupContent` attributes together with
   their `res/xml/backup_rules.xml` and `res/xml/data_extraction_rules.xml`
@@ -160,8 +167,8 @@ apksigner verify --print-certs TermChin-vX.Y.Z.apk | grep 'SHA-256 digest'
 # 2) version must match what the release claims
 aapt dump badging TermChin-vX.Y.Z.apk | grep -E "versionCode|versionName"
 
-# 3) it must stay offline and refuse OS backup (both must find nothing else)
-aapt dump permissions TermChin-vX.Y.Z.apk | grep INTERNET
+# 3) exactly one permission (INTERNET, for the update check) and no OS backup
+aapt dump permissions TermChin-vX.Y.Z.apk | grep -v INTERNET
 aapt dump xmltree TermChin-vX.Y.Z.apk AndroidManifest.xml | grep allowBackup
 
 # 4) no signing material may ever be tracked in this repository
@@ -169,8 +176,9 @@ git ls-files | grep -Ei '\.(jks|keystore|b64|base64)$|(^|/)debug\.keystore'
 ```
 
 Expected: (1) `0d38aa65…adda0`; (2) a `versionName` matching the release tag;
-(3) the `INTERNET` command prints **nothing** and the `allowBackup` line ends
-with `(type 0x12)0x0`; (4) prints **nothing**. The `sha256:…` digest GitHub
+(3) the `grep -v INTERNET` command prints **nothing** (no permission other than
+the update check's `INTERNET`) and the `allowBackup` line ends with
+`(type 0x12)0x0`; (4) prints **nothing**. The `sha256:…` digest GitHub
 shows for a release asset must also equal `sha256sum <file>.apk`.
 
 ## What must never be committed

@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      The app's ONLY network capability: one unauthenticated HTTPS GET to
+      api.github.com on a cold start, to ask whether a newer TermChin release
+      exists (see update/GitHubReleaseParser.kt). No other host, no analytics, no
+      user data leaves the device — the app is otherwise fully offline. The APK is
+      gated in CI: INTERNET is allowed, any OTHER permission is not.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".CoursePlannerApplication"
         android:allowBackup="false"
