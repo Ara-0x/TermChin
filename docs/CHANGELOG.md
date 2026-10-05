@@ -4,6 +4,37 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.7.5] — 2026-10-05 update-check hotfix (independent audit)
+
+An independent audit of the update system found that the feature could never
+work in production: the HTTP-200 success path of `httpGet` had no `return`, so
+the loop re-requested the endpoint forever instead of returning the body. No
+update dialog could ever appear, and each networked cold start leaked a thread
+hammering `api.github.com` until the process died.
+
+### Fixed
+
+- **`httpGet` returns the body after a 200.** One-line fix (`return
+  out.toString()`); the success path now performs exactly one request.
+- **Cancellation is never swallowed.** Both `UpdateChecker.checkForUpdate` and
+  `CoursePlannerViewModel.checkForUpdateOnce` rethrow `CancellationException`
+  instead of converting a cancelled check into a silent "no update".
+- **Prompt dismissal is durable.** The «بعداً»/«دانلود» handlers suspend until
+  DataStore records the version, so a kill-and-relaunch immediately after
+  dismissing cannot re-show the same prompt.
+
+### Tests
+
+- **New `HttpGetTransportTest`** (9 tests): the transport layer that once had
+  zero coverage — 200-returns-once, trusted redirect, off-host/http/no-Location
+  refusals, >5-redirect guard, non-200 statuses, untrusted start URLs, request
+  headers.
+- **`UpdateCheckerTest`**: cancellation propagation + end-to-end over a fake
+  connection asserting exactly one request.
+- **New `UpdatePromptWiringTest`** (ViewModel + real `PreferencesManager`):
+  prompt → «بعداً» → relaunch quiet → newer release prompts again. New
+  baseline: **26 suites / 170 tests, 0 failures**.
+
 ## [2.7.4] — 2026-10-04 one-shot update prompt (GitHub-backed)
 
 ### Updating

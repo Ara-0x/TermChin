@@ -1182,7 +1182,15 @@ class CoursePlannerViewModel @Inject constructor(
         if (updateCheckStarted) return
         updateCheckStarted = true
         viewModelScope.launch {
-            val update = runCatching { updateChecker.checkForUpdate() }.getOrNull()
+            // Cancellation must stay cancellable: a cancelled check dies here
+            // instead of being converted into a silent "no update".
+            val update = try {
+                updateChecker.checkForUpdate()
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (failure: Exception) {
+                null
+            }
             if (update == null) return@launch
             // One prompt per published version: if this exact version was already
             // offered (and dismissed with "بعداً"), stay quiet until a newer one.
@@ -1203,7 +1211,9 @@ class CoursePlannerViewModel @Inject constructor(
         val update = _availableUpdate.value
         _availableUpdate.value = null
         if (update != null) {
-            preferencesManager.setLastPromptedUpdateVersion(update.version.versionName)
+            viewModelScope.launch {
+                preferencesManager.setLastPromptedUpdateVersionSync(update.version.versionName)
+            }
         }
     }
 
@@ -1215,7 +1225,9 @@ class CoursePlannerViewModel @Inject constructor(
         val update = _availableUpdate.value
         _availableUpdate.value = null
         if (update != null) {
-            preferencesManager.setLastPromptedUpdateVersion(update.version.versionName)
+            viewModelScope.launch {
+                preferencesManager.setLastPromptedUpdateVersionSync(update.version.versionName)
+            }
         }
     }
 

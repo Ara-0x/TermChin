@@ -1,6 +1,7 @@
 package ir.courseplanner.app.update
 
 import ir.courseplanner.app.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +20,9 @@ import javax.inject.Singleton
  * All three collaborators (current version, dispatcher, fetcher) are constructor
  * parameters so the whole decision chain — fetch, parse, compare — is testable
  * without a live network. The app uses the no-argument constructor.
+ *
+ * The transport itself ([httpGet]) is tested separately with a fake connection
+ * via its own `openConnection` seam, so no test ever touches the network.
  */
 @Singleton
 class UpdateChecker(
@@ -40,11 +44,20 @@ class UpdateChecker(
      * Failures are deliberately silent: no dialog, no snackbar, no error state —
      * the app behaves exactly as if no update exists, and the check is retried on
      * the next cold start.
+     *
+     * Cancellation is never swallowed: a [CancellationException] propagates so
+     * the surrounding scope can actually cancel the check.
      */
     suspend fun checkForUpdate(): AvailableUpdate? {
         val current = currentVersion ?: return null
         return withContext(dispatcher) {
-            val body = runCatching { fetcher(LATEST_RELEASE_URL) }.getOrNull() ?: return@withContext null
+            val body = try {
+                fetcher(LATEST_RELEASE_URL)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                return@withContext null
+            }
             GitHubReleaseParser.parseLatestRelease(body, current)
         }
     }
@@ -72,8 +85,16 @@ private const val MAX_RESPONSE_BYTES = 512 * 1024
  * Redirects are followed manually and re-validated against HTTPS, so a
  * `302` to `http://` cannot silently downgrade the connection. Any failure
  * propagates to [UpdateChecker], which treats it as "no update known".
+ *
+ * [openConnection] is a seam for tests: production opens a real connection,
+ * tests inject a fake so this transport layer is verifiable without a network.
  */
-internal fun httpGet(url: String): String {
+internal fun httpGet(
+    url: String,
+    openConnection: (URL) -> HttpURLConnection = { target ->
+        target.openConnection() as HttpURLConnection
+    }
+): String {
     require(GitHubReleaseParser.isTrustedDownloadUrl(url)) {
         "Refusing to fetch a non-HTTPS or non-GitHub URL: $url"
     }
@@ -82,7 +103,7 @@ internal fun httpGet(url: String): String {
     var target = url
     try {
         while (true) {
-            connection = (URL(target).openConnection() as HttpURLConnection).apply {
+            connection = openConnection(URL(target)).apply {
                 requestMethod = "GET"
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = READ_TIMEOUT_MS
@@ -105,6 +126,9 @@ internal fun httpGet(url: String): String {
                 continue
             }
             check(status == HttpURLConnection.HTTP_OK) { "Unexpected HTTP status $status" }
+            // Only the 200 path touches the body stream. Non-200 responses never
+            // reach it (the check above throws first), so the error stream is
+            // intentionally never read: failures are silent by design.
             val stream = connection.inputStream
             BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
                 val buffer = CharArray(MAX_RESPONSE_BYTES)
@@ -114,7 +138,7 @@ internal fun httpGet(url: String): String {
                     if (read == -1) break
                     out.appendRange(buffer, 0, read)
                 }
-                out.toString()
+                return out.toString()
             }
         }
     } finally {

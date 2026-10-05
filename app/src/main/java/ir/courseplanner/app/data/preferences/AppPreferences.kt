@@ -193,7 +193,19 @@ class PreferencesManager @Inject constructor(
         .map { it[KEY_LAST_PROMPTED_UPDATE_VERSION] }
 
     fun setLastPromptedUpdateVersion(versionName: String) {
+        // Fire-and-forget on purpose: prompt dismissal is not data the user
+        // edits, and DataStore applies edits in order. Callers that need the
+        // write to be durable before reading it back use the suspend overload.
         update { it[KEY_LAST_PROMPTED_UPDATE_VERSION] = versionName }
+    }
+
+    /**
+     * Suspends until the version is durably recorded. Prefer this from
+     * coroutine callers (e.g. the update-prompt handlers) so a kill-and-relaunch
+     * immediately after tapping «بعداً» cannot re-show the same prompt.
+     */
+    suspend fun setLastPromptedUpdateVersionSync(versionName: String) {
+        dataStore.edit { it[KEY_LAST_PROMPTED_UPDATE_VERSION] = versionName }
     }
 
     private fun Preferences.toUserPreferences(): UserPreferences {
