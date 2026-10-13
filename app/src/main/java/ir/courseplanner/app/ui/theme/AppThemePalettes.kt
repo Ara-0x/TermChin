@@ -329,6 +329,37 @@ private val SlateDark = SchemeTokens(
     outlineVariant = 0xFF323232L
 )
 
+// Midnight answers the "deep navy dark theme" brief inside the repo's own
+// discipline: the navy character lives in the ACCENTS (blue primary, mint
+// secondary, lavender tertiary), while the page chrome stays achromatic as
+// the chroma guard requires. A navy wash over background/surface would read
+// as tinted chrome (chroma 16+) and fail `page chrome stays neutral`.
+private val MidnightLight = SchemeTokens(
+    primary = 0xFF3F51C9L, onPrimary = 0xFFFFFFFFL,
+    primaryContainer = 0xFFDEE4FFL, onPrimaryContainer = 0xFF1A2456L,
+    secondary = 0xFF0B7A5CL, onSecondary = 0xFFFFFFFFL,
+    secondaryContainer = 0xFFC9F2E4L, onSecondaryContainer = 0xFF07352AL,
+    tertiary = 0xFF7E5AF0L, onTertiary = 0xFFFFFFFFL,
+    tertiaryContainer = 0xFFE7E2FFL, onTertiaryContainer = 0xFF2C165EL,
+    background = 0xFFF3F3F3L, onSurface = 0xFF17171DL,
+    surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEEEFF2L,
+    onSurfaceVariant = 0xFF54565AL, outline = 0xFF88888EL,
+    outlineVariant = 0xFFE2E2E2L
+)
+
+private val MidnightDark = SchemeTokens(
+    primary = 0xFF8DA5FFL, onPrimary = 0xFF0A1430L,
+    primaryContainer = 0xFF232E5CL, onPrimaryContainer = 0xFFDCE4FFL,
+    secondary = 0xFF72D9BBL, onSecondary = 0xFF04231BL,
+    secondaryContainer = 0xFF134E44L, onSecondaryContainer = 0xFFB9F4E2L,
+    tertiary = 0xFFB5A2FFL, onTertiary = 0xFF241647L,
+    tertiaryContainer = 0xFF3B2A6EL, onTertiaryContainer = 0xFFE4DBFFL,
+    background = 0xFF0F0F0FL, onSurface = 0xFFEDEDEDL,
+    surface = 0xFF1A1A1AL, surfaceVariant = 0xFF292929L,
+    onSurfaceVariant = 0xFFAFAFAFL, outline = 0xFF737373L,
+    outlineVariant = 0xFF333333L
+)
+
 private val indigoPalette = buildPalette(IndigoLight, IndigoDark)
 private val emeraldPalette = buildPalette(EmeraldLight, EmeraldDark)
 private val violetPalette = buildPalette(VioletLight, VioletDark)
@@ -336,6 +367,7 @@ private val amberPalette = buildPalette(AmberLight, AmberDark)
 private val oceanPalette = buildPalette(OceanLight, OceanDark)
 private val rosePalette = buildPalette(RoseLight, RoseDark)
 private val slatePalette = buildPalette(SlateLight, SlateDark)
+private val midnightPalette = buildPalette(MidnightLight, MidnightDark)
 
 /**
  * Resolves the selected theme to its full palette. The `when` is exhaustive on
@@ -349,6 +381,7 @@ fun paletteOf(theme: AppColorTheme): ThemePalette = when (theme) {
     AppColorTheme.OCEAN -> oceanPalette
     AppColorTheme.ROSE -> rosePalette
     AppColorTheme.SLATE -> slatePalette
+    AppColorTheme.MIDNIGHT -> midnightPalette
 }
 
 /** Convenience for call sites: `theme.palette.light.primary`. */

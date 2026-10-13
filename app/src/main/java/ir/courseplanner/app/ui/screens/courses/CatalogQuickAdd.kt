@@ -100,6 +100,7 @@ import ir.courseplanner.app.ui.FILTERABLE_DAYS
 import ir.courseplanner.app.ui.components.AddCourseDialog
 import ir.courseplanner.app.ui.components.AddSectionDialog
 import ir.courseplanner.app.ui.components.EditCourseDialog
+import ir.courseplanner.app.ui.theme.TermChinDesign
 
 /** Tiny section label used inside the collapsible filter panel. */
 @Composable
@@ -161,7 +162,7 @@ internal fun CatalogQuickAddCard(
 ) {
     val course = courseWithSections.course
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,

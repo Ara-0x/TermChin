@@ -53,6 +53,7 @@ import ir.courseplanner.app.ui.theme.SuccessGreenBgDark
 import ir.courseplanner.app.ui.theme.SuccessGreenBgLight
 import ir.courseplanner.app.ui.theme.SuccessGreenDark
 import ir.courseplanner.app.ui.theme.SuccessGreenLight
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.ui.theme.isDarkTheme
 
 @Composable
@@ -70,7 +71,7 @@ fun ConflictBanner(
             modifier = modifier
                 .fillMaxWidth()
                 .testTag("empty_schedule_banner"),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
@@ -116,10 +117,10 @@ fun ConflictBanner(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, RoundedCornerShape(16.dp))
+            .shadow(1.dp, TermChinDesign.CardShape)
             .clickable(enabled = hasConflict) { isExpanded = !isExpanded }
             .testTag("conflict_banner"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         color = bgColor,
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {

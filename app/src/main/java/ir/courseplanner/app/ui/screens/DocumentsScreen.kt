@@ -118,6 +118,7 @@ import ir.courseplanner.app.data.model.DocumentCategory
 import ir.courseplanner.app.data.model.DocumentWithCourse
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -502,13 +503,13 @@ private fun DocumentItemCard(
     var expandedNotes by remember { mutableStateOf(false) }
 
     // Same card language as the Courses screen (Surface + soft shadow +
-    // hairline border + 16dp corners, the card radius used app-wide) so all tabs look like one app.
+    // hairline border + shared card shape) so all tabs look like one app.
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.5.dp, RoundedCornerShape(16.dp))
+            .shadow(1.5.dp, TermChinDesign.CardShape)
             .testTag("doc_card_${doc.id}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
@@ -855,7 +856,7 @@ private fun AddEditDocumentDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(

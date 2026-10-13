@@ -1,7 +1,9 @@
 package ir.courseplanner.app
 
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -28,7 +31,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -48,6 +54,7 @@ import ir.courseplanner.app.ui.screens.ScheduleScreen
 import ir.courseplanner.app.ui.screens.SettingsScreen
 import ir.courseplanner.app.ui.theme.MyApplicationTheme
 import ir.courseplanner.app.update.downloadInBrowser
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -100,6 +107,37 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
     val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val backScope = rememberCoroutineScope()
+    val activity = LocalContext.current as? android.app.Activity
+    var lastHomeBackPressAt by remember { mutableStateOf(0L) }
+
+    // Back always returns to the student's safe starting point. At Home, a
+    // second press in a short window confirms exit without a blocking dialog.
+    // The discovery sub-screen is a child of Courses, so system back there
+    // returns to «دروس من» instead of skipping straight to Home.
+    BackHandler {
+        if (currentDestination == AppDestination.ADD_COURSE) {
+            lastHomeBackPressAt = 0L
+            viewModel.navigateTo(AppDestination.COURSES)
+        } else if (currentDestination != AppDestination.HOME) {
+            lastHomeBackPressAt = 0L
+            viewModel.navigateTo(AppDestination.HOME)
+        } else {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastHomeBackPressAt <= EXIT_CONFIRM_WINDOW_MS) {
+                activity?.finish()
+            } else {
+                lastHomeBackPressAt = now
+                backScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = "برای خروج از ترم‌چین، دوباره دکمهٔ بازگشت را بزنید.",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+        }
+    }
 
     // Exactly one update check per cold start, kicked off after the first frame
     // rather than during composition. The ViewModel guards against a second run,
@@ -196,3 +234,5 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         }
     }
 }
+
+private const val EXIT_CONFIRM_WINDOW_MS = 2_000L

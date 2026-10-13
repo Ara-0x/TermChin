@@ -69,6 +69,7 @@ import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.BookmarkAmberDark
 import ir.courseplanner.app.ui.theme.BookmarkAmberLight
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.ui.theme.isDarkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,7 +97,7 @@ fun ScheduleScreen(
     ) {
         // Header
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
             modifier = Modifier.fillMaxWidth()
@@ -138,7 +139,7 @@ fun ScheduleScreen(
         // Optimization Preference Selector
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -200,7 +201,7 @@ fun ScheduleScreen(
         // Target Courses Summary Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -318,7 +319,7 @@ fun ScheduleScreen(
                 // No conflict-free schedules found
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
                 ) {
@@ -351,8 +352,8 @@ fun ScheduleScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(2.dp, RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
+                        .shadow(2.dp, TermChinDesign.CardShape),
+                    shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
                     border = androidx.compose.foundation.BorderStroke(
                         if (isBest) 2.dp else 1.dp,

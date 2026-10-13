@@ -108,6 +108,7 @@ import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.theme.paletteOf
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.JalaliYmd
 import ir.courseplanner.app.util.TimetableExporter
@@ -137,8 +138,50 @@ private fun SettingsCategoryTitle(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.primary
         )
+    }
+}
+
+/** A lightweight label for a category that spans several related cards. */
+@Composable
+private fun SettingsGroupHeader(
+    number: String,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = number,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -320,18 +363,51 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header: عنوان و توضیح کوتاه صفحه اصلی تنظیمات
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = "تنظیمات",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+        // A short map makes a long settings page feel intentional instead of
+        // like one undifferentiated list of controls.
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = TermChinDesign.CardShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
             )
-            Text(
-                text = "ظاهر برنامه، برنامه هفتگی، ترجیحات انتخاب واحد، اطلاعات دانشجو و مدیریت داده‌های آفلاین",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "تنظیمات",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "شش دسته برای ظاهر، تقویم، انتخاب واحد، ترم و داده‌های شما",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
         // Status / Message Alert Banner
@@ -370,7 +446,7 @@ fun SettingsScreen(
         // ۱. ظاهر و شخصی‌سازی
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -382,7 +458,7 @@ fun SettingsScreen(
                 // «ظاهر و شخصی‌سازی»: عنوان، توضیح و کنترل‌های حالت نمایش و پالت.
                 SettingsCategoryTitle(
                     icon = Icons.Default.Palette,
-                    title = "ظاهر و شخصی‌سازی"
+                    title = "۱. ظاهر و شخصی‌سازی"
                 )
 
                 Text(
@@ -460,7 +536,7 @@ fun SettingsScreen(
         // ۲. برنامه هفتگی
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -472,7 +548,7 @@ fun SettingsScreen(
                 // «برنامه هفتگی»: توضیح کوتاه و کنترل‌های نمایش جدول و هفته آموزشی.
                 SettingsCategoryTitle(
                     icon = Icons.Default.ViewWeek,
-                    title = "برنامه هفتگی"
+                    title = "۲. برنامه هفتگی"
                 )
 
                 Text(
@@ -603,7 +679,7 @@ fun SettingsScreen(
         // صفحات هماهنگ بماند.
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -614,7 +690,7 @@ fun SettingsScreen(
             ) {
                 SettingsCategoryTitle(
                     icon = Icons.Default.Tune,
-                    title = "ترجیحات انتخاب واحد"
+                    title = "۳. ترجیحات انتخاب واحد"
                 )
                 Text(
                     text = "معیار رتبه‌بندی برنامه‌ها در صفحه برنامه‌ساز. تغییر آن در همین‌جا یا در صفحه برنامه‌ساز، همان انتخاب واحد را به‌روز می‌کند:",
@@ -658,7 +734,7 @@ fun SettingsScreen(
         // ۴. اطلاعات دانشجو و ترم
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -679,7 +755,7 @@ fun SettingsScreen(
                     ) {
                         SettingsCategoryTitle(
                             icon = Icons.Default.Person,
-                            title = "اطلاعات دانشجو و ترم"
+                            title = "۴. اطلاعات دانشجو و ترم"
                         )
                         Text(
                             text = "نام، رشته، نیم‌سال جاری و هدف تعداد واحد:",
@@ -824,7 +900,7 @@ fun SettingsScreen(
                                 text = when {
                                     preferences.semesterStartEpochDay == null -> "تنظیم نشده"
                                     currentWeek == null -> "ترم هنوز شروع نشده"
-                                    else -> "هفته ${currentWeek.number} (${currentWeek.parity.titleFa})"
+                                    else -> "هفته ${JalaliDate.toFaDigits(currentWeek.number)} (${currentWeek.parity.titleFa})"
                                 },
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                 color = if (currentWeek != null) MaterialTheme.colorScheme.primary
@@ -837,10 +913,15 @@ fun SettingsScreen(
         }
 
 
-        // ۵. مدیریت داده‌ها — بخش ۱: ورود اطلاعات
+        // ۵. مدیریت داده‌ها — ورود، پشتیبان و پاک‌سازی در یک گروه روشن.
+        SettingsGroupHeader(
+            number = "۵",
+            title = "مدیریت داده‌ها",
+            subtitle = "ورود، خروجی، اشتراک‌گذاری و پاک‌سازی اطلاعات آفلاین"
+        )
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -987,7 +1068,7 @@ fun SettingsScreen(
         // ۵. مدیریت داده‌ها — بخش ۲: خروجی و پشتیبان
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -1070,7 +1151,7 @@ fun SettingsScreen(
         // ۵. مدیریت داده‌ها — بخش ۳: پاک‌سازی داده‌ها
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -1132,7 +1213,7 @@ fun SettingsScreen(
         // ۶. درباره و اطلاعات برنامه: نسخه واقعی بیلد و راهنمای کوتاه استفاده.
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -1143,7 +1224,7 @@ fun SettingsScreen(
             ) {
                 SettingsCategoryTitle(
                     icon = Icons.Default.Info,
-                    title = "درباره و اطلاعات برنامه"
+                    title = "۶. دربارهٔ برنامه"
                 )
                 Text(
                     text = "ترم‌چین کاملاً آفلاین است: کاتالوگ دروس را از فایل پرتال یا نمونه وارد کنید، درس‌ها را از صفحه «دروس» به «دروس من» اضافه کنید و از صفحه «برنامه‌ساز» بهترین ترکیب گروه‌ها را بسازید.",
@@ -1764,10 +1845,10 @@ private fun PaletteCard(
     val palette = paletteOf(theme)
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(TermChinDesign.CardShape)
             .clickable(onClick = onClick)
             .testTag("theme_palette_${theme.id}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         color = if (selected) palette.light.primaryContainer.copy(alpha = 0.6f)
         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         border = androidx.compose.foundation.BorderStroke(

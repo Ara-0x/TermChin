@@ -275,6 +275,21 @@ class HomeDashboardPureTest {
         assertEquals("کد ۱۰۱", JalaliDate.toFaDigits("کد 101"))
     }
 
+    @Test
+    fun `greeting follows the time of day`() {
+        assertEquals("شب بخیر، امیر", greetingFa(299, "امیر"))
+        assertEquals("صبح بخیر، امیر", greetingFa(300, "امیر"))
+        assertEquals("صبح بخیر، امیر", greetingFa(719, "امیر"))
+        assertEquals("ظهر بخیر، امیر", greetingFa(720, "امیر"))
+        assertEquals("ظهر بخیر، امیر", greetingFa(1019, "امیر"))
+        assertEquals("عصر بخیر، امیر", greetingFa(1020, "امیر"))
+        assertEquals("عصر بخیر، امیر", greetingFa(1199, "امیر"))
+        assertEquals("شب بخیر، امیر", greetingFa(1200, "امیر"))
+        assertEquals("شب بخیر، امیر", greetingFa(1400, "امیر"))
+        assertEquals("ترم‌چین", greetingFa(600, ""))
+        assertEquals("ترم‌چین", greetingFa(600, "   "))
+    }
+
     // -- timeline identity ---------------------------------------------------
 
     private fun occurrence(
@@ -545,7 +560,7 @@ class HomeDashboardUiTest {
             }
         }
 
-        composeTestRule.onNodeWithText("سلام، امیر").assertIsDisplayed()
+        composeTestRule.onNodeWithText("صبح بخیر، امیر").assertIsDisplayed()
         composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
         composeTestRule.onNodeWithText("هفته ۴ (فرد)", substring = true).assertIsDisplayed()
     }

@@ -64,7 +64,12 @@ fun TermChinBottomBar(
 ) {
     Surface(
         modifier = modifier.windowInsetsPadding(WindowInsets.navigationBars),
-        shadowElevation = 2.dp
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        )
     ) {
         NavigationBar(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -91,11 +96,11 @@ fun TermChinBottomBar(
                         )
                     },
                     label = {
-                        // labelMedium (not Small): Persian words like «برنامه‌ساز»
-                        // stay legible on narrow screens and at large font scales.
+                        // A compact label keeps all five Persian destinations
+                        // readable on common narrow Android handsets.
                         Text(
                             entry.label,
-                            style = MaterialTheme.typography.labelMedium.copy(
+                            style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                             ),
                             maxLines = 1

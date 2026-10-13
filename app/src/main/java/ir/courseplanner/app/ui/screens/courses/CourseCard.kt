@@ -103,6 +103,7 @@ import ir.courseplanner.app.ui.components.AddCourseDialog
 import ir.courseplanner.app.ui.components.AddSectionDialog
 import ir.courseplanner.app.ui.components.EditCourseDialog
 import ir.courseplanner.app.data.model.Conflict
+import ir.courseplanner.app.ui.theme.TermChinDesign
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -127,9 +128,9 @@ internal fun CourseCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.5.dp, RoundedCornerShape(16.dp))
+            .shadow(1.5.dp, TermChinDesign.CardShape)
             .testTag("course_card_${course.code}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
@@ -389,7 +390,7 @@ internal fun SectionItem(
     )
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = bgColor,
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         modifier = Modifier.fillMaxWidth()

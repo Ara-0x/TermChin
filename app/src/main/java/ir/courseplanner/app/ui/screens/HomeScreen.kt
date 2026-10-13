@@ -31,7 +31,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
@@ -41,11 +40,9 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -60,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -199,7 +195,7 @@ fun HomeScreen(
             .padding(horizontal = TermChinDesign.ScreenMargin, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // A. Compact personalized header (date, week, offline pill, credits).
+        // A. Personal context, followed by the one decision that matters now.
         DashboardHeader(
             studentName = preferences.studentName,
             semesterName = preferences.semesterName,
@@ -217,7 +213,7 @@ fun HomeScreen(
                 todayClasses = todaysClasses,
                 state = nowNextState,
                 weekLabel = weekInfo?.let {
-                    "هفته ${JalaliDate.toFaDigits(it.number)} • ${it.parity.titleFa}"
+                    "هفته ${JalaliDate.toFaDigits(it.number)} (${it.parity.titleFa})"
                 },
                 nowMinutes = now.nowMinutes,
                 onOpenWeeklyTimetable = scrollToTimetable,
@@ -263,16 +259,6 @@ fun HomeScreen(
             )
         }
 
-        // G. Secondary: upcoming exams (real data only) and documents live
-        // where they belong — the bottom navigation owns the Documents
-        // destination, so Home shows no shortcut card duplicating it.
-        if (hasEnrolled && visibleDocumentCount > 0) {
-            SecondaryDocumentsLine(
-                count = visibleDocumentCount,
-                onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) }
-            )
-        }
-
         // First-run guided sequence: import → pick courses → build. Each step
         // exists in the app; nothing here is decorative.
         if (!hasEnrolled) {
@@ -281,53 +267,6 @@ fun HomeScreen(
                 onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) }
             )
         } else {
-            // Share & Copy Timetable Action Bar
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = TermChinDesign.CardShape,
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "خروجی و اشتراک‌گذاری برنامه:",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedButton(
-                            onClick = { TimetableExporter.copyToClipboard(context, enrolledSections) },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("کپی متن", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = { TimetableExporter.shareSchedule(context, enrolledSections) },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("اشتراک‌گذاری", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
             // Exam Schedule Section (expandable, conflict-aware as before).
             val examList = enrolledSections.filter { it.section.examDate.isNotBlank() }
                 .sortedBy { it.section.examDate }
@@ -434,7 +373,7 @@ fun HomeScreen(
 
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
                                             ) {
                                                 Column(
                                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -443,14 +382,14 @@ fun HomeScreen(
                                                     Text(
                                                         text = sec.section.examDate,
                                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                        color = MaterialTheme.colorScheme.primary,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
                                                     if (sec.section.examStartTime.isNotBlank()) {
                                                         Text(
                                                             text = "${sec.section.examStartTime} تا ${sec.section.examEndTime}",
-                                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                                            style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -515,6 +454,8 @@ fun HomeScreen(
                 ) {
                     WeeklyTimetable(
                         sections = enrolledSections,
+                        initialDay = now.appDayIdx,
+                        highlightedDay = now.appDayIdx,
                         showThursday = preferences.showThursday,
                         density = preferences.timetableDensity,
                         currentParity = weekInfo?.parity,
@@ -524,13 +465,29 @@ fun HomeScreen(
             }
         }
 
+        // Documents are useful context, but never outrank today's class,
+        // planning warnings, or the timetable itself.
+        if (hasEnrolled && visibleDocumentCount > 0) {
+            SecondaryDocumentsLine(
+                count = visibleDocumentCount,
+                onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) }
+            )
+        }
+
+        if (hasEnrolled) {
+            HomeExportActions(
+                onCopy = { TimetableExporter.copyToClipboard(context, enrolledSections) },
+                onShare = { TimetableExporter.shareSchedule(context, enrolledSections) }
+            )
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
 /**
- * A. Compact header: greeting, semester line, Persian date + academic week,
- * a secondary offline pill, and a zero-safe credit progress row.
+ * A. Calm identity strip: a student should orient themselves immediately,
+ * before the dashboard asks them to make any decision.
  */
 @Composable
 internal fun DashboardHeader(
@@ -544,21 +501,33 @@ internal fun DashboardHeader(
     modifier: Modifier = Modifier
 ) {
     val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
+    val dateLine = todayJalali?.let { j ->
+        "${ClassSession.getDayName(now.appDayIdx)} ${JalaliDate.toFaDigits(j.day)} ${JalaliDate.monthNameFa(j.month)}"
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_header_card"),
-        shape = TermChinDesign.CardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = TermChinDesign.HeroShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
         )
     ) {
+        // Ambient top glow derived from the ACTIVE theme accent — calm in
+        // light mode, luminous in dark mode. No hard-coded navy.
+        Box(
+            modifier = Modifier.background(
+                TermChinDesign.heroGlow(MaterialTheme.colorScheme.primary)
+            )
+        ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -567,7 +536,7 @@ internal fun DashboardHeader(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (studentName.isNotBlank()) "سلام، $studentName" else "ترم‌چین",
+                        text = greetingFa(now.nowMinutes, studentName),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -586,98 +555,56 @@ internal fun DashboardHeader(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    val dateLine = todayJalali?.let { j ->
-                        buildString {
-                            append(ClassSession.getDayName(now.appDayIdx))
-                            append(" ")
-                            append(JalaliDate.toFaDigits(j.day))
-                            append(" ")
-                            append(JalaliDate.monthNameFa(j.month))
-                            if (weekInfo != null) {
-                                append(" • هفته ")
-                                append(JalaliDate.toFaDigits(weekInfo.number))
-                                append(" (")
-                                append(weekInfo.parity.titleFa)
-                                append(")")
-                            }
-                        }
-                    }
-                    if (dateLine != null) {
-                        Text(
-                            text = dateLine,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Secondary offline pill: the app works offline; the pill must
-                // never read as a warning or a connectivity requirement.
                 Surface(
-                    shape = TermChinDesign.CardShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.CloudOff,
-                            contentDescription = "برنامه کاملاً آفلاین کار می‌کند",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "آفلاین",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = dateLine.orEmpty(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                    )
                 }
             }
 
-            val ratio = creditProgressRatio(credits, creditTarget)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (weekInfo != null) {
                     Text(
-                        text = "واحدهای اخذشده",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        text = "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
+                    )
+                } else {
+                    Text(
+                        text = "شروع ترم را برای نمایش هفتهٔ آموزشی تنظیم کنید",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = if (creditTarget > 0) {
-                            "${JalaliDate.toFaDigits(credits)} از ${JalaliDate.toFaDigits(creditTarget)} واحد"
-                        } else {
-                            "${JalaliDate.toFaDigits(credits)} واحد ثبت شده"
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
-                // A zero/unset target renders no bar: never divide by zero,
-                // never display a NaN progress value.
-                if (ratio != null) {
-                    LinearProgressIndicator(
-                        progress = { ratio },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        strokeCap = StrokeCap.Round
-                    )
-                }
+                Text(
+                    text = if (creditTarget > 0) {
+                        "${JalaliDate.toFaDigits(credits)} از ${JalaliDate.toFaDigits(creditTarget)} واحد"
+                    } else {
+                        "${JalaliDate.toFaDigits(credits)} واحد"
+                    },
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
             }
+        }
         }
     }
 }
@@ -933,6 +860,67 @@ internal fun SecondaryDocumentsLine(
         }
         TextButton(onClick = onOpen) {
             Text("\u0645\u0634\u0627\u0647\u062f\u0647 \u062c\u0632\u0648\u0627\u062a", fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * Secondary utility actions belong at the end of Home: useful when the
+ * student asks for them, but never allowed to compete with today's plan.
+ */
+@Composable
+private fun HomeExportActions(
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = TermChinDesign.CardShape,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "خروجی برنامهٔ هفتگی",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCopy,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(TermChinDesign.MinTouchHeight)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("کپی متن", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onShare,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(TermChinDesign.MinTouchHeight)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("اشتراک‌گذاری", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

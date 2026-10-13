@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -103,6 +104,88 @@ import ir.courseplanner.app.ui.components.EditCourseDialog
 import ir.courseplanner.app.ui.screens.courses.CatalogQuickAddResults
 import ir.courseplanner.app.ui.screens.courses.CourseCard
 import ir.courseplanner.app.ui.screens.courses.FilterLabelRow
+import ir.courseplanner.app.ui.theme.TermChinDesign
+
+/**
+ * A quiet orientation point before the dense discovery controls.  Counts stay
+ * factual and the primary work (searching or adding a course) remains below
+ * in the thumb-friendly part of the screen. Premium finish: hero shape +
+ * ambient accent glow, same data, same testTag.
+ */
+@Composable
+private fun CourseWorkspaceHeader(
+    courseCount: Int,
+    selectedCount: Int,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("courses_workspace_header"),
+        shape = TermChinDesign.HeroShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        )
+    ) {
+        Box(
+            modifier = Modifier.background(
+                TermChinDesign.heroGlow(MaterialTheme.colorScheme.primary)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "دروس من",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "جست‌وجو، انتخاب گروه و ساخت برنامهٔ ترم",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Surface(
+                    shape = TermChinDesign.PillShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$courseCount درس",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "$selectedCount برای برنامه‌ساز",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun CoursesScreen(
@@ -146,8 +229,8 @@ fun CoursesScreen(
                 text = { Text("افزودن درس", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(16.dp),
-                elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(4.dp),
+                shape = RoundedCornerShape(12.dp),
+                elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 1.dp),
                 modifier = Modifier.testTag("fab_add_course")
             )
         }
@@ -158,11 +241,21 @@ fun CoursesScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            CourseWorkspaceHeader(
+                courseCount = filteredCourses.size,
+                selectedCount = selectedCount
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Search bar (Offline search)
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 1.dp,
+                shape = TermChinDesign.CardShape,
                 color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
@@ -197,7 +290,7 @@ fun CoursesScreen(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     ),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = TermChinDesign.CardShape
                 )
             }
 
@@ -247,9 +340,12 @@ fun CoursesScreen(
             ).joinToString(" • ")
 
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = TermChinDesign.CardShape,
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { filtersExpanded = !filtersExpanded }
@@ -567,12 +663,12 @@ fun CoursesScreen(
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                     Text(
                         text = "$selectedCount درس در برنامه‌ساز",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -622,7 +718,7 @@ fun CoursesScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = TermChinDesign.CardShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                         modifier = Modifier.padding(24.dp)

@@ -60,6 +60,7 @@ import ir.courseplanner.app.data.model.WeekType
 import ir.courseplanner.app.engine.CourseSuggestionRanker
 import ir.courseplanner.app.engine.CourseSuggestionRanker.GroupVerdict
 import ir.courseplanner.app.engine.CourseSuggestionRanker.SuggestionStatus
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.ManualSessionInput
@@ -205,13 +206,14 @@ internal fun AddCourseDiscoveryContent(
             )
         }
         Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+            shape = TermChinDesign.PillShape,
+            color = MaterialTheme.colorScheme.primary,
+            shadowElevation = 2.dp
         ) {
             Text(
                 text = "$addableCount درس قابل افزودن",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
@@ -265,7 +267,7 @@ internal fun AddCourseDiscoveryContent(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = TermChinDesign.CardShape
     )
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -376,7 +378,7 @@ private fun SuggestionCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("discovery_card_${course.code}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
             containerColor = if (highlighted) tonalWash
             else MaterialTheme.colorScheme.surface
@@ -587,7 +589,7 @@ private fun GroupRow(
 ) {
     val section = group.section.section
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()

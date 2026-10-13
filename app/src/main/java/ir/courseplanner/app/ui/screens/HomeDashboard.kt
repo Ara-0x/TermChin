@@ -128,6 +128,20 @@ fun countdownFa(minutesToStart: Int): String =
     else "${JalaliDate.toFaDigits(minutesToStart)} دقیقه تا شروع کلاس"
 
 /**
+ * Warm, time-aware greeting from real device time (minutes since midnight).
+ * Boundaries are explicit and unit-tested; blank names keep the brand title.
+ */
+fun greetingFa(nowMinutes: Int, name: String): String {
+    val period = when (nowMinutes) {
+        in 300..719 -> "صبح بخیر" // 05:00–11:59
+        in 720..1019 -> "ظهر بخیر" // 12:00–16:59
+        in 1020..1199 -> "عصر بخیر" // 17:00–19:59
+        else -> "شب بخیر" // night and early dawn
+    }
+    return if (name.isNotBlank()) "$period، $name" else "ترم‌چین"
+}
+
+/**
  * Credit progress 0..1, or null when the target is unset (<= 0): callers must
  * hide the bar instead of dividing by zero or rendering NaN.
  */
@@ -278,16 +292,28 @@ internal fun NowNextCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_now_next_card"),
-        shape = TermChinDesign.CardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = TermChinDesign.HeroShape,
+        // The only persistent primary surface on Home: it answers the
+        // student's first question — what do I need to do today?
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
     ) {
+        Box(
+            modifier = Modifier.background(
+                TermChinDesign.heroGlow(
+                    MaterialTheme.colorScheme.primary,
+                    strength = 0.12f
+                )
+            )
+        ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DashboardSectionHeader(title = "برنامه امروز", icon = Icons.Default.Schedule)
+            DashboardSectionHeader(title = "امروز چه خبر؟", icon = Icons.Default.Schedule)
             if (weekLabel != null) {
                 Text(
                     text = weekLabel,
@@ -403,6 +429,7 @@ internal fun NowNextCard(
                     }
                 }
             }
+        }
         }
     }
 }

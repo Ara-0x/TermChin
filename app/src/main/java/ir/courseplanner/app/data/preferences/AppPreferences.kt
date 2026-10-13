@@ -57,6 +57,10 @@ enum class AppColorTheme(
     SLATE(
         id = "slate",
         titleFa = "نوک‌مدادی مینیمال",
+    ),
+    MIDNIGHT(
+        id = "midnight",
+        titleFa = "نیمه‌شب سرمه‌ای",
     );
 
     companion object {
