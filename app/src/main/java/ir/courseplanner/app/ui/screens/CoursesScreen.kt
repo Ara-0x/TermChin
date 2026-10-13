@@ -51,8 +51,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -95,7 +93,6 @@ import ir.courseplanner.app.ui.ManualSessionInput
 import ir.courseplanner.app.ui.CourseDegreeFilter
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.CourseSortOrder
-import ir.courseplanner.app.ui.CourseStatusFilter
 import ir.courseplanner.app.ui.CourseUnitsFilter
 import ir.courseplanner.app.ui.FILTERABLE_DAYS
 import ir.courseplanner.app.ui.components.AddCourseDialog
@@ -106,87 +103,6 @@ import ir.courseplanner.app.ui.screens.courses.CourseCard
 import ir.courseplanner.app.ui.screens.courses.FilterLabelRow
 import ir.courseplanner.app.ui.theme.TermChinDesign
 
-/**
- * A quiet orientation point before the dense discovery controls.  Counts stay
- * factual and the primary work (searching or adding a course) remains below
- * in the thumb-friendly part of the screen. Premium finish: hero shape +
- * ambient accent glow, same data, same testTag.
- */
-@Composable
-private fun CourseWorkspaceHeader(
-    courseCount: Int,
-    selectedCount: Int,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("courses_workspace_header"),
-        shape = TermChinDesign.HeroShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-        )
-    ) {
-        Box(
-            modifier = Modifier.background(
-                TermChinDesign.heroGlow(MaterialTheme.colorScheme.primary)
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "دروس من",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "جست‌وجو، انتخاب گروه و ساخت برنامهٔ ترم",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Surface(
-                    shape = TermChinDesign.PillShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    shadowElevation = 2.dp
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "$courseCount درس",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = "$selectedCount برای برنامه‌ساز",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun CoursesScreen(
     viewModel: CoursePlannerViewModel,
@@ -194,7 +110,6 @@ fun CoursesScreen(
 ) {
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedDept by viewModel.selectedDepartment.collectAsStateWithLifecycle()
-    val statusFilter by viewModel.statusFilter.collectAsStateWithLifecycle()
     val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val filteredCourses by viewModel.filteredCourses.collectAsStateWithLifecycle()
     val allCoursesWithSections by viewModel.coursesWithSections.collectAsStateWithLifecycle()
@@ -241,12 +156,8 @@ fun CoursesScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            CourseWorkspaceHeader(
-                courseCount = filteredCourses.size,
-                selectedCount = selectedCount
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
+            // Orientation is carried by the bottom bar + the info bar below the
+            // filters, so no separate hero header is needed here.
 
             // Search bar (Offline search)
             Surface(
@@ -578,42 +489,14 @@ fun CoursesScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Pinned status tabs + sort: always visible directly above the
-            // registered-courses bar, never hidden inside the filter panel.
+            // Sort control only: the course list is always «دروس من», so the
+            // former status tab row (which toggled between the user's courses
+            // and the whole catalog) was removed — it was pure chrome.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    CourseStatusFilter.values().forEach { filter ->
-                        val isSelected = statusFilter == filter
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.setStatusFilter(filter) },
-                            label = {
-                                Text(
-                                    text = filter.titleFa,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -681,7 +564,7 @@ fun CoursesScreen(
             // up manually to see the new order.
             val listState = rememberLazyListState()
             LaunchedEffect(
-                sortOrder, statusFilter, unitsFilter, degreeFilter,
+                sortOrder, unitsFilter, degreeFilter,
                 dayFilter, onlyWithSessions, selectedDept, searchQuery
             ) {
                 listState.scrollToItem(0)
@@ -767,8 +650,7 @@ fun CoursesScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("افزودن درس دستی")
                                 }
-                            } else if (searchQuery.isBlank() && catalogOnlyCourseCount > 0 &&
-                                statusFilter == CourseStatusFilter.MY_COURSES
+                            } else if (searchQuery.isBlank() && catalogOnlyCourseCount > 0
                             ) {
                                 Text(
                                     text = "کاتالوگ پرتال با $catalogOnlyCourseCount درس آماده است.",

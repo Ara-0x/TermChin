@@ -282,7 +282,6 @@ internal fun NowNextCard(
     todayIdx: Int,
     todayClasses: List<UpcomingSession>,
     state: NowNextState,
-    weekLabel: String?,
     nowMinutes: Int,
     onOpenWeeklyTimetable: () -> Unit,
     onManageCourses: () -> Unit,
@@ -292,35 +291,20 @@ internal fun NowNextCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_now_next_card"),
-        shape = TermChinDesign.HeroShape,
+        shape = TermChinDesign.CardShape,
         // The only persistent primary surface on Home: it answers the
         // student's first question — what do I need to do today?
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
     ) {
-        Box(
-            modifier = Modifier.background(
-                TermChinDesign.heroGlow(
-                    MaterialTheme.colorScheme.primary,
-                    strength = 0.12f
-                )
-            )
-        ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             DashboardSectionHeader(title = "امروز چه خبر؟", icon = Icons.Default.Schedule)
-            if (weekLabel != null) {
-                Text(
-                    text = weekLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             when (state) {
                 is NowNextState.Ongoing ->
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -430,7 +414,6 @@ internal fun NowNextCard(
                 }
             }
         }
-        }
     }
 }
 /**
@@ -528,7 +511,7 @@ private fun FocusedClassRow(
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .width(TermChinDesign.FocusBarWidth)
@@ -681,7 +664,7 @@ internal fun OverviewCard(
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "نمای کلی ترم",

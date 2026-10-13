@@ -105,12 +105,11 @@ data class GenerationState(
 }
 
 enum class CourseStatusFilter(val titleFa: String) {
-    // NOTE: there is intentionally no separate "generator target" tab:
-    // every enrolled/manual/quick-added course already carries
-    // isSelectedForGeneration, so such a tab would duplicate "دروس من".
+    // There is intentionally no «واحدهای من» tab: every enrolled course is
+    // already inside «دروس من», so a third tab duplicated the same list and
+    // made the course page read as a form instead of a list.
     MY_COURSES("دروس من"),
-    ALL("همه دروس"),
-    ENROLLED("واحدهای من")
+    ALL("همه دروس")
 }
 
 enum class CourseSortOrder(val titleFa: String) {
@@ -293,7 +292,6 @@ class CoursePlannerViewModel @Inject constructor(
                 CourseStatusFilter.MY_COURSES ->
                     cws.course.isSelectedForGeneration ||
                         cws.sections.any { it.section.isEnrolled }
-                CourseStatusFilter.ENROLLED -> cws.sections.any { it.section.isEnrolled }
             }
 
             matchQuery && matchDept && matchStatus

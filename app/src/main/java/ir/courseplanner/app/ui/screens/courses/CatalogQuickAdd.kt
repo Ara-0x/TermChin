@@ -94,7 +94,6 @@ import ir.courseplanner.app.ui.ManualSessionInput
 import ir.courseplanner.app.ui.CourseDegreeFilter
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.CourseSortOrder
-import ir.courseplanner.app.ui.CourseStatusFilter
 import ir.courseplanner.app.ui.CourseUnitsFilter
 import ir.courseplanner.app.ui.FILTERABLE_DAYS
 import ir.courseplanner.app.ui.components.AddCourseDialog

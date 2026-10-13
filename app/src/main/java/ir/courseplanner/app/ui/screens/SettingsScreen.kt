@@ -146,7 +146,6 @@ private fun SettingsCategoryTitle(
 /** A lightweight label for a category that spans several related cards. */
 @Composable
 private fun SettingsGroupHeader(
-    number: String,
     title: String,
     subtitle: String
 ) {
@@ -154,20 +153,6 @@ private fun SettingsGroupHeader(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(28.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = number,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -270,7 +255,7 @@ fun SettingsScreen(
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
-    // ۳. ترجیحات انتخاب واحد: منبع state واحد مشترک با صفحه برنامه‌ساز.
+    // ترجیحات انتخاب واحد: منبع state واحد مشترک با صفحه برنامه‌ساز.
     val optimizationPref by viewModel.optimizationPreference.collectAsStateWithLifecycle()
 
     var showDeleteAllDialog by remember { mutableStateOf(false) }
@@ -371,7 +356,7 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
             )
         ) {
             Row(
@@ -443,7 +428,7 @@ fun SettingsScreen(
             }
         }
 
-        // ۱. ظاهر و شخصی‌سازی
+        // ظاهر و شخصی‌سازی
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -458,7 +443,7 @@ fun SettingsScreen(
                 // «ظاهر و شخصی‌سازی»: عنوان، توضیح و کنترل‌های حالت نمایش و پالت.
                 SettingsCategoryTitle(
                     icon = Icons.Default.Palette,
-                    title = "۱. ظاهر و شخصی‌سازی"
+                    title = "ظاهر و شخصی‌سازی"
                 )
 
                 Text(
@@ -533,7 +518,7 @@ fun SettingsScreen(
         }
 
 
-        // ۲. برنامه هفتگی
+        // برنامه هفتگی
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -548,7 +533,7 @@ fun SettingsScreen(
                 // «برنامه هفتگی»: توضیح کوتاه و کنترل‌های نمایش جدول و هفته آموزشی.
                 SettingsCategoryTitle(
                     icon = Icons.Default.ViewWeek,
-                    title = "۲. برنامه هفتگی"
+                    title = "برنامه هفتگی"
                 )
 
                 Text(
@@ -673,7 +658,7 @@ fun SettingsScreen(
             }
         }
 
-        // ۳. ترجیحات انتخاب واحد: همان منبع state مشترک با صفحه برنامه‌ساز.
+        // ترجیحات انتخاب واحد: همان منبع state مشترک با صفحه برنامه‌ساز.
         // هیچ ذخیره‌سازی یا منطق تازه‌ای اضافه نشده؛ فقط ورودی دیگری به
         // [viewModel.optimizationPreference] است تا انتخاب کاربر در تمام
         // صفحات هماهنگ بماند.
@@ -690,7 +675,7 @@ fun SettingsScreen(
             ) {
                 SettingsCategoryTitle(
                     icon = Icons.Default.Tune,
-                    title = "۳. ترجیحات انتخاب واحد"
+                    title = "ترجیحات انتخاب واحد"
                 )
                 Text(
                     text = "معیار رتبه‌بندی برنامه‌ها در صفحه برنامه‌ساز. تغییر آن در همین‌جا یا در صفحه برنامه‌ساز، همان انتخاب واحد را به‌روز می‌کند:",
@@ -731,7 +716,7 @@ fun SettingsScreen(
             }
         }
 
-        // ۴. اطلاعات دانشجو و ترم
+        // اطلاعات دانشجو و ترم
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -755,7 +740,7 @@ fun SettingsScreen(
                     ) {
                         SettingsCategoryTitle(
                             icon = Icons.Default.Person,
-                            title = "۴. اطلاعات دانشجو و ترم"
+                            title = "اطلاعات دانشجو و ترم"
                         )
                         Text(
                             text = "نام، رشته، نیم‌سال جاری و هدف تعداد واحد:",
@@ -913,9 +898,8 @@ fun SettingsScreen(
         }
 
 
-        // ۵. مدیریت داده‌ها — ورود، پشتیبان و پاک‌سازی در یک گروه روشن.
+        // مدیریت داده‌ها — ورود، پشتیبان و پاک‌سازی در یک گروه روشن.
         SettingsGroupHeader(
-            number = "۵",
             title = "مدیریت داده‌ها",
             subtitle = "ورود، خروجی، اشتراک‌گذاری و پاک‌سازی اطلاعات آفلاین"
         )
@@ -928,7 +912,7 @@ fun SettingsScreen(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // «مدیریت داده‌ها — ورود اطلاعات»: ورود آفلاین کاتالوگ از فایل یا متن.
                 SettingsCategoryTitle(
@@ -1065,7 +1049,7 @@ fun SettingsScreen(
             }
         }
 
-        // ۵. مدیریت داده‌ها — بخش ۲: خروجی و پشتیبان
+        // مدیریت داده‌ها — خروجی و پشتیبان
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -1075,7 +1059,7 @@ fun SettingsScreen(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // «مدیریت داده‌ها — خروجی و پشتیبان»: خروجی JSON و اشتراک برنامه هفتگی.
                 SettingsCategoryTitle(
@@ -1148,7 +1132,7 @@ fun SettingsScreen(
             }
         }
 
-        // ۵. مدیریت داده‌ها — بخش ۳: پاک‌سازی داده‌ها
+        // مدیریت داده‌ها — پاک‌سازی داده‌ها
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -1158,7 +1142,7 @@ fun SettingsScreen(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // «مدیریت داده‌ها — پاک‌سازی»: خالی‌کردن برنامه هفتگی و حذف کامل داده‌ها.
                 SettingsCategoryTitle(
@@ -1210,7 +1194,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ۶. درباره و اطلاعات برنامه: نسخه واقعی بیلد و راهنمای کوتاه استفاده.
+        // درباره و اطلاعات برنامه: نسخه واقعی بیلد و راهنمای کوتاه استفاده.
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
@@ -1220,11 +1204,11 @@ fun SettingsScreen(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SettingsCategoryTitle(
                     icon = Icons.Default.Info,
-                    title = "۶. دربارهٔ برنامه"
+                    title = "دربارهٔ برنامه"
                 )
                 Text(
                     text = "ترم‌چین کاملاً آفلاین است: کاتالوگ دروس را از فایل پرتال یا نمونه وارد کنید، درس‌ها را از صفحه «دروس» به «دروس من» اضافه کنید و از صفحه «برنامه‌ساز» بهترین ترکیب گروه‌ها را بسازید.",

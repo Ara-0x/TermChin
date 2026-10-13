@@ -3,6 +3,7 @@ package ir.courseplanner.app.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -26,12 +27,10 @@ object TermChinDesign {
     /** Outer screen padding (also used by HomeScreen scroll column). */
     val ScreenMargin: Dp = 16.dp
 
-    /** Primary cards (Today schedule, attention, overview). */
+    /** Every card on every screen — one radius, no competing scales. */
     val CardRadius: Dp = 16.dp
     /** Nested rows inside a card. */
     val RowRadius: Dp = 12.dp
-    /** Premium hero surfaces (header, weekly date strip, now/next). */
-    val HeroRadius: Dp = 20.dp
     /** Compact pill (date cells, count chips). */
     val PillRadius: Dp = 14.dp
 
@@ -58,28 +57,12 @@ object TermChinDesign {
 
     val CardShape = RoundedCornerShape(CardRadius)
     val RowShape = RoundedCornerShape(RowRadius)
-    val HeroShape = RoundedCornerShape(HeroRadius)
     val PillShape = RoundedCornerShape(PillRadius)
 
     /**
-     * Soft top-glow overlay for a hero card, built from the caller's own
-     * accent (typically primary) fading to transparent. Keeps the Linear
-     * ambient-glow feel while following the active theme in light/dark.
+     * Selected date-cell wash: a flat accent tint. Deliberately a single flat
+     * color, not a gradient — selection state is communicated by tint plus
+     * border weight only, so nothing on screen looks "lit up".
      */
-    fun heroGlow(accent: Color, strength: Float = 0.16f): Brush =
-        Brush.verticalGradient(
-            0.0f to accent.copy(alpha = strength),
-            0.45f to accent.copy(alpha = strength * 0.35f),
-            1.0f to Color.Transparent
-        )
-
-    /**
-     * Selected date-cell wash: accent-tinted vertical gradient that stays
-     * legible on both light and dark surfaces of every saved theme.
-     */
-    fun selectedCell(accent: Color): Brush =
-        Brush.verticalGradient(
-            0.0f to accent,
-            1.0f to accent.copy(alpha = 0.82f)
-        )
+    fun selectedCell(accent: Color): Brush = SolidColor(accent)
 }

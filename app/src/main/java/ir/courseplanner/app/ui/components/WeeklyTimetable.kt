@@ -51,8 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -729,16 +729,15 @@ private fun WeeklyDateCell(
     onAccent: Color,
     onDayChange: (Int) -> Unit
 ) {
+    // Flat washes only: selection is read from tint + border weight, never
+    // from a gradient or glow. Keeps every saved theme visually quiet.
     val cellBg = if (isSelected) {
         TermChinDesign.selectedCell(accent)
     } else {
-        Brush.verticalGradient(
-            0.0f to MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            1.0f to MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)
-        )
+        SolidColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
     }
     val cellBorder = if (isSelected) {
-        accent.copy(alpha = 0.65f)
+        accent
     } else if (isToday) {
         accent.copy(alpha = 0.45f)
     } else {
@@ -754,17 +753,15 @@ private fun WeeklyDateCell(
         modifier = Modifier
             .width(TermChinDesign.DateCellWidth)
             .height(TermChinDesign.DateCellHeight)
+            // A single flat elevation carries the selected cell; no ambient /
+            // spot accent glow, which looked like the card was lit from inside.
             .shadow(
-                elevation = if (isSelected) 6.dp else 1.dp,
-                shape = TermChinDesign.PillShape,
-                ambientColor = if (isSelected) accent.copy(alpha = 0.35f)
-                else Color.Transparent,
-                spotColor = if (isSelected) accent.copy(alpha = 0.35f)
-                else Color.Transparent
+                elevation = if (isSelected) 2.dp else 0.dp,
+                shape = TermChinDesign.PillShape
             )
             .clip(TermChinDesign.PillShape)
             .background(cellBg)
-            .border(1.dp, cellBorder, TermChinDesign.PillShape)
+            .border(if (isSelected) 2.dp else 1.dp, cellBorder, TermChinDesign.PillShape)
             .clickable(
                 onClickLabel = ClassSession.getDayName(dayIdx),
                 onClick = { onDayChange(dayIdx) }
@@ -864,13 +861,9 @@ private fun WeeklyDateCellContent(
                 maxLines = 1,
                 softWrap = false
             )
-        } else {
-            Text(
-                text = if (isToday) "امروز" else "—",
-                style = MaterialTheme.typography.labelSmall,
-                color = cellSubtle,
-                maxLines = 1
-            )
+        // Free day: nothing is printed under the day number. The previous
+        // placeholder was clipped away inside the 72dp cell anyway, and the
+        // missing dots already communicate "no classes today".
         }
     }
 }
@@ -971,8 +964,10 @@ private fun TimetableDayView(
                                 .clickable { onItemClick(item) },
                             shape = TermChinDesign.CardShape,
                             color = MaterialTheme.colorScheme.surface,
+                            // One border weight everywhere (1.dp). The old 1.2.dp
+                            // read as a visual offset next to the other cards.
                             border = androidx.compose.foundation.BorderStroke(
-                                1.2.dp,
+                                1.dp,
                                 item.color.copy(alpha = 0.4f)
                             )
                         ) {

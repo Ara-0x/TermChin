@@ -388,7 +388,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = listOf(item),
                     state = NowNextState.Ongoing(item, 70),
-                    weekLabel = null,
                     nowMinutes = 620,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}
@@ -412,7 +411,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = listOf(item),
                     state = NowNextState.UpcomingToday(item, 35),
-                    weekLabel = null,
                     nowMinutes = 565,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}
@@ -432,7 +430,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = emptyList(),
                     state = NowNextState.NoneScheduled,
-                    weekLabel = null,
                     nowMinutes = 700,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}
@@ -544,7 +541,7 @@ class HomeDashboardUiTest {
     }
 
     @Test
-    fun headerShowsGreetingDateAndWeek() {
+    fun headerShowsGreetingAndCreditProgress() {
         val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -554,15 +551,49 @@ class HomeDashboardUiTest {
                     major = "کامپیوتر",
                     credits = 12,
                     creditTarget = 20,
-                    now = now,
-                    weekInfo = ScheduleEngine.AcademicWeek(4, ScheduleEngine.WeekParity.ODD)
+                    now = now
                 )
             }
         }
 
         composeTestRule.onNodeWithText("صبح بخیر، امیر").assertIsDisplayed()
         composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
-        composeTestRule.onNodeWithText("هفته ۴ (فرد)", substring = true).assertIsDisplayed()
+        // Credits progress belongs to identity; the calendar date and the week
+        // number live in TodayDateCard instead.
+        composeTestRule.onNodeWithText("نیم‌سال اول • کامپیوتر", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("۱۲ واحد از ۲۰", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun dateCardShowsJalaliDateAndAcademicWeekTogether() {
+        val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                TodayDateCard(
+                    now = now,
+                    weekInfo = ScheduleEngine.AcademicWeek(4, ScheduleEngine.WeekParity.ODD)
+                )
+            }
+        }
+
+        // One card carries both views of the same fact: weekday + Jalali date
+        // on the leading edge, academic week on the trailing edge.
+        composeTestRule.onNodeWithTag("home_today_date_card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("چهارشنبه").assertIsDisplayed()
+        composeTestRule.onNodeWithText("هفته ۴ (فرد)").assertIsDisplayed()
+    }
+
+    @Test
+    fun dateCardStaysReadableWhenSemesterStartIsUnset() {
+        val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                TodayDateCard(now = now, weekInfo = null)
+            }
+        }
+
+        composeTestRule.onNodeWithTag("home_today_date_card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("هفته نامشخص").assertIsDisplayed()
     }
 
     @Test
@@ -589,7 +620,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = listOf(first, focused),
                     state = NowNextState.UpcomingToday(focused, 35),
-                    weekLabel = null,
                     nowMinutes = 565,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}
@@ -612,7 +642,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = emptyList(),
                     state = NowNextState.LaterDay(item),
-                    weekLabel = null,
                     nowMinutes = 700,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}
@@ -634,7 +663,6 @@ class HomeDashboardUiTest {
                     todayIdx = 3,
                     todayClasses = listOf(item),
                     state = NowNextState.Ongoing(item, 70),
-                    weekLabel = null,
                     nowMinutes = 620,
                     onOpenWeeklyTimetable = {},
                     onManageCourses = {}

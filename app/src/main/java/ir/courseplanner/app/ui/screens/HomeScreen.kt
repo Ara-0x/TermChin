@@ -195,13 +195,18 @@ fun HomeScreen(
             .padding(horizontal = TermChinDesign.ScreenMargin, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // A. Personal context, followed by the one decision that matters now.
+        // A. Personal context, then the time facts, then the one decision that
+        // matters now — three calm surfaces, one consistent card scale.
         DashboardHeader(
             studentName = preferences.studentName,
             semesterName = preferences.semesterName,
             major = preferences.major,
             credits = metrics.totalCredits,
             creditTarget = preferences.creditTarget,
+            now = now
+        )
+
+        TodayDateCard(
             now = now,
             weekInfo = weekInfo
         )
@@ -212,9 +217,6 @@ fun HomeScreen(
                 todayIdx = now.appDayIdx,
                 todayClasses = todaysClasses,
                 state = nowNextState,
-                weekLabel = weekInfo?.let {
-                    "هفته ${JalaliDate.toFaDigits(it.number)} (${it.parity.titleFa})"
-                },
                 nowMinutes = now.nowMinutes,
                 onOpenWeeklyTimetable = scrollToTimetable,
                 onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) }
@@ -486,8 +488,8 @@ fun HomeScreen(
 }
 
 /**
- * A. Calm identity strip: a student should orient themselves immediately,
- * before the dashboard asks them to make any decision.
+ * A. Personal context. Answers "who am I in this term and how far along are
+ * my credits" — time facts deliberately live in [TodayDateCard] below it.
  */
 @Composable
 internal fun DashboardHeader(
@@ -497,114 +499,127 @@ internal fun DashboardHeader(
     credits: Int,
     creditTarget: Int,
     now: DashboardNow,
-    weekInfo: ScheduleEngine.AcademicWeek?,
     modifier: Modifier = Modifier
 ) {
-    val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
-    val dateLine = todayJalali?.let { j ->
-        "${ClassSession.getDayName(now.appDayIdx)} ${JalaliDate.toFaDigits(j.day)} ${JalaliDate.monthNameFa(j.month)}"
-    }
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_header_card"),
-        shape = TermChinDesign.HeroShape,
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f)
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = greetingFa(now.nowMinutes, studentName),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = buildString {
+                    append(semesterName)
+                    if (major.isNotBlank()) {
+                        append(" • ")
+                        append(major)
+                    }
+                    append(" • ")
+                    append(JalaliDate.toFaDigits(credits))
+                    append(" واحد")
+                    if (creditTarget > 0) {
+                        append(" از ")
+                        append(JalaliDate.toFaDigits(creditTarget))
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * A′. Time card. The calendar date and the academic week number are two views
+ * of the same fact, so they share one card instead of two surfaces.
+ */
+@Composable
+internal fun TodayDateCard(
+    now: DashboardNow,
+    weekInfo: ScheduleEngine.AcademicWeek?,
+    modifier: Modifier = Modifier
+) {
+    val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home_today_date_card"),
+        shape = TermChinDesign.CardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         )
     ) {
-        // Ambient top glow derived from the ACTIVE theme accent — calm in
-        // light mode, luminous in dark mode. No hard-coded navy.
-        Box(
-            modifier = Modifier.background(
-                TermChinDesign.heroGlow(MaterialTheme.colorScheme.primary)
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Event,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(TermChinDesign.IconMd)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Text(
-                        text = greetingFa(now.nowMinutes, studentName),
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        text = ClassSession.getDayName(now.appDayIdx),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 1
                     )
                     Text(
-                        text = buildString {
-                            append(semesterName)
-                            if (major.isNotBlank()) {
-                                append(" • ")
-                                append(major)
-                            }
-                        },
+                        text = todayJalali?.let { j ->
+                            "${JalaliDate.toFaDigits(j.day)} ${JalaliDate.monthNameFa(j.month)} ${JalaliDate.toFaDigits(j.year)}"
+                        }.orEmpty(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Text(
-                        text = dateLine.orEmpty(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                    )
-                }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (weekInfo != null) {
-                    Text(
-                        text = "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
-                    )
+            Text(
+                text = if (weekInfo != null) {
+                    "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
                 } else {
-                    Text(
-                        text = "شروع ترم را برای نمایش هفتهٔ آموزشی تنظیم کنید",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    text = if (creditTarget > 0) {
-                        "${JalaliDate.toFaDigits(credits)} از ${JalaliDate.toFaDigits(creditTarget)} واحد"
-                    } else {
-                        "${JalaliDate.toFaDigits(credits)} واحد"
-                    },
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-            }
-        }
+                    "هفته نامشخص"
+                },
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
         }
     }
 }
@@ -884,7 +899,7 @@ private fun HomeExportActions(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
