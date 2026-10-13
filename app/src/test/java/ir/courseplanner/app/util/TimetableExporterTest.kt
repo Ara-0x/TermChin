@@ -49,8 +49,8 @@ class TimetableExporterTest {
         assertTrue(text.contains("ریاضی عمومی ۱"))
         assertTrue(text.contains("دکتر رضایی"))
         assertTrue(text.contains("شنبه"))
-        assertTrue(text.contains("08:00 تا 10:00"))
+        assertTrue(text.contains("08:00–10:00"))
         assertTrue(text.contains("1403/10/25"))
-        assertTrue(text.contains("مجموع واحدها: 3 واحد"))
+        assertTrue(text.contains("3 واحد"))
     }
 }

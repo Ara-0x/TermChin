@@ -101,7 +101,13 @@ fun WeeklyTimetable(
      * Academic week parity right now (null when the semester start is unset).
      * Sessions that do not meet this week are dimmed, never hidden.
      */
-    currentParity: ScheduleEngine.WeekParity? = null
+    currentParity: ScheduleEngine.WeekParity? = null,
+    /**
+     * Set false when the caller prints the section title itself above the card
+     * (Home does, so the same section is never named twice: once outside the
+     * card and once inside it).
+     */
+    showHeader: Boolean = true
 ) {
     // A six-day grid needs horizontal scrolling on a phone. Start with the
     // focused day view there, while retaining the full grid as one tap away.
@@ -143,21 +149,23 @@ fun WeeklyTimetable(
         // this avoids squeezing Persian labels into a fragile single line.
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(if (showHeader) 8.dp else 10.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "تقویم برنامه هفتگی",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
-                )
+            if (showHeader) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "تقویم برنامه هفتگی",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             Surface(

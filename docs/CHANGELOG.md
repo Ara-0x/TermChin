@@ -4,6 +4,42 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.14.0] (29) — 2026-10-13 nicer copy, calmer documents, better theme names
+
+No logic, stored value, flow or theme removed. A polish pass: the shared
+timetable text reads cleanly outside the app, the Documents screen adopts the
+same surface language as the rest of the app, theme names become simple and
+predictable, and the weekly-timetable section is named only once.
+
+### Changed
+
+- **Share text is paste-friendly.** The timetable export drops the box-drawing
+  rules (`═`, `─`) that broke in messengers and instead uses short section
+  markers (`▸`) plus bullet separators (`•`). Each session is now one line
+  («08:00–10:00  ریاضی عمومی ۱ (گروه ۲) • کلاس ۱۰ • دکتر رضایی») instead of
+  two, exam rows read «۱۴۰۳/۱۰/۲۵ • ساعت ۱۰  ریاضی عمومی ۱», and parity notes
+  shorten to «(زوج)» / «(فرد)». Same data, same ordering, less noise.
+- **Documents screen matches the rest of the app.** The tonal-elevation header
+  band is gone, course + category filters move into one outlined card
+  (`CardShape`, 1dp `outlineVariant`), the search field adopts `CardShape`,
+  and every remaining divider/metadata surface uses `RowShape`. Scrolling and
+  card rhythm now feel identical to Courses, Home and Settings.
+- **Theme names simplified.** «نیلی دانشگاهی» → «لاجوردی», «زمردی جنگلی» →
+  «زمردی», «ارغوانی رویال» → «ارغوانی», «غروب کهربایی» → «کهربایی», «اقیانوسی
+  فیروزه‌ای» → «فیروزه‌ای», «یاقوت سرخ» → «گل‌بهی», «نوک‌مدادی مینیمال» →
+  «خاکستری», «نیمه‌شب سرمه‌ای» → «نیمه‌شب». The color swatch already names the
+  hue, so the poetic suffixes only made the list harder to scan. All 8 ids,
+  palettes, `ThemeMode` and saved preferences are untouched.
+- **Weekly timetable section named once on Home.** The in-card title row is
+  now optional (`showHeader`), and Home sets it to `false` while printing
+  «تقویم برنامه هفتگی» with the calendar icon above the card. Schedule keeps
+  the in-card header.
+
+### Fixed
+
+- **Neutral student-name placeholder.** The name field hint no longer uses a
+  real person's name.
+
 ## [2.13.0] (28) — 2026-10-13 calmer surfaces, slimmer settings, one card scale
 
 No logic, stored value, flow or theme removed. A visual de-noising pass:

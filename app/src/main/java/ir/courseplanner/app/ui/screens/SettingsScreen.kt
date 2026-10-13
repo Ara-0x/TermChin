@@ -483,12 +483,12 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                 Text(
-                    text = "پالت‌های رنگی جذاب (۷ رنگ اختصاصی):",
+                    text = "انتخاب پالت رنگی:",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // 7 palette cards: gradient accent + light/dark surface preview
+                // Palette cards: gradient accent + light/dark surface preview
                 val paletteThemes = AppColorTheme.values()
                 for (index in paletteThemes.indices step 2) {
                     val second = paletteThemes.getOrNull(index + 1)
@@ -1631,7 +1631,7 @@ internal fun EditProfileDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("نام و نام خانوادگی") },
-                    placeholder = { Text("مثلاً: امیررضا آصفی") },
+                    placeholder = { Text("مثلاً: زهرا محمدی") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

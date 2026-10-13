@@ -183,17 +183,13 @@ fun DocumentsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Screen Header
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
-                modifier = Modifier.fillMaxWidth()
+            // Screen Header — plain content, no tonal elevation band: same
+            // language as Courses / Settings, so scrolling feels identical.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -252,75 +248,85 @@ fun DocumentsScreen(
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.CardShape
                     )
                 }
-            }
 
-            // Filters Section: Courses Chips
-            if (courses.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        .padding(vertical = 8.dp)
-                ) {
-                    // Course Chips Row
-                    Row(
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Filters: one outlined card, exactly like the Courses screen's
+                // filter panel, instead of a full-bleed tinted band.
+                if (courses.isNotEmpty()) {
+                    Surface(
+                        shape = TermChinDesign.CardShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 16.dp)
                     ) {
-                        FilterChip(
-                            selected = selectedCourseId == null,
-                            onClick = { viewModel.onDocCourseFilterSelected(null) },
-                            shape = RoundedCornerShape(10.dp),
-                            label = { Text("همه دروس (${allDocs.size})", fontSize = 12.sp, maxLines = 1, softWrap = false) }
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Course Chips Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = selectedCourseId == null,
+                                    onClick = { viewModel.onDocCourseFilterSelected(null) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    label = { Text("همه دروس (${allDocs.size})", fontSize = 12.sp, maxLines = 1, softWrap = false) }
+                                )
 
-                        courses.forEach { course ->
-                            val docCountForCourse = allDocs.count { it.course.id == course.id }
-                            FilterChip(
-                                selected = selectedCourseId == course.id,
-                                onClick = { viewModel.onDocCourseFilterSelected(course.id) },
-                                shape = RoundedCornerShape(10.dp),
-                                label = {
-                                    Text("${course.name} ($docCountForCourse)", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                                courses.forEach { course ->
+                                    val docCountForCourse = allDocs.count { it.course.id == course.id }
+                                    FilterChip(
+                                        selected = selectedCourseId == course.id,
+                                        onClick = { viewModel.onDocCourseFilterSelected(course.id) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        label = {
+                                            Text("${course.name} ($docCountForCourse)", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                                        }
+                                    )
                                 }
-                            )
-                        }
-                    }
+                            }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                            // Category Chips Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = selectedCategory == null,
+                                    onClick = { viewModel.onDocCategoryFilterSelected(null) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    label = { Text("همه دسته‌ها", fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
+                                )
 
-                    // Category Chips Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedCategory == null,
-                            onClick = { viewModel.onDocCategoryFilterSelected(null) },
-                            shape = RoundedCornerShape(10.dp),
-                            label = { Text("همه دسته‌ها", fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
-                        )
-
-                        DocumentCategory.values().forEach { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { viewModel.onDocCategoryFilterSelected(cat) },
-                                shape = RoundedCornerShape(10.dp),
-                                label = { Text(cat.titleFa, fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
-                            )
+                                DocumentCategory.values().forEach { cat ->
+                                    FilterChip(
+                                        selected = selectedCategory == cat,
+                                        onClick = { viewModel.onDocCategoryFilterSelected(cat) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        label = { Text(cat.titleFa, fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
 
             // Main Content Area
             if (courses.isEmpty()) {

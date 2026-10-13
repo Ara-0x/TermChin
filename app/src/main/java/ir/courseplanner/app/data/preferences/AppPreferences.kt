@@ -32,35 +32,35 @@ enum class AppColorTheme(
 ) {
     INDIGO(
         id = "indigo",
-        titleFa = "نیلی دانشگاهی",
+        titleFa = "لاجوردی",
     ),
     EMERALD(
         id = "emerald",
-        titleFa = "زمردی جنگلی",
+        titleFa = "زمردی",
     ),
     VIOLET(
         id = "violet",
-        titleFa = "ارغوانی رویال",
+        titleFa = "ارغوانی",
     ),
     AMBER(
         id = "amber",
-        titleFa = "غروب کهربایی",
+        titleFa = "کهربایی",
     ),
     OCEAN(
         id = "ocean",
-        titleFa = "اقیانوسی فیروزه‌ای",
+        titleFa = "فیروزه‌ای",
     ),
     ROSE(
         id = "rose",
-        titleFa = "یاقوت سرخ",
+        titleFa = "گل‌بهی",
     ),
     SLATE(
         id = "slate",
-        titleFa = "نوک‌مدادی مینیمال",
+        titleFa = "خاکستری",
     ),
     MIDNIGHT(
         id = "midnight",
-        titleFa = "نیمه‌شب سرمه‌ای",
+        titleFa = "نیمه‌شب",
     );
 
     companion object {

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
@@ -413,29 +414,25 @@ fun HomeScreen(
         // parity-labelled, shown only when there is a program to preview.
         if (hasEnrolled) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // The section title now sits OUTSIDE the card (the component's
+                // own in-card title is off via showHeader = false), so the
+                // section is named only once instead of twice.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "برنامه هفتگی",
+                        text = "تقویم برنامه هفتگی",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (weekInfo != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
                 }
                 Box(
                     modifier = Modifier
@@ -461,6 +458,7 @@ fun HomeScreen(
                         showThursday = preferences.showThursday,
                         density = preferences.timetableDensity,
                         currentParity = weekInfo?.parity,
+                        showHeader = false,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

@@ -25,21 +25,18 @@ object TimetableExporter {
         }
 
         val sb = StringBuilder()
-        sb.appendLine("═══════════════════════════")
-        sb.appendLine("🗓 برنامه هفتگی انتخاب واحد دانشگاه")
-        sb.appendLine("═══════════════════════════")
+        sb.appendLine("📅 برنامه هفتگی")
+        sb.appendLine()
 
         if (studentName.isNotBlank() || major.isNotBlank() || semester.isNotBlank()) {
-            val studentPart = if (studentName.isNotBlank()) "دانشجو: $studentName" else ""
-            val majorPart = if (major.isNotBlank()) "رشته: $major" else ""
-            val semPart = if (semester.isNotBlank()) semester else ""
-            val infoLine = listOf(studentPart, majorPart, semPart).filter { it.isNotBlank() }.joinToString(" • ")
-            sb.appendLine(infoLine)
-            sb.appendLine("───────────────────────────")
+            if (studentName.isNotBlank()) sb.appendLine("دانشجو: $studentName")
+            if (major.isNotBlank()) sb.appendLine("رشته: $major")
+            if (semester.isNotBlank()) sb.appendLine("نیم‌سال: $semester")
+            sb.appendLine()
         }
 
         val totalCredits = sections.sumOf { it.course.credits }
-        sb.appendLine("تعداد دروس: ${sections.size} درس | مجموع واحدها: $totalCredits واحد")
+        sb.appendLine("${sections.size} درس  •  ${totalCredits} واحد")
         sb.appendLine()
 
         // Group sessions by day of week (0: Saturday to 5: Thursday)
@@ -57,20 +54,19 @@ object TimetableExporter {
 
             if (daySessions.isNotEmpty()) {
                 val dayName = dayNames.getOrElse(dayIndex) { "روز $dayIndex" }
-                sb.appendLine("$dayName:")
+                sb.appendLine("▸ $dayName")
                 daySessions.sortBy { it.second.startMinutes }
 
                 for ((sec, session) in daySessions) {
                     val weekNote = when (session.weekType) {
-                        WeekType.EVEN_WEEKS -> " (هفته‌های زوج)"
-                        WeekType.ODD_WEEKS -> " (هفته‌های فرد)"
+                        WeekType.EVEN_WEEKS -> " (زوج)"
+                        WeekType.ODD_WEEKS -> " (فرد)"
                         else -> ""
                     }
-                    val loc = if (session.location.isNotBlank()) " | کلاس ${session.location}" else ""
-                    val inst = if (sec.section.instructor.isNotBlank()) " | استاد: ${sec.section.instructor}" else ""
+                    val loc = if (session.location.isNotBlank()) " • کلاس ${session.location}" else ""
+                    val inst = if (sec.section.instructor.isNotBlank()) " • ${sec.section.instructor}" else ""
 
-                    sb.appendLine("  • ${sec.course.name} (گروه ${sec.section.sectionCode})")
-                    sb.appendLine("    ${session.startTime} تا ${session.endTime}$weekNote$loc$inst")
+                    sb.appendLine("  ${session.startTime}–${session.endTime}$weekNote  ${sec.course.name} (گروه ${sec.section.sectionCode})$loc$inst")
                 }
                 sb.appendLine()
             }
@@ -81,16 +77,15 @@ object TimetableExporter {
             .sortedBy { it.section.examDate }
 
         if (examList.isNotEmpty()) {
-            sb.appendLine("───────────────────────────")
-            sb.appendLine("📝 برنامه امتحانات پایان‌ترم:")
+            sb.appendLine("▸ امتحانات پایان‌ترم")
             for (sec in examList) {
-                val time = if (sec.section.examStartTime.isNotBlank()) "ساعت ${sec.section.examStartTime}" else ""
-                sb.appendLine("  • ${sec.course.name}: ${sec.section.examDate} $time")
+                val time = if (sec.section.examStartTime.isNotBlank()) " • ساعت ${sec.section.examStartTime}" else ""
+                sb.appendLine("  ${sec.section.examDate}$time  ${sec.course.name}")
             }
-            sb.appendLine("───────────────────────────")
+            sb.appendLine()
         }
 
-        sb.appendLine("ایجاد شده توسط TermChin | ترم‌چین")
+        sb.appendLine("ساخته‌شده با ترم‌چین")
         return sb.toString().trim()
     }
 
