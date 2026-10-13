@@ -91,9 +91,11 @@ fun TermChinBottomBar(
                         )
                     },
                     label = {
+                        // labelMedium (not Small): Persian words like «برنامه‌ساز»
+                        // stay legible on narrow screens and at large font scales.
                         Text(
                             entry.label,
-                            style = MaterialTheme.typography.labelSmall.copy(
+                            style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                             ),
                             maxLines = 1

@@ -382,7 +382,7 @@ fun ScheduleScreen(
                                         Spacer(modifier = Modifier.width(4.dp))
                                     }
                                     Text(
-                                        text = if (isBest) "✨ پیشنهاد برتر" else "پیشنهاد ${generationState.currentIndex + 1} از $count",
+                                        text = if (isBest) "پیشنهاد برتر" else "پیشنهاد ${generationState.currentIndex + 1} از $count",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (isBest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
@@ -482,7 +482,7 @@ fun ScheduleScreen(
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                                     Text(
-                                        text = "⚠️ ${currentWarnings.size} هشدار امتحانی (ساعت نامشخص) — مانع برنامه نیست، ولی بررسی کن:",
+                                        text = "${currentWarnings.size} هشدار امتحانی (ساعت نامشخص) — مانع برنامه نیست، ولی بررسی کن:",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.error
                                     )

@@ -74,6 +74,7 @@ import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.components.WeeklyTimetable
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.TimetableExporter
 import kotlinx.coroutines.Job
@@ -195,7 +196,7 @@ fun HomeScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = TermChinDesign.ScreenMargin, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // A. Compact personalized header (date, week, offline pill, credits).
@@ -283,7 +284,7 @@ fun HomeScreen(
             // Share & Copy Timetable Action Bar
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = TermChinDesign.CardShape,
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 1.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -338,7 +339,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .bringIntoViewRequester(examSectionRequester),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 1.dp,
                     border = androidx.compose.foundation.BorderStroke(
@@ -500,7 +501,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .bringIntoViewRequester(weeklyTimetableRequester)
                         .testTag("home_weekly_timetable_section")
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(TermChinDesign.CardShape)
                         .background(
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f * timetableGlow.value)
                         )
@@ -509,7 +510,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.15f + 0.75f * timetableGlow.value
                             ),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = TermChinDesign.CardShape
                         )
                 ) {
                     WeeklyTimetable(
@@ -547,7 +548,7 @@ internal fun DashboardHeader(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_header_card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = androidx.compose.foundation.BorderStroke(
@@ -617,7 +618,7 @@ internal fun DashboardHeader(
                 // Secondary offline pill: the app works offline; the pill must
                 // never read as a warning or a connectivity requirement.
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 ) {
                     Row(
@@ -695,7 +696,7 @@ internal fun GuidedEmptyState(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_empty_state"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
@@ -717,12 +718,12 @@ internal fun GuidedEmptyState(
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.School,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+                        Icon(
+                            Icons.Default.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(TermChinDesign.EmptyArt)
+                        )
             }
 
             Text(
@@ -766,7 +767,7 @@ private fun GuidedStepRow(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
@@ -833,14 +834,14 @@ private fun GuidedStepRow(
  * duplicating the bottom navigation as a permanent shortcut row.
  */
 @Composable
-private fun ContextualSetupCard(
+internal fun ContextualSetupCard(
     onOpenCourses: () -> Unit,
     onOpenSchedule: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
         ),
@@ -901,7 +902,7 @@ private fun ContextualSetupCard(
  * Home only notes the real count with a single text action.
  */
 @Composable
-private fun SecondaryDocumentsLine(
+internal fun SecondaryDocumentsLine(
     count: Int,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier

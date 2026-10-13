@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.WeekType
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.engine.ScheduleEngine.UpcomingSession
+import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import java.util.Calendar
 import java.util.TimeZone
@@ -220,31 +222,6 @@ fun buildAttentionItems(
 // Dashboard cards (rendering only).
 // ---------------------------------------------------------------------------
 
-/** Small section heading with an optional trailing action. */
-@Composable
-internal fun DashboardSectionHeading(
-    title: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
-        )
-        if (actionLabel != null && onAction != null) {
-            TextButton(onClick = onAction) {
-                Text(actionLabel, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
 /**
  * Shared icon + title header for dashboard sections. The icon is decorative
  * (the title carries the meaning) so it stays silent for accessibility.
@@ -263,7 +240,7 @@ fun DashboardSectionHeader(
             icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(TermChinDesign.IconMd)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -275,7 +252,7 @@ fun DashboardSectionHeader(
 }
 
 /** Stable identity for matching the focused session inside today's list. */
-private fun focusedSessionKey(item: UpcomingSession): String =
+internal fun focusedSessionKey(item: UpcomingSession): String =
     item.section.course.code + "|" + item.section.section.sectionCode + "|" +
         item.session.dayOfWeek.toString() + "|" + item.session.startTime + "|" +
         item.session.endTime
@@ -301,7 +278,7 @@ internal fun NowNextCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_now_next_card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -320,53 +297,59 @@ internal fun NowNextCard(
             }
             when (state) {
                 is NowNextState.Ongoing ->
-                    TodayTimeline(
-                        todayClasses = todayClasses,
-                        focusedKey = focusedSessionKey(state.item),
-                        nowMinutes = nowMinutes,
-                        statusLabelFor = { item ->
-                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
-                                "در حال برگزاری"
-                            } else {
-                                null
-                            }
-                        },
-                        statusFor = { item ->
-                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
-                                if (state.minutesLeft <= 0) {
-                                    "کلاس در حال برگزاری است"
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TodayTimeline(
+                            todayClasses = todayClasses,
+                            focusedKey = focusedSessionKey(state.item),
+                            nowMinutes = nowMinutes,
+                            statusLabelFor = { item ->
+                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                    "در حال برگزاری"
                                 } else {
-                                    "${JalaliDate.toFaDigits(state.minutesLeft)} دقیقه مانده"
+                                    null
                                 }
-                            } else {
-                                null
+                            },
+                            statusFor = { item ->
+                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                    if (state.minutesLeft <= 0) {
+                                        "کلاس در حال برگزاری است"
+                                    } else {
+                                        "${JalaliDate.toFaDigits(state.minutesLeft)} دقیقه مانده"
+                                    }
+                                } else {
+                                    null
+                                }
                             }
-                        }
-                    )
+                        )
+                        TimetableRouteButton(onOpenWeeklyTimetable)
+                    }
                 is NowNextState.UpcomingToday -> {
                     val gapText = gapLineFa(state.item, nowMinutes)
-                    TodayTimeline(
-                        todayClasses = todayClasses,
-                        focusedKey = focusedSessionKey(state.item),
-                        nowMinutes = nowMinutes,
-                        statusLabelFor = { item ->
-                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
-                                "کلاس بعدی"
-                            } else {
-                                null
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TodayTimeline(
+                            todayClasses = todayClasses,
+                            focusedKey = focusedSessionKey(state.item),
+                            nowMinutes = nowMinutes,
+                            statusLabelFor = { item ->
+                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                    "کلاس بعدی"
+                                } else {
+                                    null
+                                }
+                            },
+                            detailFor = { item ->
+                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) gapText else null
+                            },
+                            statusFor = { item ->
+                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                    countdownFa(state.minutesToStart)
+                                } else {
+                                    null
+                                }
                             }
-                        },
-                        detailFor = { item ->
-                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) gapText else null
-                        },
-                        statusFor = { item ->
-                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
-                                countdownFa(state.minutesToStart)
-                            } else {
-                                null
-                            }
-                        }
-                    )
+                        )
+                        TimetableRouteButton(onOpenWeeklyTimetable)
+                    }
                 }
                 is NowNextState.LaterDay -> {
                     Text(
@@ -381,7 +364,9 @@ internal fun NowNextCard(
                     )
                     OutlinedButton(
                         onClick = onOpenWeeklyTimetable,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("home_view_weekly_timetable_button")
                     ) {
                         Text("مشاهده برنامه هفتگی")
                     }
@@ -400,7 +385,7 @@ internal fun NowNextCard(
                                 Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(TermChinDesign.IconMd)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -422,6 +407,22 @@ internal fun NowNextCard(
     }
 }
 /**
+ * Contextual route to the full weekly timetable below. Rendered once per hero
+ * state (branches are exclusive), so the tag stays unique on screen.
+ */
+@Composable
+private fun TimetableRouteButton(onOpenWeeklyTimetable: () -> Unit) {
+    OutlinedButton(
+        onClick = onOpenWeeklyTimetable,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("home_view_weekly_timetable_button")
+    ) {
+        Text("مشاهده برنامه هفتگی")
+    }
+}
+
+/**
  * Plain HH:mm range for one session, e.g. 08:00-10:00.
  */
 private fun timeRangeFa(session: ClassSession): String =
@@ -431,7 +432,7 @@ private fun timeRangeFa(session: ClassSession): String =
  * Meaningful gap before the next class today, or null when there is no gap
  * worth surfacing (back-to-back or overlapping). Pure on explicit inputs.
  */
-private fun gapLineFa(item: UpcomingSession, nowMinutes: Int): String? {
+internal fun gapLineFa(item: UpcomingSession, nowMinutes: Int): String? {
     val gap = item.session.startMinutes - nowMinutes
     if (gap < 5) return null
     return formatGapFa(gap) + " فرصت تا شروع"
@@ -493,7 +494,7 @@ private fun FocusedClassRow(
     nowMinutes: Int?
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
         modifier = Modifier
@@ -503,7 +504,7 @@ private fun FocusedClassRow(
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
+                    .width(TermChinDesign.FocusBarWidth)
                     .height(48.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.primary)
@@ -646,7 +647,7 @@ internal fun OverviewCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_overview_card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -724,7 +725,7 @@ internal fun OverviewCard(
                     Icon(
                         Icons.Default.AutoAwesome,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(TermChinDesign.IconSm)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -781,7 +782,7 @@ internal fun AttentionCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_attention_card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
         ),
@@ -800,7 +801,7 @@ internal fun AttentionCard(
                     Icons.Default.WarningAmber,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(TermChinDesign.IconMd)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -837,7 +838,7 @@ private fun AttentionRow(
         AttentionKind.EXAM_WARNING -> "مشاهده امتحانات"
     }
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -849,7 +850,7 @@ private fun AttentionRow(
                 icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(TermChinDesign.IconMd)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -869,7 +870,9 @@ private fun AttentionRow(
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
                 onClick = onAction,
-                modifier = Modifier.testTag("home_attention_action_${item.kind.name}")
+                modifier = Modifier
+                    .heightIn(min = TermChinDesign.MinTouchHeight)
+                    .testTag("home_attention_action_${item.kind.name}")
             ) {
                 Text(actionLabel, fontWeight = FontWeight.Bold, maxLines = 1)
             }
