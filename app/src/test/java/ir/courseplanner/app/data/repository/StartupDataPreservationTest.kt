@@ -88,9 +88,15 @@ class StartupDataPreservationTest {
             )
             preferencesManager.setColorTheme(AppColorTheme.SLATE)
             preferencesManager.setStudentProfile("امیر", "کامپیوتر", "نیم‌سال اول")
-            // Writes go through DataStore asynchronously — wait for them so the
-            // test asserts on what the app would actually read.
-            withTimeout(10_000) { preferencesManager.preferences.first { it.theme == AppColorTheme.SLATE } }
+            // Writes go through DataStore asynchronously — wait for ALL of them
+            // (not just the theme) so the test asserts on what the app would
+            // actually read. Waiting on the theme alone lets a lagging name
+            // write flake the studentName assert on loaded runners.
+            withTimeout(10_000) {
+                preferencesManager.preferences.first {
+                    it.theme == AppColorTheme.SLATE && it.studentName == "امیر"
+                }
+            }
         }
     }
 
