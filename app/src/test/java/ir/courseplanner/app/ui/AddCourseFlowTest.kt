@@ -161,7 +161,15 @@ class AddCourseFlowTest {
         viewModel.addCatalogCourseToMine(
             viewModel.coursesWithSections.value.first { it.course.code == "MATH101" }.course.id
         )
-        withTimeout(10_000) { viewModel.addCourseSuggestions.first { it.isNotEmpty() } }
+        // Wait for the terminal ranked state (not just any non-empty
+        // emission): on slow runners an intermediate emission still shows
+        // MATH101 as addable, which would make the asserts below flaky.
+        withTimeout(10_000) {
+            viewModel.addCourseSuggestions.first { list ->
+                list.any { it.course.code == "MATH101" && it.alreadyAdded }
+            }
+        }
+        withTimeout(10_000) { viewModel.addableCourseCount.first { it == 1 } }
 
         val mathRows = viewModel.coursesWithSections.value.count { it.course.code == "MATH101" }
         assertEquals(1, mathRows)
