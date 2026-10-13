@@ -1,6 +1,5 @@
 package ir.courseplanner.app.ui.screens
 
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -295,6 +294,7 @@ internal fun AddCourseDiscoveryContent(
                 items(topSuggestions, key = { "sug_${it.course.id}" }) { suggestion ->
                     SuggestionCard(
                         suggestion = suggestion,
+                        highlighted = true,
                         onAdd = { onAdd(suggestion.course.id) },
                         onShowGroups = { onShowGroups(suggestion) }
                     )
@@ -316,9 +316,11 @@ internal fun AddCourseDiscoveryContent(
                 // Single flat list (search results, or everything is already a
                 // top suggestion): every visible course exactly once.
                 val flat = if (query.isBlank() && topSuggestions.isNotEmpty()) topSuggestions else visible
+                val topIds = topSuggestions.map { it.course.id }.toSet()
                 items(flat, key = { "all_${it.course.id}" }) { suggestion ->
                     SuggestionCard(
                         suggestion = suggestion,
+                        highlighted = suggestion.course.id in topIds,
                         onAdd = { onAdd(suggestion.course.id) },
                         onShowGroups = { onShowGroups(suggestion) }
                     )
@@ -329,7 +331,6 @@ internal fun AddCourseDiscoveryContent(
 }
 
 
-// __PART4__
 
 /** Small bold section header inside the discovery list. */
 @Composable
@@ -351,7 +352,6 @@ private fun SectionHeader(title: String, subtitle: String) {
     }
 }
 
-// __PART5__
 
 /**
  * One ranked course: full name (wraps), code, credits, department, group
@@ -362,18 +362,25 @@ private fun SectionHeader(title: String, subtitle: String) {
 @Composable
 private fun SuggestionCard(
     suggestion: CourseSuggestionRanker.CourseSuggestion,
+    highlighted: Boolean = false,
     onAdd: () -> Unit,
     onShowGroups: () -> Unit
 ) {
     val course = suggestion.course
     val best = suggestion.bestGroup
     val compatible = suggestion.status == SuggestionStatus.COMPATIBLE
+    // Top suggestions share one tonal wash (same accent, no extra badges or
+    // shadows) so they read as a group without visual noise.
+    val tonalWash = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("discovery_card_${course.code}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlighted) tonalWash
+            else MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(
             1.dp,
@@ -484,7 +491,6 @@ private fun SuggestionCard(
     }
 }
 
-// __PART6__
 
 /** Compact compatibility badge: the course verdict at a glance. */
 @Composable
@@ -520,7 +526,6 @@ private fun CompatibilityChip(status: SuggestionStatus) {
     }
 }
 
-// __PART7__
 
 /**
  * Real groups of the course with their verdicts: compatible groups can be
@@ -572,7 +577,6 @@ private fun GroupPickerDialog(
     )
 }
 
-// __PART8__
 
 @Composable
 private fun GroupRow(
@@ -696,7 +700,6 @@ private fun GroupVerdictChip(verdict: GroupVerdict) {
     }
 }
 
-// __PART9__
 
 /**
  * Empty catalog: nothing can be discovered yet. Points to the real import

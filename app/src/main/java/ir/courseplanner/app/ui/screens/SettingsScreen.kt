@@ -3,6 +3,7 @@ package ir.courseplanner.app.ui.screens
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -68,6 +69,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,12 +83,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ir.courseplanner.app.BuildConfig
 import ir.courseplanner.app.data.importer.CourseImporter
@@ -228,6 +236,7 @@ fun SettingsScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     var showExportCsvDialog by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showSemesterStartDialog by remember { mutableStateOf(false) }
     var portalFileName by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -542,9 +551,9 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                // Semester start + first-week parity: the basis for even/odd
-                // week calculation. Edited in the profile dialog (single source
-                // of truth); this row shows the current value with a shortcut.
+                // Semester start + first-week parity: the SOLE place to manage
+                // these. They drive the academic even/odd-week calculation, so
+                // they live here — not in the student identity dialog.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -576,9 +585,11 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
-                        onClick = { showEditProfileDialog = true },
+                        onClick = { showSemesterStartDialog = true },
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(34.dp)
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("semester_start_edit_button")
                     ) {
                         Text("تنظیم", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
@@ -966,8 +977,7 @@ fun SettingsScreen(
                     )
                 }
                 Text(
-                    text = "صفحه «لیست دروس ارائه‌شده» پرتال را ذخیره (Save as HTML یا تک‌فایل .mht) و همین‌جا انتخاب کنید؛ " +
-                        "همه دروس با ساعت کلاس، استاد و ظرفیت وارد کاتالوگ می‌شوند و جلوی چشم نیستند.",
+                    text = "همه دروس با ساعت کلاس، استاد و ظرفیت وارد کاتالوگ پنهان می‌شوند؛ افزودن آن‌ها به «دروس من» از صفحه «افزودن درس» انجام می‌شود.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1252,7 +1262,8 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
         )
     }
 
-    // Export Dialog
+    // Export Dialog (JSON): the shared ExportTextDialog below guarantees the
+    // same RTL-first layout and button order as the CSV dialog.
     if (showExportDialog) {
         val importItems = allCoursesWithSections.map { cws ->
             ImportItem(
@@ -1264,58 +1275,21 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
         }
         val exportedJson = CourseImporter.exportToJson(importItems)
 
-        AlertDialog(
-            onDismissRequest = { showExportDialog = false },
-            title = {
-                Text(
-                    text = "خروجی JSON (${importItems.size} درس)",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        ExportTextDialog(
+            title = "خروجی JSON (${importItems.size} درس)",
+            bodyText = exportedJson,
+            copyTestTag = "export_json_copy_button",
+            onDismiss = { showExportDialog = false },
+            onCopy = {
+                // Copies the FULL text (not just the visible preview) so the
+                // user can back it up outside the phone — the only backup path
+                // while OS backup stays disabled.
+                TimetableExporter.copyTextToClipboard(
+                    context = context,
+                    text = exportedJson,
+                    label = "TermChin JSON Export",
+                    toastMessage = "متن JSON در کلیپ‌بورد کپی شد"
                 )
-            },
-            text = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .verticalScroll(rememberScrollState())
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = exportedJson,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Copies the full JSON (not just the visible preview) so
-                    // the user can back it up outside the phone — the only
-                    // backup path while OS backup stays disabled.
-                    OutlinedButton(
-                        onClick = {
-                            TimetableExporter.copyTextToClipboard(
-                                context = context,
-                                text = exportedJson,
-                                label = "TermChin JSON Export",
-                                toastMessage = "متن JSON در کلیپ‌بورد کپی شد"
-                            )
-                        },
-                        modifier = Modifier.testTag("export_json_copy_button")
-                    ) {
-                        Text("کپی")
-                    }
-                    TextButton(onClick = { showExportDialog = false }) {
-                        Text("بستن")
-                    }
-                }
             }
         )
     }
@@ -1333,31 +1307,136 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
         }
         val exportedCsv = CourseImporter.exportToCsv(importItems)
 
+        ExportTextDialog(
+            title = "خروجی CSV (${importItems.size} درس)",
+            bodyText = exportedCsv,
+            copyTestTag = "export_csv_copy_button",
+            onDismiss = { showExportCsvDialog = false },
+            onCopy = {
+                TimetableExporter.copyTextToClipboard(
+                    context = context,
+                    text = exportedCsv,
+                    label = "TermChin CSV Export",
+                    toastMessage = "متن CSV در کلیپ‌بورد کپی شد"
+                )
+            }
+        )
+    }
+
+    // Edit Student Profile Dialog (identity only: semester start lives in
+    // «برنامه هفتگی» with its own dedicated dialog below).
+    if (showEditProfileDialog) {
+        EditProfileDialog(
+            initialName = preferences.studentName,
+            initialMajor = preferences.major,
+            initialSemester = preferences.semesterName,
+            initialCreditTarget = preferences.creditTarget,
+            onDismiss = { showEditProfileDialog = false },
+            onSave = { name, major, semester, target ->
+                viewModel.setStudentProfile(name, major, semester)
+                viewModel.setCreditTarget(target)
+                showEditProfileDialog = false
+            }
+        )
+    }
+
+    // Semester start dialog: the sole editor of the even/odd-week basis.
+    // Same DataStore keys, same ViewModel setters — only the UI path moved.
+    if (showSemesterStartDialog) {
+        val savedStart = preferences.semesterStartEpochDay?.let { JalaliDate.fromEpochDay(it) }
+        EditSemesterStartDialog(
+            initialSemesterStart = savedStart?.toString() ?: "",
+            initialFirstWeekIsOdd = preferences.firstWeekIsOdd,
+            onDismiss = { showSemesterStartDialog = false },
+            onSave = { semesterStart, firstWeekIsOdd ->
+                viewModel.setSemesterStartEpochDay(
+                    semesterStart?.let { JalaliDate.toEpochDay(it.year, it.month, it.day) }
+                )
+                viewModel.setFirstWeekIsOdd(firstWeekIsOdd)
+                showSemesterStartDialog = false
+            }
+        )
+    }
+}
+
+/**
+ * Single implementation behind the JSON and CSV export dialogs, so their
+ * layout, direction and button order can never drift apart.
+ *
+ * RTL-stability contract (no delays, no masking animations, no state hacks):
+ * - Content layer: an explicit RTL provider, so title/buttons are RTL from
+ *   the very first composition whatever the call-site context is.
+ * - Window layer: a Compose Dialog owns a separate Window whose decor
+ *   direction is resolved by the system locale (often LTR), while the app
+ *   forces RTL content — that mismatch is what made the dialog visibly jump
+ *   sides right after opening. The decor direction is pinned to RTL on window
+ *   attach (i.e. before the first draw), synchronously with the dialog
+ *   lifecycle.
+ * - Data layer: JSON/CSV are LTR machine formats, so the preview renders LTR
+ *   (bidi can never reorder the data visually). Copy still uses the raw
+ *   [bodyText] string, never the rendered glyphs.
+ */
+@Composable
+internal fun ExportTextDialog(
+    title: String,
+    bodyText: String,
+    copyTestTag: String,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit
+) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        val view = LocalView.current
+        DisposableEffect(view) {
+            fun pinDialogWindowRtl(v: View) {
+                var parent = v.parent
+                while (parent != null) {
+                    if (parent is DialogWindowProvider) {
+                        parent.window?.decorView?.layoutDirection = View.LAYOUT_DIRECTION_RTL
+                        break
+                    }
+                    parent = parent.parent
+                }
+            }
+            // Recomposition path: already attached, pin in the same frame.
+            if (view.isAttachedToWindow) pinDialogWindowRtl(view)
+            // First-show path: the window attaches after Dialog.show(), still
+            // before its first draw.
+            val attachListener = object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) = pinDialogWindowRtl(v)
+                override fun onViewDetachedFromWindow(v: View) = Unit
+            }
+            view.addOnAttachStateChangeListener(attachListener)
+            onDispose { view.removeOnAttachStateChangeListener(attachListener) }
+        }
         AlertDialog(
-            onDismissRequest = { showExportCsvDialog = false },
+            onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "خروجی CSV (${importItems.size} درس)",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
             text = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .verticalScroll(rememberScrollState())
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = exportedCsv,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .verticalScroll(rememberScrollState())
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = bodyText,
+                            textAlign = TextAlign.Start,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp
+                            ),
+                            modifier = Modifier.testTag("export_preview_text")
                         )
-                    )
+                    }
                 }
             },
             confirmButton = {
@@ -1366,45 +1445,15 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
-                        onClick = {
-                            TimetableExporter.copyTextToClipboard(
-                                context = context,
-                                text = exportedCsv,
-                                label = "TermChin CSV Export",
-                                toastMessage = "متن CSV در کلیپ‌بورد کپی شد"
-                            )
-                        },
-                        modifier = Modifier.testTag("export_csv_copy_button")
+                        onClick = onCopy,
+                        modifier = Modifier.testTag(copyTestTag)
                     ) {
                         Text("کپی")
                     }
-                    TextButton(onClick = { showExportCsvDialog = false }) {
+                    TextButton(onClick = onDismiss) {
                         Text("بستن")
                     }
                 }
-            }
-        )
-    }
-
-    // Edit Student Profile Dialog
-    if (showEditProfileDialog) {
-        val savedStart = preferences.semesterStartEpochDay?.let { JalaliDate.fromEpochDay(it) }
-        EditProfileDialog(
-            initialName = preferences.studentName,
-            initialMajor = preferences.major,
-            initialSemester = preferences.semesterName,
-            initialCreditTarget = preferences.creditTarget,
-            initialSemesterStart = savedStart?.toString() ?: "",
-            initialFirstWeekIsOdd = preferences.firstWeekIsOdd,
-            onDismiss = { showEditProfileDialog = false },
-            onSave = { name, major, semester, target, semesterStart, firstWeekIsOdd ->
-                viewModel.setStudentProfile(name, major, semester)
-                viewModel.setCreditTarget(target)
-                viewModel.setSemesterStartEpochDay(
-                    semesterStart?.let { JalaliDate.toEpochDay(it.year, it.month, it.day) }
-                )
-                viewModel.setFirstWeekIsOdd(firstWeekIsOdd)
-                showEditProfileDialog = false
             }
         )
     }
@@ -1479,21 +1528,17 @@ private fun ImportTextDialog(
 }
 
 @Composable
-private fun EditProfileDialog(
+internal fun EditProfileDialog(
     initialName: String,
     initialMajor: String,
     initialSemester: String,
     initialCreditTarget: Int,
-    initialSemesterStart: String,
-    initialFirstWeekIsOdd: Boolean,
     onDismiss: () -> Unit,
     onSave: (
         name: String,
         major: String,
         semester: String,
-        target: Int,
-        semesterStart: JalaliYmd?,
-        firstWeekIsOdd: Boolean
+        target: Int
     ) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
@@ -1501,12 +1546,6 @@ private fun EditProfileDialog(
     var semester by remember { mutableStateOf(initialSemester) }
     var creditTarget by remember { mutableStateOf(initialCreditTarget.toString()) }
     var creditTargetError by remember { mutableStateOf<String?>(null) }
-    var semesterStartInput by remember { mutableStateOf(initialSemesterStart) }
-    var semesterStartError by remember { mutableStateOf<String?>(null) }
-    var firstWeekIsOdd by remember { mutableStateOf(initialFirstWeekIsOdd) }
-    val parsedStart = remember(semesterStartInput) {
-        semesterStartInput.takeIf { it.isNotBlank() }?.let { JalaliDate.parse(it) }
-    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1565,14 +1604,73 @@ private fun EditProfileDialog(
                     supportingText = { creditTargetError?.let { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val targetInt = creditTarget.normalizeDigitsForNumber().toIntOrNull()
+                    if (targetInt == null || targetInt !in 1..24) {
+                        creditTargetError = "سقف واحد باید عددی بین ۱ تا ۲۴ باشد."
+                        return@Button
+                    }
+                    onSave(name, major, semester, targetInt)
+                }
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("انصراف")
+            }
+        }
+    )
+}
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+/**
+ * Sole editor of the semester start date and first-week parity. These drive
+ * the academic even/odd-week calculation (timetable, schedule engine), so
+ * they live in «برنامه هفتگی» — not in the student identity dialog.
+ * An invalid date blocks saving and shows an inline error; it is never
+ * persisted.
+ */
+@Composable
+internal fun EditSemesterStartDialog(
+    initialSemesterStart: String,
+    initialFirstWeekIsOdd: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (
+        semesterStart: JalaliYmd?,
+        firstWeekIsOdd: Boolean
+    ) -> Unit
+) {
+    var semesterStartInput by remember { mutableStateOf(initialSemesterStart) }
+    var semesterStartError by remember { mutableStateOf<String?>(null) }
+    var firstWeekIsOdd by remember { mutableStateOf(initialFirstWeekIsOdd) }
+    val parsedStart = remember(semesterStartInput) {
+        semesterStartInput.takeIf { it.isNotBlank() }?.let { JalaliDate.parse(it) }
+    }
 
-                // Semester start: academic even/odd weeks are counted from here.
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "شروع ترم و هفته اول",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text(
-                    text = "شروع کلاس‌های دانشگاه (برای هفته زوج/فرد)",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "مبنای محاسبه هفته‌های زوج و فرد در جدول برنامه و برنامه‌ساز:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = semesterStartInput,
@@ -1600,7 +1698,9 @@ private fun EditProfileDialog(
                             else -> Text("خالی بماند یعنی هفته زوج/فرد نامشخص می‌ماند.")
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("semester_start_input")
                 )
 
                 Text(
@@ -1630,17 +1730,13 @@ private fun EditProfileDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val targetInt = creditTarget.normalizeDigitsForNumber().toIntOrNull()
-                    if (targetInt == null || targetInt !in 1..24) {
-                        creditTargetError = "سقف واحد باید عددی بین ۱ تا ۲۴ باشد."
-                        return@Button
-                    }
                     if (semesterStartInput.isNotBlank() && parsedStart == null) {
                         semesterStartError = "تاریخ معتبر نیست (مثلاً ۱۴۰۴/۰۷/۰۵)."
                         return@Button
                     }
-                    onSave(name, major, semester, targetInt, parsedStart, firstWeekIsOdd)
-                }
+                    onSave(parsedStart, firstWeekIsOdd)
+                },
+                modifier = Modifier.testTag("semester_start_save_button")
             ) {
                 Text("ذخیره")
             }
