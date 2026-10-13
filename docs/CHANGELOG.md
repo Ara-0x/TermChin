@@ -4,6 +4,41 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.9.0] (24) — 2026-10-13 UI polish, RTL stability & settings cleanup
+
+This release matures the 2.8 interface without touching capabilities or stored data:
+ the semester-start setting lives in exactly one place, the export dialogs
+ stop jumping sides, and the discovery/settings visuals read as one language.
+
+### Changed
+
+- **Single home for semester start.** «شروع ترم و هفته اول» is now managed
+  only in «برنامه هفتگی» through a dedicated `EditSemesterStartDialog`
+  (date validation + odd/even chips + unset state). `EditProfileDialog` keeps
+  only name/major/semester/credit-target. Same DataStore keys, same
+  `setSemesterStartEpochDay`/`setFirstWeekIsOdd` setters — stored values and
+  even/odd calculations are untouched.
+- **RTL-stable export dialogs.** Both JSON and CSV exports now share one
+  `ExportTextDialog`: explicit RTL content from the first composition, the
+  dialog window's decor pinned to RTL on attach (it otherwise follows the
+  system locale while the app forces RTL content — the mismatch behind the
+  visible side-jump), identical «کپی/بستن» order, and an LTR preview so bidi
+  can never reorder the machine data. Copy still hands over the full raw
+  string. No delays, no masking animations, no state hacks.
+- **Discovery polish.** Top-5 suggestion cards share one tonal wash (same
+  accent, no extra badges/shadows); dead `__PARTn__` markers and a duplicate
+  import removed.
+- **Settings copy.** The duplicated portal-import explainer is trimmed to one
+  line; categories and capabilities unchanged.
+
+### Tests
+
+- New `SettingsDialogsTest` (6 Compose tests): RTL button order on first
+  composition, order stability across recomposition, full-text copy handoff,
+  semester-dialog invalid-date rejection and valid save with parity, profile
+  dialog carrying no semester fields.
+- Baseline: **31 suites / 206 tests, 0 failures**.
+
 ## [2.8.0] (23) — 2026-10-13 smart course discovery + settings regroup
 
 The «افزودن درس» FAB on «دروس من» now opens a smart discovery screen instead
