@@ -4,6 +4,54 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.13.0] (28) — 2026-10-13 calmer surfaces, slimmer settings, one card scale
+
+No logic, stored value, flow or theme removed. A visual de-noising pass:
+the ambient glow introduced in 2.12.0 is gone, cards share one radius and
+border, the Home header is split around a dedicated date card, and Settings
+loses its numbering.
+
+### Changed
+
+- **Ambient glow removed.** The `heroGlow` overlay on the Home header,
+  «امروز چه خبر؟» and the selected date cell is deleted; the selected cell is
+  now a flat accent tint with a 2dp border and 2dp shadow instead of a
+  gradient. Nothing on screen looks "lit up" anymore — selection reads from
+  tint + border weight.
+- **One card scale across the app.** Every card (Home, Courses, Schedule,
+  Settings, weekly timetable) shares `CardShape` (16dp) and a 1dp border; the
+  timetable card border drops from 1.2dp to 1dp and unselected date cells
+  lose their 1dp shadow. All 8 themes, light + dark, RTL and saved
+  preferences unchanged.
+- **Home header split into two cards.** `DashboardHeader` keeps identity only
+  (greeting, semester • major, credits progress); the new `TodayDateCard`
+  (`home_today_date_card`) carries the Jalali date *and* the academic week
+  number «هفته X (Y)», since those are two views of one fact. `weekLabel` was
+  removed from `NowNextCard`, which no longer duplicates it.
+- **Free day cells print nothing** under the Jalali day number — the missing
+  class dots already say "no classes today"; the old clipped placeholder is
+  gone.
+
+### Removed
+
+- **«واحدهای من» status tab** (`CourseStatusFilter.ENROLLED`). It listed
+  enrolled sections while «دروس من» already covers every enrolled course, so
+  it was a third copy of the same list. `MY_COURSES` and `ALL` remain; the
+  default filter, search, sort and every stored value are unchanged.
+- **Settings section numbering** — the ۱…۶ group titles and the numeric badge
+  in `SettingsGroupHeader`. Group/card paddings are unified to 12dp and card
+  borders to `outlineVariant` at 0.4 alpha.
+- **«دروس من» workspace hero header** on Courses. The bottom bar plus the
+  count row above the list already orient the user, and the screen now starts
+  with the search bar in the thumb zone.
+
+### Tests
+
+- New `TodayDateCard` test plus rewritten `DashboardHeader` date/week test.
+  All existing tags (`home_header_card`, `home_now_next_card`,
+  `weekly_timetable_day_*`) preserved.
+- Baseline: **34 suites / 244 tests, 0 failures**.
+
 ## [2.12.0] (27) — 2026-10-13 midnight theme, warmer home, shared tokens
 
 No features removed, no logic or stored values changed. A navy-character
@@ -32,14 +80,11 @@ token alignment across Home and Courses.
 - Course and discovery cards use the shared `TermChinDesign` card/row
   shapes — zero visual delta, one source of truth. No field removed, no flow
   touched.
-- **Premium finish (Linear/Raycast-inspired, in place):** the day selector
-  inside `WeeklyTimetable` is now a horizontal weekly date strip — date
-  cells with weekday + Jalali day number, clear selected/today states, class
-  indicator dots, Persian counts and animated scrolling. Same selection
-  model, same `weekly_timetable_day_*` tags, same timetable sync. Hero
-  cards (Home header, «امروز چه خبر؟», «دروس من») gain a soft ambient glow
-  derived from the ACTIVE theme accent — all 8 themes, light + dark, RTL
-  and saved preferences untouched.
+- **Premium date strip:** the day selector inside `WeeklyTimetable` is now a
+  horizontal weekly date strip — date cells with weekday + Jalali day number,
+  clear selected/today states, class indicator dots, Persian counts and
+  animated scrolling. Same selection model, same `weekly_timetable_day_*`
+  tags, same timetable sync.
 
 ### Tests
 
