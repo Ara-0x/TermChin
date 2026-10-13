@@ -57,7 +57,7 @@ object TimetableExporter {
 
             if (daySessions.isNotEmpty()) {
                 val dayName = dayNames.getOrElse(dayIndex) { "روز $dayIndex" }
-                sb.appendLine("📌 $dayName:")
+                sb.appendLine("$dayName:")
                 daySessions.sortBy { it.second.startMinutes }
 
                 for ((sec, session) in daySessions) {
@@ -70,7 +70,7 @@ object TimetableExporter {
                     val inst = if (sec.section.instructor.isNotBlank()) " | استاد: ${sec.section.instructor}" else ""
 
                     sb.appendLine("  • ${sec.course.name} (گروه ${sec.section.sectionCode})")
-                    sb.appendLine("    ⏰ ${session.startTime} تا ${session.endTime}$weekNote$loc$inst")
+                    sb.appendLine("    ${session.startTime} تا ${session.endTime}$weekNote$loc$inst")
                 }
                 sb.appendLine()
             }

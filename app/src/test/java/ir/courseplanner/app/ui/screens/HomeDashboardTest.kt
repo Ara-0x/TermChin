@@ -5,8 +5,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.Course
 import ir.courseplanner.app.data.model.CourseSection
@@ -272,6 +274,53 @@ class HomeDashboardPureTest {
         assertEquals("۱۲۳", JalaliDate.toFaDigits(123))
         assertEquals("کد ۱۰۱", JalaliDate.toFaDigits("کد 101"))
     }
+
+    // -- timeline identity ---------------------------------------------------
+
+    private fun occurrence(
+        code: String = "MATH101",
+        sectionCode: String = "01",
+        day: Int = 3,
+        start: String = "10:00",
+        end: String = "12:00",
+        ongoing: Boolean = false
+    ): UpcomingSession {
+        val section = CourseSection(courseId = 1, sectionCode = sectionCode)
+        val sec = SectionWithDetails(
+            section = section,
+            course = Course(id = 1, code = code, name = "درس"),
+            sessions = listOf(
+                ClassSession(sectionId = 1, dayOfWeek = day, startTime = start, endTime = end)
+            )
+        )
+        return UpcomingSession(sec, sec.sessions.single(), day, ongoing)
+    }
+
+    @Test
+    fun `focused key ignores the ongoing flag`() {
+        val plain = occurrence(ongoing = false)
+        val live = occurrence(ongoing = true)
+
+        assertEquals(focusedSessionKey(plain), focusedSessionKey(live))
+    }
+
+    @Test
+    fun `focused key separates groups days and times`() {
+        val base = occurrence()
+        assertTrue(focusedSessionKey(base) != focusedSessionKey(occurrence(sectionCode = "02")))
+        assertTrue(focusedSessionKey(base) != focusedSessionKey(occurrence(day = 4)))
+        assertTrue(focusedSessionKey(base) != focusedSessionKey(occurrence(start = "14:00", end = "16:00")))
+        assertTrue(focusedSessionKey(base) != focusedSessionKey(occurrence(code = "PHYS204")))
+    }
+
+    @Test
+    fun `gap line surfaces meaningful gaps only`() {
+        val item = occurrence(start = "10:00")
+
+        assertEquals("۲ ساعت فرصت تا شروع", gapLineFa(item, 480))
+        assertNull(gapLineFa(item, 597))
+        assertNull(gapLineFa(item, 605))
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -513,5 +562,103 @@ class HomeDashboardUiTest {
         composeTestRule.onNodeWithText("ورود اطلاعات درسی").assertIsDisplayed()
         composeTestRule.onNodeWithText("انتخاب درس‌ها").assertIsDisplayed()
         composeTestRule.onNodeWithText("ساخت برنامه هوشمند").assertIsDisplayed()
+    }
+
+    @Test
+    fun focusedClassAppearsExactlyOnceInTimeline() {
+        val first = upcoming(3, "08:00", "10:00", false)
+        val focused = upcoming(3, "10:00", "12:00", false)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                NowNextCard(
+                    todayIdx = 3,
+                    todayClasses = listOf(first, focused),
+                    state = NowNextState.UpcomingToday(focused, 35),
+                    weekLabel = null,
+                    nowMinutes = 565,
+                    onOpenWeeklyTimetable = {},
+                    onManageCourses = {}
+                )
+            }
+        }
+
+        // The focused class is emphasized inline, never duplicated as a hero.
+        composeTestRule.onAllNodesWithTag("home_now_next_headline").assertCountEquals(1)
+        composeTestRule.onNodeWithText("۳۵ دقیقه تا شروع کلاس").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun laterDayShowsFutureDayWithTimetableRoute() {
+        val item = upcoming(4, "08:00", "10:00", false)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                NowNextCard(
+                    todayIdx = 3,
+                    todayClasses = emptyList(),
+                    state = NowNextState.LaterDay(item),
+                    weekLabel = null,
+                    nowMinutes = 700,
+                    onOpenWeeklyTimetable = {},
+                    onManageCourses = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("کلاس‌های امروز تمام شد").assertIsDisplayed()
+        composeTestRule.onNodeWithText("چهارشنبه", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun ongoingStateKeepsTimetableRoute() {
+        val item = upcoming(3, "10:00", "12:00", true)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                NowNextCard(
+                    todayIdx = 3,
+                    todayClasses = listOf(item),
+                    state = NowNextState.Ongoing(item, 70),
+                    weekLabel = null,
+                    nowMinutes = 620,
+                    onOpenWeeklyTimetable = {},
+                    onManageCourses = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("در حال برگزاری").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun contextualSetupCardRoutesToBothWorkflows() {
+        var courses = false
+        var schedule = false
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ContextualSetupCard(
+                    onOpenCourses = { courses = true },
+                    onOpenSchedule = { schedule = true }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("دروس").performClick()
+        assertTrue(courses)
+        composeTestRule.onNodeWithText("برنامه‌ساز").performClick()
+        assertTrue(schedule)
+    }
+
+    @Test
+    fun documentsLineShowsRealCount() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                SecondaryDocumentsLine(count = 3, onOpen = {})
+            }
+        }
+
+        composeTestRule.onNodeWithText("۳ جزوه ثبت شده").assertIsDisplayed()
+        composeTestRule.onNodeWithText("مشاهده جزوات").assertIsDisplayed()
     }
 }

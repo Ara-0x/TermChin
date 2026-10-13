@@ -160,7 +160,7 @@ object PooyaHtmlParser {
                 val groupCount = parsed.items.sumOf { it.sections.size }
                 val base = "تعداد ${parsed.items.size} درس در $groupCount گروه از فایل پرتال وارد کاتالوگ شد."
                 val warningNote = if (parsed.warnings.isNotEmpty()) {
-                    " ⚠️ ${parsed.warnings.size} ردیف نیاز به بررسی دارد: ${parsed.warnings.take(2).joinToString("؛ ")}"
+                    " ${parsed.warnings.size} ردیف نیاز به بررسی دارد: ${parsed.warnings.take(2).joinToString("؛ ")}"
                 } else ""
                 ImportResult.Success(
                     items = parsed.items,

@@ -151,7 +151,7 @@ fun ConflictBanner(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (hasConflict) {
-                                "⚠️ ${conflicts.size} تداخل در برنامه انتخابی یافت شد"
+                                "${conflicts.size} تداخل در برنامه انتخابی یافت شد"
                             } else {
                                 "برنامه هفتگی کاملاً هماهنگ و بدون تداخل است"
                             },
