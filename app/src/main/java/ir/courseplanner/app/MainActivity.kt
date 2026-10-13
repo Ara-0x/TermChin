@@ -59,6 +59,7 @@ import ir.courseplanner.app.data.preferences.ThemeMode
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.components.UpdateAvailableDialog
+import ir.courseplanner.app.ui.screens.AddCourseScreen
 import ir.courseplanner.app.ui.screens.CoursesScreen
 import ir.courseplanner.app.ui.screens.DocumentsScreen
 import ir.courseplanner.app.ui.screens.HomeScreen
@@ -176,6 +177,9 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
             }
         },
         bottomBar = {
+            // The discovery sub-screen is a full page of its own: standard
+            // back affordance in its header replaces the bottom navigation.
+            if (currentDestination != AppDestination.ADD_COURSE) {
             Surface(
                 modifier = Modifier
                     .shadow(8.dp)
@@ -292,6 +296,7 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
                     )
                 }
             }
+            }
         }
     ) { innerPadding ->
         val screenModifier = Modifier
@@ -315,6 +320,9 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
                 AppDestination.SCHEDULE -> ScheduleScreen(viewModel = viewModel, modifier = screenModifier)
                 AppDestination.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, modifier = screenModifier)
                 AppDestination.SETTINGS -> SettingsScreen(viewModel = viewModel, modifier = screenModifier)
+                // Discovery sub-screen of Courses: full page with its own
+                // back button; no extra bottom-nav tab is created for it.
+                AppDestination.ADD_COURSE -> AddCourseScreen(viewModel = viewModel, modifier = screenModifier)
             }
         }
     }

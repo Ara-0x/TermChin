@@ -500,6 +500,88 @@ object CourseImporter {
     }
 
     /**
+     * Exports current list of courses & sections to CSV using the exact column
+     * layout [parseCsv] accepts (one row per class session; sections without
+     * sessions still get one row with empty session columns), so an export
+     * always re-imports cleanly. Fields containing commas/quotes/newlines are
+     * quoted per RFC 4180.
+     */
+    fun exportToCsv(items: List<ImportItem>): String {
+        val header = "course_code,course_name,department,credits,section_code,instructor," +
+            "capacity,exam_date,exam_start,exam_end,day_of_week,start_time,end_time,location,week_type,degree"
+        val lines = mutableListOf(header)
+        for (item in items) {
+            if (item.sections.isEmpty()) {
+                lines.add(
+                    listOf(
+                        item.course.code, item.course.name, item.course.department,
+                        item.course.credits.toString(), "", "", "", "", "", "",
+                        "", "", "", "", "", item.course.degree.orEmpty()
+                    ).joinToString(",") { escapeCsvField(it) }
+                )
+                continue
+            }
+            for (sec in item.sections) {
+                if (sec.sessions.isEmpty()) {
+                    lines.add(
+                        csvRow(
+                            item, sectionCode = sec.section.sectionCode,
+                            instructor = sec.section.instructor, capacity = sec.section.capacity,
+                            examDate = sec.section.examDate, examStart = sec.section.examStartTime,
+                            examEnd = sec.section.examEndTime, day = "", start = "", end = "",
+                            location = "", weekType = ""
+                        )
+                    )
+                    continue
+                }
+                for (sess in sec.sessions) {
+                    lines.add(
+                        csvRow(
+                            item, sectionCode = sec.section.sectionCode,
+                            instructor = sec.section.instructor, capacity = sec.section.capacity,
+                            examDate = sec.section.examDate, examStart = sec.section.examStartTime,
+                            examEnd = sec.section.examEndTime, day = sess.dayOfWeek.toString(),
+                            start = sess.startTime, end = sess.endTime,
+                            location = sess.location,
+                            weekType = if (sess.weekType == WeekType.EVERY_WEEK) "" else sess.weekType.name
+                        )
+                    )
+                }
+            }
+        }
+        return lines.joinToString("\n")
+    }
+
+    private fun csvRow(
+        item: ImportItem,
+        sectionCode: String,
+        instructor: String,
+        capacity: Int,
+        examDate: String,
+        examStart: String,
+        examEnd: String,
+        day: String,
+        start: String,
+        end: String,
+        location: String,
+        weekType: String
+    ): String = listOf(
+        item.course.code, item.course.name, item.course.department,
+        item.course.credits.toString(), sectionCode, instructor, capacity.toString(),
+        examDate, examStart, examEnd, day, start, end, location, weekType,
+        item.course.degree.orEmpty()
+    ).joinToString(",") { escapeCsvField(it) }
+
+    private fun escapeCsvField(value: String): String {
+        return if (value.contains(',') || value.contains('"') ||
+            value.contains('\n') || value.contains('\r')
+        ) {
+            "\"" + value.replace("\"", "\"\"") + "\""
+        } else {
+            value
+        }
+    }
+    /**
      * Exports current list of courses & sections to clean formatted JSON.
      */
     fun exportToJson(items: List<ImportItem>): String {

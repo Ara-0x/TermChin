@@ -141,9 +141,9 @@ fun CoursesScreen(
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { showAddCourseDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "افزودن درس دستی") },
-                text = { Text("افزودن درس دستی", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
+                onClick = { viewModel.openAddCourse() },
+                icon = { Icon(Icons.Default.Add, contentDescription = "افزودن درس") },
+                text = { Text("افزودن درس", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp),
@@ -683,10 +683,19 @@ fun CoursesScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "کد درس (مثلاً 10559) را در کادر جست‌وجوی بالا وارد کنید تا از کاتالوگ به دروس شما اضافه شود.",
+                                    text = "از صفحه «افزودن درس» می‌توانید پیشنهادهای سازگار با برنامه فعلی را ببینید و بدون وارد کردن کد، درس اضافه کنید.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Button(
+                                    onClick = { viewModel.openAddCourse() },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("مشاهده پیشنهادها و افزودن درس")
+                                }
                             } else {
                                 Text(
                                     text = "هیچ درسی با این مشخصات یافت نشد.",
@@ -705,12 +714,12 @@ fun CoursesScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Button(
-                                        onClick = { showAddCourseDialog = true },
+                                        onClick = { viewModel.openAddCourse() },
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("افزودن درس دستی")
+                                        Text("افزودن درس")
                                     }
                                     TextButton(onClick = { viewModel.clearCourseFilters() }) {
                                         Text("حذف همه فیلترها", fontWeight = FontWeight.Bold)

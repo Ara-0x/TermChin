@@ -24,6 +24,7 @@ import ir.courseplanner.app.data.preferences.ThemeMode
 import ir.courseplanner.app.data.preferences.TimetableDensity
 import ir.courseplanner.app.data.preferences.UserPreferences
 import ir.courseplanner.app.data.repository.CourseRepository
+import ir.courseplanner.app.engine.CourseSuggestionRanker
 import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.engine.ScheduleMetrics
@@ -50,7 +51,9 @@ enum class AppDestination {
     COURSES,
     SCHEDULE,
     DOCUMENTS,
-    SETTINGS
+    SETTINGS,
+    /** Sub-screen of Courses: smart discovery + add course (not a bottom-nav tab). */
+    ADD_COURSE
 }
 
 data class ManualSessionInput(
@@ -422,6 +425,54 @@ class CoursePlannerViewModel @Inject constructor(
     fun setOnlyWithSessions(only: Boolean) {
         _onlyWithSessions.value = only
     }
+
+    // Add-course discovery screen state: its own local search keeps the
+    // Courses tab search untouched, but both read the same Room sources.
+    private val _addCourseQuery = MutableStateFlow("")
+    val addCourseQuery: StateFlow<String> = _addCourseQuery.asStateFlow()
+
+    fun onAddCourseQueryChange(query: String) {
+        _addCourseQuery.value = query
+    }
+
+    /** Courses → smart discovery sub-screen; back returns to «دروس من». */
+    fun openAddCourse() {
+        _addCourseQuery.value = ""
+        _currentDestination.value = AppDestination.ADD_COURSE
+    }
+
+    /**
+     * Ranked catalog for the discovery screen, computed off the main thread:
+     * real groups + enrolled program + optimization preference. Query
+     * filtering is applied on top so the full result stays reachable.
+     */
+    private val rankedCatalogSuggestions: StateFlow<List<CourseSuggestionRanker.CourseSuggestion>> =
+        combine(
+            coursesWithSections,
+            sectionsByCourse,
+            enrolledSections,
+            _optimizationPreference
+        ) { courses, byCourse, enrolled, preference ->
+            CourseSuggestionRanker.rank(courses, byCourse, enrolled, preference)
+        }.flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Ranked catalog filtered by the discovery search (blank = everything). */
+    val addCourseSuggestions: StateFlow<List<CourseSuggestionRanker.CourseSuggestion>> =
+        combine(rankedCatalogSuggestions, _addCourseQuery) { ranked, query ->
+            if (query.isBlank()) ranked
+            else ranked.filter { suggestion ->
+                coursesWithSections.value.firstOrNull { it.course.id == suggestion.course.id }
+                    ?.let { CourseSuggestionRanker.matchesQuery(it, query) } == true
+            }
+        }.flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Courses the student can still add (header count), excluding «دروس من». */
+    val addableCourseCount: StateFlow<Int> = rankedCatalogSuggestions
+        .map { ranked -> ranked.count { !it.alreadyAdded } }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /** Number of non-default catalog filters (for the filter-panel badge). */
     fun activeFilterCount(): Int {

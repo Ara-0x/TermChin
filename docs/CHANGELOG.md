@@ -4,6 +4,46 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.8.0] (23) — 2026-10-13 smart course discovery + settings regroup
+
+The «افزودن درس» FAB on «دروس من» now opens a smart discovery screen instead
+of the manual form: ranked suggestions computed from the real catalog groups,
+current enrollments and the active optimization preference, plus the full
+searchable catalog below them. Settings is regrouped into six clear
+categories; all previous capabilities are kept and CSV export is added.
+
+### Added
+
+- **Smart discovery screen (`AddCourseScreen`):** header with addable-course
+  count, offline search (name/code/department/instructor), top-5 compatible
+  suggestions with computed reasons, full catalog list, and a group picker
+  showing real groups with conflict state and direct enrollment.
+- **`CourseSuggestionRanker` (engine, testable):** per-course ranking over
+  real groups — conflict-free first, then smallest gap increase, then fewest
+  new university days, then late classes only under `NO_EARLY_MORNING`, with a
+  deterministic code/name/id tie-break. Incomplete time data is never treated
+  as valid; no invented scores.
+- **Settings «خروجی و پشتیبان»:** new CSV export (`CourseImporter.exportToCsv`)
+  using the exact layout the CSV importer accepts, with a copy button next to
+  the JSON export.
+- **Settings «برنامه هفتگی»:** now also shows the semester start date and
+  first-week parity (the even/odd basis) with a shortcut to edit them; the
+  profile dialog remains the single editor.
+
+### Fixed
+
+- Discovery list no longer renders a card twice when every visible course is
+  already a top suggestion.
+- `AddCourseFlowTest`: three tests were nested inside another test body and
+  never executed — flattened so all five flow tests run.
+
+### Tests
+
+- New `CourseSuggestionRankerTest` (18 tests), `AddCourseScreenTest`
+  (4 Compose tests) and `CourseImporterCsvExportTest` (3 tests, incl.
+  export→import round trip); `AddCourseFlowTest` now runs all 5 tests.
+  Baseline: **30 suites / 200 tests, 0 failures**.
+
 ## [2.7.5] — 2026-10-05 update-check hotfix (independent audit)
 
 An independent audit of the update system found that the feature could never

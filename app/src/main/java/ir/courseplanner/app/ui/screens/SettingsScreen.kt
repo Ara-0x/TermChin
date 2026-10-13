@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,6 +96,7 @@ import ir.courseplanner.app.data.model.CourseWithSections
 import ir.courseplanner.app.data.preferences.AppColorTheme
 import ir.courseplanner.app.data.preferences.ThemeMode
 import ir.courseplanner.app.data.preferences.TimetableDensity
+import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.theme.paletteOf
@@ -106,6 +108,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val MAX_IMPORT_CHARS = 15_000_000
+
+/**
+ * Shared header of the six settings categories: meaningful icon, short title
+ * and a clear one-line description with uniform spacing and typography.
+ */
+@Composable
+private fun SettingsCategoryTitle(
+    icon: ImageVector,
+    title: String
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
 
 /** Byte cap for the portal picker: single-file (.mht) archives embed images. */
 private const val MAX_IMPORT_BYTES = 24_000_000
@@ -192,11 +219,14 @@ fun SettingsScreen(
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
+    // ۳. ترجیحات انتخاب واحد: منبع state واحد مشترک با صفحه برنامه‌ساز.
+    val optimizationPref by viewModel.optimizationPreference.collectAsStateWithLifecycle()
 
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var showImportCsvDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
+    var showExportCsvDialog by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var portalFileName by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -281,15 +311,15 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Column {
+        // Header: عنوان و توضیح کوتاه صفحه اصلی تنظیمات
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "تنظیمات و پایگاه داده آفلاین",
+                text = "تنظیمات",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "دریافت اطلاعات درس‌ها، پشتیبان‌گیری و تنظیمات داخلی",
+                text = "ظاهر برنامه، برنامه هفتگی، ترجیحات انتخاب واحد، اطلاعات دانشجو و مدیریت داده‌های آفلاین",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -328,7 +358,7 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Personalization & Color Palettes
+        // ۱. ظاهر و شخصی‌سازی
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -340,20 +370,11 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Palette,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "شخصی‌سازی تم و رنگ‌بندی",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                // «ظاهر و شخصی‌سازی»: عنوان، توضیح و کنترل‌های حالت نمایش و پالت.
+                SettingsCategoryTitle(
+                    icon = Icons.Default.Palette,
+                    title = "ظاهر و شخصی‌سازی"
+                )
 
                 Text(
                     text = "حالت نمایش و پالت رنگی مورد نظر خود را برای محیط برنامه انتخاب کنید:",
@@ -426,7 +447,8 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Student Profile & Credit Target
+
+        // ۲. برنامه هفتگی
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -438,26 +460,224 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // «برنامه هفتگی»: توضیح کوتاه و کنترل‌های نمایش جدول و هفته آموزشی.
+                SettingsCategoryTitle(
+                    icon = Icons.Default.ViewWeek,
+                    title = "برنامه هفتگی"
+                )
+
+                Text(
+                    text = "نحوه نمایش جدول هفتگی و مبنای محاسبه هفته‌های زوج و فرد:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Show Thursday Toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp)
+                    ) {
                         Text(
-                            text = "مشخصات دانشجو و سقف واحد",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "نمایش ستون روز پنج‌شنبه",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "با خاموش کردن، پنج‌شنبه پنهان شده و ستون روزهای شنبه تا چهارشنبه فضای بزرگ‌تری دارند.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
+                    Switch(
+                        checked = preferences.showThursday,
+                        onCheckedChange = { viewModel.setShowThursday(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Density Selector
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "ارتفاع و تراکم خانه‌های جدول:",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TimetableDensity.values().forEach { density ->
+                            val isSelected = preferences.timetableDensity == density
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.setTimetableDensity(density) },
+                                label = {
+                                    Text(
+                                        density.titleFa,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Semester start + first-week parity: the basis for even/odd
+                // week calculation. Edited in the profile dialog (single source
+                // of truth); this row shows the current value with a shortcut.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "شروع ترم و هفته اول",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        val savedStart = preferences.semesterStartEpochDay
+                            ?.let { JalaliDate.fromEpochDay(it) }
+                        Text(
+                            text = if (savedStart != null) {
+                                "شروع کلاس‌ها: $savedStart • هفته اول " +
+                                    if (preferences.firstWeekIsOdd) "فرد" else "زوج"
+                            } else {
+                                "تاریخ شروع ترم تنظیم نشده؛ هفته زوج/فرد نامشخص می‌ماند."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = { showEditProfileDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text("تنظیم", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // ۳. ترجیحات انتخاب واحد: همان منبع state مشترک با صفحه برنامه‌ساز.
+        // هیچ ذخیره‌سازی یا منطق تازه‌ای اضافه نشده؛ فقط ورودی دیگری به
+        // [viewModel.optimizationPreference] است تا انتخاب کاربر در تمام
+        // صفحات هماهنگ بماند.
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SettingsCategoryTitle(
+                    icon = Icons.Default.Tune,
+                    title = "ترجیحات انتخاب واحد"
+                )
+                Text(
+                    text = "معیار رتبه‌بندی برنامه‌ها در صفحه برنامه‌ساز. تغییر آن در همین‌جا یا در صفحه برنامه‌ساز، همان انتخاب واحد را به‌روز می‌کند:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OptimizationPreference.values().forEach { pref ->
+                        val isSelected = optimizationPref == pref
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.setOptimizationPreference(pref) },
+                            label = {
+                                Text(
+                                    pref.titleFa,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
+                }
+                Text(
+                    text = optimizationPref.descriptionFa,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+
+        // ۴. اطلاعات دانشجو و ترم
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // «اطلاعات دانشجو و ترم»: خلاصه پروفایل و اقدام ویرایش.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        SettingsCategoryTitle(
+                            icon = Icons.Default.Person,
+                            title = "اطلاعات دانشجو و ترم"
+                        )
+                        Text(
+                            text = "نام، رشته، نیم‌سال جاری و هدف تعداد واحد:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = { showEditProfileDialog = true },
                         shape = RoundedCornerShape(10.dp),
@@ -605,104 +825,8 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Timetable Layout Preferences
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.ViewWeek,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "تنظیمات تقویم و جدول هفتگی",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
 
-                // Show Thursday Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 12.dp)
-                    ) {
-                        Text(
-                            text = "نمایش ستون روز پنج‌شنبه",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "با خاموش کردن، پنج‌شنبه پنهان شده و ستون روزهای شنبه تا چهارشنبه فضای بزرگ‌تری دارند.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Switch(
-                        checked = preferences.showThursday,
-                        onCheckedChange = { viewModel.setShowThursday(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                // Density Selector
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "ارتفاع و تراکم خانه‌های جدول:",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TimetableDensity.values().forEach { density ->
-                            val isSelected = preferences.timetableDensity == density
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.setTimetableDensity(density) },
-                                label = {
-                                    Text(
-                                        density.titleFa,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Section 1: Data Import
+        // ۵. مدیریت داده‌ها — بخش ۱: ورود اطلاعات
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -714,20 +838,11 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "دریافت اطلاعات درس‌ها (Import)",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                // «مدیریت داده‌ها — ورود اطلاعات»: ورود آفلاین کاتالوگ از فایل یا متن.
+                SettingsCategoryTitle(
+                    icon = Icons.Default.CloudDownload,
+                    title = "ورود اطلاعات"
+                )
                 Text(
                     text = "می‌توانید کاتالوگ دروس را کاملاً آفلاین وارد کنید. فایل را انتخاب کنید یا متن را بچسبانید:",
                     style = MaterialTheme.typography.bodySmall,
@@ -859,7 +974,7 @@ fun SettingsScreen(
             }
         }
 
-        // Section 2: Data Export
+        // ۵. مدیریت داده‌ها — بخش ۲: خروجی و پشتیبان
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -871,22 +986,13 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.FileDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                    text = "خروجی دروس و گروه‌ها (Export)",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                // «مدیریت داده‌ها — خروجی و پشتیبان»: خروجی JSON و اشتراک برنامه هفتگی.
+                SettingsCategoryTitle(
+                    icon = Icons.Default.FileDownload,
+                    title = "خروجی و پشتیبان"
+                )
                 Text(
-                    text = "از دروس و گروه‌ها خروجی JSON بگیرید. جزوات و فایل‌های پیوست در این خروجی قرار نمی‌گیرند.",
+                    text = "از دروس و گروه‌ها خروجی JSON یا CSV بگیرید. جزوات و فایل‌های پیوست در این خروجی‌ها قرار نمی‌گیرند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -907,6 +1013,24 @@ fun SettingsScreen(
                         Text("خروجی JSON", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
 
+                    OutlinedButton(
+                        onClick = { showExportCsvDialog = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag("export_csv_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(17.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("خروجی CSV", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = {
                             TimetableExporter.shareSchedule(
@@ -933,7 +1057,7 @@ fun SettingsScreen(
             }
         }
 
-        // Section 3: Data Management & Reset
+        // ۵. مدیریت داده‌ها — بخش ۳: پاک‌سازی داده‌ها
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -945,20 +1069,16 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CleaningServices,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "مدیریت و پاک‌سازی داده‌ها",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                // «مدیریت داده‌ها — پاک‌سازی»: خالی‌کردن برنامه هفتگی و حذف کامل داده‌ها.
+                SettingsCategoryTitle(
+                    icon = Icons.Default.CleaningServices,
+                    title = "پاک‌سازی داده‌ها"
+                )
+                Text(
+                    text = "برنامه هفتگی را بدون حذف دروس خالی کنید، یا در صورت نیاز همه اطلاعات را پاک کنید:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 // Clear Schedule Only
                 OutlinedButton(
@@ -999,28 +1119,51 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // App version footer: proves which exact build is installed.
-        // If latest changes are missing, compare GIT_SHA with GitHub commit.
+        // ۶. درباره و اطلاعات برنامه: نسخه واقعی بیلد و راهنمای کوتاه استفاده.
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = "TermChin | ترم‌چین  •  v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                SettingsCategoryTitle(
+                    icon = Icons.Default.Info,
+                    title = "درباره و اطلاعات برنامه"
                 )
                 Text(
-                    text = "بیلد ${BuildConfig.GIT_SHA} • ${BuildConfig.BUILD_TIME}",
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    text = "ترم‌چین کاملاً آفلاین است: کاتالوگ دروس را از فایل پرتال یا نمونه وارد کنید، درس‌ها را از صفحه «دروس» به «دروس من» اضافه کنید و از صفحه «برنامه‌ساز» بهترین ترکیب گروه‌ها را بسازید.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // App version footer: proves which exact build is installed.
+                // If latest changes are missing, compare GIT_SHA with GitHub commit.
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "TermChin | ترم‌چین  •  v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "بیلد ${BuildConfig.GIT_SHA} • ${BuildConfig.BUILD_TIME}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
 
@@ -1170,6 +1313,72 @@ MATH101,ریاضی ۱,علوم پایه,3,01,دکتر حسنی,40,1403/10/20,08:
                         Text("کپی")
                     }
                     TextButton(onClick = { showExportDialog = false }) {
+                        Text("بستن")
+                    }
+                }
+            }
+        )
+    }
+
+    // Export CSV Dialog: same rows the CSV importer accepts, so a backup
+    // taken here re-imports through «ورود فایل CSV» without edits.
+    if (showExportCsvDialog) {
+        val importItems = allCoursesWithSections.map { cws ->
+            ImportItem(
+                course = cws.course,
+                sections = cws.sections.map { sec ->
+                    ImportSectionItem(section = sec.section, sessions = sec.sessions)
+                }
+            )
+        }
+        val exportedCsv = CourseImporter.exportToCsv(importItems)
+
+        AlertDialog(
+            onDismissRequest = { showExportCsvDialog = false },
+            title = {
+                Text(
+                    text = "خروجی CSV (${importItems.size} درس)",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = exportedCsv,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            TimetableExporter.copyTextToClipboard(
+                                context = context,
+                                text = exportedCsv,
+                                label = "TermChin CSV Export",
+                                toastMessage = "متن CSV در کلیپ‌بورد کپی شد"
+                            )
+                        },
+                        modifier = Modifier.testTag("export_csv_copy_button")
+                    ) {
+                        Text("کپی")
+                    }
+                    TextButton(onClick = { showExportCsvDialog = false }) {
                         Text("بستن")
                     }
                 }
