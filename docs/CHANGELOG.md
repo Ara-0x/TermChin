@@ -4,6 +4,49 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.11.0] (26) — 2026-10-13 unified dashboard, navigation & design tokens
+
+Home and the bottom navigation were redesigned as one coherent experience:
+a single integrated Today timeline, a shared bottom-bar component,
+contextual actions instead of destination duplicates, and shared design
+tokens. No capability was removed; schedule/domain logic is untouched.
+
+### Added
+
+- **Unified Today timeline** (`NowNextCard`): every class today in one
+  start-time-ordered list; the focused class (ongoing/next) is emphasized
+  inline — accent bar, status pill («در حال برگزاری»/«کلاس بعدی»),
+  live countdown, teaching-window progress and optional gap detail — and
+  appears exactly once (the old hero card + duplicated row is gone).
+  LaterDay shows a done-for-today message + weekly-timetable route;
+  NoneScheduled shows a clear message + the real setup action.
+- **`TermChinBottomBar`**: one component for the five destinations with a
+  single restrained selected state (filled icon, semibold theme label, soft
+  secondary-container indicator), uniform 24dp icons, theme `labelSmall`
+  typography that scales with the system font, and explicit
+  `WindowInsets.navigationBars` padding for edge-to-edge. Test tags
+  (`main_bottom_nav`, `nav_item_*`) preserved.
+- **`TermChinDesign` tokens**: screen margins, section/row spacing,
+  card/row/badge radii, icon sizes, focus-bar width and theme-resolved
+  status colors shared by Home, its sections and the bottom bar.
+- **Contextual setup card** on Home, shown only when an enrolled section
+  has no sessions (a real setup gap), plus a quiet documents line that
+  appears only when documents exist — both replace destination
+  duplicates.
+
+### Changed
+
+- Removed the redundant Home shortcut row (Courses / Schedule Builder) and
+  the Documents shortcut card — the bottom navigation owns those
+  destinations.
+- `MainActivity`'s bottom bar reduced to a single `TermChinBottomBar` call
+  (~140 lines of duplicated item code removed).
+
+### Tests
+
+- All pinned dashboard/nav test tags and strings preserved; suite stays
+  green at 33 suites / 233 tests, 0 failures. `assembleDebug` green.
+
 ## [2.10.0] (25) — 2026-10-13 home dashboard redesign
 
 Home is now a time-aware academic dashboard instead of a card collection. All
