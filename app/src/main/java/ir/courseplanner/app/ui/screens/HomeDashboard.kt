@@ -1,7 +1,9 @@
 package ir.courseplanner.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -34,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -240,10 +245,46 @@ internal fun DashboardSectionHeading(
         }
     }
 }
+/**
+ * Shared icon + title header for dashboard sections. The icon is decorative
+ * (the title carries the meaning) so it stays silent for accessibility.
+ */
+@Composable
+fun DashboardSectionHeader(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/** Stable identity for matching the focused session inside today's list. */
+private fun focusedSessionKey(item: UpcomingSession): String =
+    item.section.course.code + "|" + item.section.section.sectionCode + "|" +
+        item.session.dayOfWeek.toString() + "|" + item.session.startTime + "|" +
+        item.session.endTime
+
+
 
 /**
- * Primary hero: today's classes plus the single now/next verdict with a live
- * countdown. The next-class block is informational only (never clickable).
+ * One integrated Today card: every class today in a single timeline; the
+ * focused class (ongoing/next) is emphasized inline and shown exactly once.
  */
 @Composable
 internal fun NowNextCard(
@@ -263,287 +304,324 @@ internal fun NowNextCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "امروز (${ClassSession.getDayName(todayIdx)})",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // No chip when parity is unknown: unavailable information
-                    // is omitted here and surfaced once in the attention card.
-                    if (weekLabel != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = weekLabel,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    if (todayClasses.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = "${JalaliDate.toFaDigits(todayClasses.size)} کلاس",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (todayClasses.isEmpty()) {
+            DashboardSectionHeader(title = "برنامه امروز", icon = Icons.Default.Schedule)
+            if (weekLabel != null) {
                 Text(
-                    text = "امروز کلاسی نداری.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = weekLabel,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            } else {
-                // A fixed clock sample drives every row, so past/ongoing/future
-                // can never disagree within one frame.
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    todayClasses.forEach { item ->
-                        TodayClassRow(item = item, nowMinutes = nowMinutes)
+            }
+            when (state) {
+                is NowNextState.Ongoing ->
+                    TodayTimeline(
+                        todayClasses = todayClasses,
+                        focusedKey = focusedSessionKey(state.item),
+                        nowMinutes = nowMinutes,
+                        statusLabelFor = { item ->
+                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                "در حال برگزاری"
+                            } else {
+                                null
+                            }
+                        },
+                        statusFor = { item ->
+                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                if (state.minutesLeft <= 0) {
+                                    "کلاس در حال برگزاری است"
+                                } else {
+                                    "${JalaliDate.toFaDigits(state.minutesLeft)} دقیقه مانده"
+                                }
+                            } else {
+                                null
+                            }
+                        }
+                    )
+                is NowNextState.UpcomingToday -> {
+                    val gapText = gapLineFa(state.item, nowMinutes)
+                    TodayTimeline(
+                        todayClasses = todayClasses,
+                        focusedKey = focusedSessionKey(state.item),
+                        nowMinutes = nowMinutes,
+                        statusLabelFor = { item ->
+                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                "کلاس بعدی"
+                            } else {
+                                null
+                            }
+                        },
+                        detailFor = { item ->
+                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) gapText else null
+                        },
+                        statusFor = { item ->
+                            if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
+                                countdownFa(state.minutesToStart)
+                            } else {
+                                null
+                            }
+                        }
+                    )
+                }
+                is NowNextState.LaterDay -> {
+                    Text(
+                        text = "کلاس‌های امروز تمام شد",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    FocusedClassRow(
+                        item = state.item,
+                        status = "کلاس بعدی: " + ClassSession.getDayName(state.item.dayOfWeek),
+                        nowMinutes = null
+                    )
+                    OutlinedButton(
+                        onClick = onOpenWeeklyTimetable,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("مشاهده برنامه هفتگی")
+                    }
+                }
+                NowNextState.NoneScheduled -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (todayClasses.isEmpty()) {
+                            Text(
+                                text = "امروز کلاسی نداری.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "کلاسی در ۷ روز آینده ثبت نشده است",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = onManageCourses,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("تکمیل ساعت کلاس‌ها")
+                        }
                     }
                 }
             }
-
-            NowNextStatusBlock(
-                state = state,
-                onManageCourses = onManageCourses
-            )
-
-            OutlinedButton(
-                onClick = onOpenWeeklyTimetable,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("home_view_weekly_timetable_button"),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    "مشاهده برنامه هفتگی",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
         }
     }
 }
+/**
+ * Plain HH:mm range for one session, e.g. 08:00-10:00.
+ */
+private fun timeRangeFa(session: ClassSession): String =
+    session.startTime + " – " + session.endTime
 
+/**
+ * Meaningful gap before the next class today, or null when there is no gap
+ * worth surfacing (back-to-back or overlapping). Pure on explicit inputs.
+ */
+private fun gapLineFa(item: UpcomingSession, nowMinutes: Int): String? {
+    val gap = item.session.startMinutes - nowMinutes
+    if (gap < 5) return null
+    return formatGapFa(gap) + " فرصت تا شروع"
+}
+
+/**
+ * Live progress of the teaching window (start .. display end). Driven by the
+ * fixed clock sample of the current frame.
+ */
 @Composable
-private fun TodayClassRow(
-    item: UpcomingSession,
-    nowMinutes: Int
-) {
-    val isPast = item.session.endMinutes <= nowMinutes
-    val titleColor = if (isPast) {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-    Row(
+private fun SessionProgress(nowMinutes: Int, session: ClassSession) {
+    val end = ScheduleEngine.displayEndMinutes(session)
+    val span = (end - session.startMinutes).coerceAtLeast(1)
+    val done = (nowMinutes - session.startMinutes).coerceIn(0, span)
+    LinearProgressIndicator(
+        progress = { done / span.toFloat() },
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = item.session.startTime,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            color = if (isPast) {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            } else {
-                MaterialTheme.colorScheme.primary
-            },
-            modifier = Modifier.width(52.dp)
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.section.courseName,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = titleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (item.session.location.isNotBlank()) {
-                Text(
-                    text = item.session.location,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+        strokeCap = StrokeCap.Round
+    )
+}
+
+/**
+ * Single timeline: every class today in start-time order; the focused class
+ * is emphasized inline (accent bar + status) and appears exactly once.
+ */
+@Composable
+private fun TodayTimeline(
+    todayClasses: List<UpcomingSession>,
+    focusedKey: String,
+    nowMinutes: Int,
+    statusFor: (UpcomingSession) -> String?,
+    statusLabelFor: (UpcomingSession) -> String? = { null },
+    detailFor: (UpcomingSession) -> String? = { null }
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        todayClasses.sortedBy { it.session.startMinutes }.forEach { item ->
+            val status = statusFor(item)
+            if (focusedSessionKey(item) == focusedKey && status != null) {
+                FocusedClassRow(
+                    item = item,
+                    status = status,
+                    statusLabel = statusLabelFor(item),
+                    detail = detailFor(item),
+                    nowMinutes = nowMinutes
                 )
+            } else {
+                PlainTimelineRow(item = item, nowMinutes = nowMinutes)
             }
         }
-        if (item.session.weekType != WeekType.EVERY_WEEK) {
-            Text(
-                text = item.session.weekType.titleFa,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
     }
 }
 
 @Composable
-private fun NowNextStatusBlock(
-    state: NowNextState,
-    onManageCourses: () -> Unit
-) {
-    when (state) {
-        is NowNextState.Ongoing -> {
-            StatusPanel(
-                status = "در حال برگزاری",
-                headline = state.item.section.courseName,
-                subline = buildString {
-                    val displayEnd = ScheduleEngine.displayEndMinutes(state.item.session)
-                    append(state.item.session.startTime)
-                    append(" تا ")
-                    append("%02d:%02d".format(displayEnd / 60, displayEnd % 60))
-                    if (state.item.session.location.isNotBlank()) {
-                        append(" • ")
-                        append(state.item.session.location)
-                    }
-                },
-                accent = "${JalaliDate.toFaDigits(state.minutesLeft)} دقیقه مانده"
-            )
-        }
-        is NowNextState.UpcomingToday -> {
-            StatusPanel(
-                status = "کلاس بعدی",
-                headline = state.item.section.courseName,
-                subline = buildString {
-                    append(state.item.session.startTime)
-                    append(" تا ")
-                    append(state.item.session.endTime)
-                    if (state.item.session.location.isNotBlank()) {
-                        append(" • ")
-                        append(state.item.session.location)
-                    }
-                },
-                accent = countdownFa(state.minutesToStart)
-            )
-        }
-        is NowNextState.LaterDay -> {
-            StatusPanel(
-                status = "کلاس بعدی",
-                headline = state.item.section.courseName,
-                subline = buildString {
-                    append(ClassSession.getDayName(state.item.dayOfWeek))
-                    append(" ")
-                    append(state.item.session.startTime)
-                    append(" تا ")
-                    append(state.item.session.endTime)
-                    if (state.item.session.location.isNotBlank()) {
-                        append(" • ")
-                        append(state.item.session.location)
-                    }
-                },
-                accent = null
-            )
-        }
-        NowNextState.NoneScheduled -> {
-            StatusPanel(
-                status = "برنامه‌ای ثبت نشده",
-                headline = "در ۷ روز آینده کلاسی نداری.",
-                subline = "ساعت کلاس‌ها را در مدیریت درس‌ها تکمیل کن.",
-                accent = null,
-                actionLabel = "تکمیل ساعت کلاس‌ها",
-                onAction = onManageCourses
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusPanel(
+private fun FocusedClassRow(
+    item: UpcomingSession,
     status: String,
-    headline: String,
-    subline: String,
-    accent: String?,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    statusLabel: String? = null,
+    detail: String? = null,
+    nowMinutes: Int?
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-        modifier = Modifier.fillMaxWidth()
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = item.section.courseName + ". " + status }
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Schedule,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.primary)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
+                if (statusLabel != null) {
+                    Text(
+                        text = statusLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Text(
-                    text = status,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = headline,
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    text = item.section.courseName,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("home_now_next_headline")
                 )
                 Text(
-                    text = subline,
+                    text = timeRangeFa(item.session),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (accent != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                if (item.session.location.isNotBlank()) {
                     Text(
-                        text = accent,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("home_now_next_countdown")
+                        text = item.session.location,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (actionLabel != null && onAction != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(onClick = onAction) {
-                        Text(actionLabel, fontWeight = FontWeight.Bold)
-                    }
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag("home_now_next_countdown")
+                )
+                if (detail != null) {
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+                if (nowMinutes != null) {
+                    SessionProgress(nowMinutes = nowMinutes, session = item.session)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlainTimelineRow(
+    item: UpcomingSession,
+    nowMinutes: Int
+) {
+    val dimmed = item.session.endMinutes <= nowMinutes
+    val alpha = if (dimmed) 0.55f else 1f
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(56.dp)
+        ) {
+            Text(
+                text = JalaliDate.toFaDigits(item.session.startTime),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                maxLines = 1
+            )
+            Text(
+                text = JalaliDate.toFaDigits(item.session.endTime),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                maxLines = 1
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .width(2.dp)
+                .height(36.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.section.courseName,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val sub = buildString {
+                if (item.session.location.isNotBlank()) append(item.session.location)
+                if (item.session.weekType != WeekType.EVERY_WEEK) {
+                    if (isNotEmpty()) append(" \u2022 ")
+                    append(if (item.session.weekType == WeekType.ODD_WEEKS) "هفته فرد" else "هفته زوج")
+                }
+            }
+            if (sub.isNotEmpty()) {
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

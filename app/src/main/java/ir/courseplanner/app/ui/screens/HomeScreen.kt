@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Event
@@ -49,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -250,118 +252,24 @@ fun HomeScreen(
             )
         }
 
-        // E. Primary actions: manage courses vs. build the timetable.
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Button(
-                onClick = { viewModel.navigateTo(AppDestination.COURSES) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("home_select_courses_button"),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-            ) {
-                Text("مدیریت درس‌ها", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-
-            OutlinedButton(
-                onClick = { viewModel.navigateTo(AppDestination.SCHEDULE) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("home_auto_schedule_button"),
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.2.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
-            ) {
-                Icon(
-                    Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("ساخت برنامه هوشمند", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
+        // E. Contextual next step: only when the semester setup is genuinely
+        // unfinished (courses still unfinalized). Never duplicates the bottom
+        // navigation destinations (Courses / Schedule Builder live there).
+        if (hasEnrolled && enrolledSections.any { it.sessions.isEmpty() }) {
+            ContextualSetupCard(
+                onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) },
+                onOpenSchedule = { viewModel.navigateTo(AppDestination.SCHEDULE) }
+            )
         }
 
-        // G. Documents entry with the accurate finalized-course count.
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { viewModel.navigateTo(AppDestination.DOCUMENTS) },
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            shadowElevation = 1.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.size(42.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Description,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "دفترچه جزوات و اسناد دروس",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = when {
-                                !hasEnrolled -> "پس از نهایی‌کردن برنامه، جزوات هر درس اینجا در دسترس است"
-                                visibleDocumentCount == 0 -> "ثبت خلاصه درس، نمونه سوال و فایل‌های کلاسی"
-                                else -> "${JalaliDate.toFaDigits(visibleDocumentCount)} جزوه و سند ثبت شده به تفکیک دروس"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        // G. Secondary: upcoming exams (real data only) and documents live
+        // where they belong — the bottom navigation owns the Documents
+        // destination, so Home shows no shortcut card duplicating it.
+        if (hasEnrolled && visibleDocumentCount > 0) {
+            SecondaryDocumentsLine(
+                count = visibleDocumentCount,
+                onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) }
+            )
         }
 
         // First-run guided sequence: import → pick courses → build. Each step
@@ -914,6 +822,116 @@ private fun GuidedStepRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Contextual next step shown only while the semester setup is unfinished
+ * (enrolled courses exist but none is finalized yet). Points at the two real
+ * destinations that finish the job — Courses and Schedule Builder — without
+ * duplicating the bottom navigation as a permanent shortcut row.
+ */
+@Composable
+private fun ContextualSetupCard(
+    onOpenCourses: () -> Unit,
+    onOpenSchedule: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "\u0627\u062a\u0645\u0627\u0645 \u062a\u0646\u0638\u06cc\u0645\u0627\u062a \u0646\u06cc\u0645\u200c\u0633\u0627\u0644",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 2
+                )
+                Text(
+                    text = "\u062f\u0631\u0633\u200c\u0647\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647 \u0631\u0627 \u0646\u0647\u0627\u06cc\u06cc \u06a9\u0646\u06cc\u062f",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                    maxLines = 2
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onOpenCourses,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text("\u062f\u0631\u0648\u0633", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = onOpenSchedule,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text("\u0628\u0631\u0646\u0627\u0645\u0647\u200c\u0633\u0627\u0632", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Quiet one-line documents summary. The Documents destination owns browsing;
+ * Home only notes the real count with a single text action.
+ */
+@Composable
+private fun SecondaryDocumentsLine(
+    count: Int,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                Icons.Default.Description,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = JalaliDate.toFaDigits(count) + " \u062c\u0632\u0648\u0647 \u062b\u0628\u062a \u0634\u062f\u0647",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        TextButton(onClick = onOpen) {
+            Text("\u0645\u0634\u0627\u0647\u062f\u0647 \u062c\u0632\u0648\u0627\u062a", fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }
