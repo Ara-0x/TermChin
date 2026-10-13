@@ -579,7 +579,8 @@ class HomeDashboardUiTest {
         // One card carries both views of the same fact: weekday + Jalali date
         // on the leading edge, academic week on the trailing edge.
         composeTestRule.onNodeWithTag("home_today_date_card").assertIsDisplayed()
-        composeTestRule.onNodeWithText("چهارشنبه").assertIsDisplayed()
+        // appDayIdx = 3 is Tuesday (سه‌شنبه) in the Saturday-first academic week.
+        composeTestRule.onNodeWithText("سه‌شنبه").assertIsDisplayed()
         composeTestRule.onNodeWithText("هفته ۴ (فرد)").assertIsDisplayed()
     }
 
