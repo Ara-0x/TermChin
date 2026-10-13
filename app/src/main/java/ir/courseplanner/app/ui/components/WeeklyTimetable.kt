@@ -933,7 +933,7 @@ private fun TimetableDayView(
                     .height(130.dp)
                     .clip(TermChinDesign.CardShape)
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), TermChinDesign.CardShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), TermChinDesign.CardShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
