@@ -4,6 +4,48 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.12.0] (27) — 2026-10-13 midnight theme, warmer home, shared tokens
+
+No features removed, no logic or stored values changed. A navy-character
+theme inside the repo's own color discipline, a time-aware home greeting, and
+token alignment across Home and Courses.
+
+### Added
+
+- **New «نیمه‌شب سرمه‌ای» palette** (8th theme): blue primary, mint
+  secondary, lavender tertiary. The navy identity lives in the accents while
+  the page chrome stays achromatic per the guarded neutral-chrome rule — a
+  full navy wash would fail `page chrome stays neutral`, so it was
+  deliberately not applied. Verified by the existing palette suite
+  (contrast, chroma, hue separation, uniqueness).
+- **Time-aware home greeting** («صبح/ظهر/عصر/شب بخیر، {نام}») from real
+  device time via the dashboard clock; boundary-tested, blank names keep
+  «ترم‌چین».
+
+### Changed
+
+- System back from the discovery sub-screen returns to «دروس من»
+  (Courses) instead of skipping straight to Home; other tabs still return
+  to Home first, with the existing double-press exit confirmation on Home.
+- Week labels use one format everywhere — «هفته X (Y)» with Persian
+  digits — in the hero card, timetable pill, dashboard header and Settings.
+- Course and discovery cards use the shared `TermChinDesign` card/row
+  shapes — zero visual delta, one source of truth. No field removed, no flow
+  touched.
+- **Premium finish (Linear/Raycast-inspired, in place):** the day selector
+  inside `WeeklyTimetable` is now a horizontal weekly date strip — date
+  cells with weekday + Jalali day number, clear selected/today states, class
+  indicator dots, Persian counts and animated scrolling. Same selection
+  model, same `weekly_timetable_day_*` tags, same timetable sync. Hero
+  cards (Home header, «امروز چه خبر؟», «دروس من») gain a soft ambient glow
+  derived from the ACTIVE theme accent — all 8 themes, light + dark, RTL
+  and saved preferences untouched.
+
+### Tests
+
+- Greeting boundary tests; palette suite now covers 8 themes automatically.
+- Baseline: **34 suites / 244 tests, 0 failures**.
+
 ## [2.11.0] (26) — 2026-10-13 unified dashboard, navigation & design tokens
 
 Home and the bottom navigation were redesigned as one coherent experience:
