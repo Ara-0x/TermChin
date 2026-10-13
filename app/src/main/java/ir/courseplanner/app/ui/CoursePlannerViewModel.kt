@@ -339,6 +339,21 @@ class CoursePlannerViewModel @Inject constructor(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScheduleMetrics(0, 0, 0, 0f, 0))
 
+    /**
+     * Wall-clock tick driving the Home dashboard's time-sensitive UI
+     * (ongoing/upcoming status, countdowns, day rollover). Emits the current
+     * epoch millis every [DASHBOARD_TICK_MS]; minute-granular display derived
+     * from it changes at most once a minute, so recomposition stays cheap.
+     * WhileSubscribed: no collectors (background) → the loop stops, no leaked
+     * jobs, no competing timers; Foreground return restarts it with fresh time.
+     */
+    val dashboardTick: StateFlow<Long> = kotlinx.coroutines.flow.flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            kotlinx.coroutines.delay(DASHBOARD_TICK_MS)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
+
     // Schedule Generator State
     private val _generationState = MutableStateFlow(GenerationState())
     val generationState: StateFlow<GenerationState> = _generationState.asStateFlow()
@@ -1293,5 +1308,10 @@ class CoursePlannerViewModel @Inject constructor(
 
     fun dismissUserMessage() {
         _userMessage.value = null
+    }
+
+    companion object {
+        /** Home dashboard clock cadence: countdowns stay minute-accurate. */
+        const val DASHBOARD_TICK_MS = 30_000L
     }
 }

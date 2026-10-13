@@ -4,6 +4,46 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.10.0] (25) — 2026-10-13 home dashboard redesign
+
+Home is now a time-aware academic dashboard instead of a card collection. All
+time-sensitive rows derive from one clock sample per frame; pure decisions
+(state resolution, attention list, progress safety) are unit-tested on a
+deterministic clock. No capabilities removed, no stored values touched.
+
+### Added
+
+- **«Now and next» hero** with a live countdown: ongoing («در حال برگزاری»
+  + remaining minutes), upcoming today («۳۵ دقیقه تا شروع کلاس»), next class
+  on a future day, and an explicit none-scheduled state with a next action.
+  Driven by a lifecycle-aware 30s `dashboardTick` (WhileSubscribed: stops in
+  background, restarts fresh) — past sessions are never shown as upcoming and
+  biweekly sessions respect known parity.
+- **Compact header**: greeting, semester/major, Persian date + academic week
+  (new `JalaliDate.monthNameFa`/`toFaDigits`), secondary offline pill, and a
+  zero-safe credit row (no bar and no NaN when the target is unset).
+- **Compact overview** replacing the four colorful metric cards: credits,
+  active days, human gap duration, secondary course count, plus a
+  «بازبینی در برنامه‌ساز» route only when gaps reach 120 minutes.
+- **«Needs attention» card** (rendered only with real issues, most severe
+  first): class conflicts → timetable, exam conflicts/warnings → exam
+  section, missing semester start → settings. Replaces `ConflictBanner` on
+  Home so warnings are never duplicated (the component itself is untouched).
+- **Guided first-run**: three numbered steps (import → pick courses → build),
+  each mapped to a real destination; no zero-filled metric cards.
+- **Timetable preview** keeps the real `WeeklyTimetable` (prefs, dimming,
+  scroll interaction) behind a clear heading with the week-parity chip, shown
+  only when a program exists.
+
+### Tests
+
+- New `HomeDashboardPureTest` (16 tests: clock coherence, midnight rollover,
+  state resolution, parity honesty, countdown/credit/gap formatting,
+  attention priority) and `HomeDashboardUiTest` (11 Compose tests: hero
+  states, attention visibility, zero-target overview, optimize gating,
+  header, empty steps).
+- Baseline: **33 suites / 233 tests, 0 failures**.
+
 ## [2.9.0] (24) — 2026-10-13 UI polish, RTL stability & settings cleanup
 
 This release matures the 2.8 interface without touching capabilities or stored data:

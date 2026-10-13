@@ -142,6 +142,36 @@ object JalaliDate {
         return "%04d/%02d/%02d".format(jy, jm, jd)
     }
 
+    /** Persian month name (1 = فروردین … 12 = اسفند). Empty when out of range. */
+    fun monthNameFa(jm: Int): String = when (jm) {
+        1 -> "فروردین"
+        2 -> "اردیبهشت"
+        3 -> "خرداد"
+        4 -> "تیر"
+        5 -> "مرداد"
+        6 -> "شهریور"
+        7 -> "مهر"
+        8 -> "آبان"
+        9 -> "آذر"
+        10 -> "دی"
+        11 -> "بهمن"
+        12 -> "اسفند"
+        else -> ""
+    }
+
+    private const val FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
+
+    /** Latin 0-9 → Persian digits; every other character passes through. */
+    fun toFaDigits(input: String): String = buildString(input.length) {
+        for (ch in input) {
+            if (ch in '0'..'9') append(FA_DIGITS[ch - '0'])
+            else append(ch)
+        }
+    }
+
+    /** Latin 0-9 → Persian digits for integers (counts, minutes, week numbers). */
+    fun toFaDigits(value: Int): String = toFaDigits(value.toString())
+
     /** Today as epoch day via Calendar (java.time needs API 26+). */
     fun todayEpochDay(): Long {
         val cal = Calendar.getInstance()

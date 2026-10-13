@@ -2,7 +2,6 @@ package ir.courseplanner.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -11,7 +10,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,32 +19,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -67,11 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -79,17 +66,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.ConflictType
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
-import ir.courseplanner.app.ui.components.ConflictBanner
 import ir.courseplanner.app.ui.components.WeeklyTimetable
+import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.TimetableExporter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * Academic dashboard: one clock sample per frame drives the header date, the
+ * now/next hero, parity filtering and the timetable highlight together, so
+ * time-sensitive rows can never disagree. Pure decisions (states, attention
+ * list, progress safety) live in HomeDashboard.kt on explicit inputs.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -103,6 +97,9 @@ fun HomeScreen(
     val metrics by viewModel.enrolledMetrics.collectAsStateWithLifecycle()
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
     val allDocs by viewModel.documentsWithCourse.collectAsStateWithLifecycle()
+    // Lifecycle-aware clock: ticks only while this screen is collected, so the
+    // countdown and day rollover stay correct without leaking background jobs.
+    val tick by viewModel.dashboardTick.collectAsStateWithLifecycle()
     // The Documents screen intentionally exposes material only for finalized
     // courses, so the dashboard must use that same scope for its badge.
     val visibleDocumentCount = remember(allDocs, enrolledSections) {
@@ -111,270 +108,149 @@ fun HomeScreen(
     }
     val scrollState = rememberScrollState()
 
-    // The "view weekly timetable" button in the Today hero scrolls to the real
-    // weekly timetable further down this screen instead of opening the builder.
+    // The timetable button in the hero scrolls to the real weekly timetable
+    // further down this screen instead of opening the builder; exam actions
+    // scroll to the exam section the same way.
     val weeklyTimetableRequester = remember { BringIntoViewRequester() }
+    val examSectionRequester = remember { BringIntoViewRequester() }
     val homeScope = rememberCoroutineScope()
     val timetableGlow = remember { Animatable(0f) }
     var timetableGlowJob by remember { mutableStateOf<Job?>(null) }
     var showExamSchedule by remember { mutableStateOf(false) }
 
-    val targetCredits = preferences.creditTarget.toFloat()
-    val progressRatio = (metrics.totalCredits / targetCredits).coerceIn(0f, 1f)
-    val animatedProgress by animateFloatAsState(
-        targetValue = progressRatio,
-        animationSpec = tween(600),
-        label = "CreditsProgress"
-    )
+    val scrollToTimetable: () -> Unit = {
+        timetableGlowJob?.cancel()
+        timetableGlowJob = homeScope.launch {
+            weeklyTimetableRequester.bringIntoView()
+            timetableGlow.animateTo(1f, tween(220))
+            delay(1_200)
+            timetableGlow.animateTo(0f, tween(520))
+        }
+    }
+    val scrollToExams: () -> Unit = {
+        showExamSchedule = true
+        homeScope.launch { examSectionRequester.bringIntoView() }
+    }
+
+    // One clock sample per frame: day index, minutes and epoch day always move
+    // together, so midnight and week boundaries resolve consistently.
+    val now = remember(tick) { dashboardNow(tick) }
+    val weekInfo = remember(
+        now.epochDay,
+        preferences.semesterStartEpochDay,
+        preferences.firstWeekIsOdd
+    ) {
+        ScheduleEngine.academicWeek(
+            now.epochDay,
+            preferences.semesterStartEpochDay,
+            preferences.firstWeekIsOdd
+        )
+    }
+    val hasEnrolled = enrolledSections.isNotEmpty()
+    // Parity-aware lookups (engine rules): a biweekly session never counts for
+    // a day/week it does not meet in; unknown parity keeps everything visible.
+    val todaysClasses = remember(enrolledSections, weekInfo, now.appDayIdx) {
+        if (!hasEnrolled) emptyList()
+        else ScheduleEngine.sessionsOnDay(enrolledSections, now.appDayIdx, weekInfo?.parity)
+    }
+    val nextClass = remember(enrolledSections, weekInfo, now, preferences) {
+        if (!hasEnrolled) {
+            null
+        } else {
+            ScheduleEngine.nextUpcomingSession(
+                sections = enrolledSections,
+                dayOfWeek = now.appDayIdx,
+                nowMinutes = now.nowMinutes,
+                todayParity = weekInfo?.parity,
+                parityForOffset = if (weekInfo == null) null else { offsetDays: Int ->
+                    val startEpoch = preferences.semesterStartEpochDay
+                    if (startEpoch == null) null else {
+                        val futureWeekNumber =
+                            ((now.epochDay - startEpoch + offsetDays) / 7 + 1).toInt()
+                        val isEven = if (preferences.firstWeekIsOdd) futureWeekNumber % 2 == 0
+                        else futureWeekNumber % 2 == 1
+                        if (isEven) ScheduleEngine.WeekParity.EVEN
+                        else ScheduleEngine.WeekParity.ODD
+                    }
+                }
+            )
+        }
+    }
+    val nowNextState = remember(nextClass, now) {
+        resolveNowNext(nextClass, now.appDayIdx, now.nowMinutes)
+    }
+    val attentionItems = remember(conflicts, examWarnings, weekInfo, hasEnrolled) {
+        buildAttentionItems(
+            classConflicts = conflicts.count { it.type == ConflictType.CLASS_TIME_OVERLAP },
+            examConflicts = conflicts.count { it.type == ConflictType.EXAM_OVERLAP },
+            examWarnings = examWarnings.size,
+            parityKnown = weekInfo != null,
+            hasEnrolled = hasEnrolled
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Modern Academic Hero Header
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(4.dp, RoundedCornerShape(16.dp)),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                MaterialTheme.colorScheme.surface
-                            )
-                        )
-                    )
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        RoundedCornerShape(16.dp)
-                    )
-                    .padding(18.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = if (preferences.studentName.isNotBlank()) "سلام، ${preferences.studentName} 👋" else "TermChin | ترم‌چین",
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 20.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (preferences.studentName.isNotBlank()) {
-                                    "${preferences.semesterName}${if (preferences.major.isNotBlank()) " • ${preferences.major}" else ""}"
-                                } else {
-                                    "${preferences.semesterName} • مدیریت هوشمند انتخاب واحد"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+        // A. Compact personalized header (date, week, offline pill, credits).
+        DashboardHeader(
+            studentName = preferences.studentName,
+            semesterName = preferences.semesterName,
+            major = preferences.major,
+            credits = metrics.totalCredits,
+            creditTarget = preferences.creditTarget,
+            now = now,
+            weekInfo = weekInfo
+        )
 
-                        // Offline Pill Badge
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.CloudOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "۱۰۰٪ آفلاین",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
+        // B. Primary hero: now and next, with a live countdown.
+        if (hasEnrolled) {
+            NowNextCard(
+                todayIdx = now.appDayIdx,
+                todayClasses = todaysClasses,
+                state = nowNextState,
+                weekLabel = weekInfo?.let {
+                    "هفته ${JalaliDate.toFaDigits(it.number)} • ${it.parity.titleFa}"
+                },
+                nowMinutes = now.nowMinutes,
+                onOpenWeeklyTimetable = scrollToTimetable,
+                onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) }
+            )
+        }
 
-                    // Enrolled Credits Progress Indicator
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "واحدهای اخذ شده این ترم",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${metrics.totalCredits} از ${preferences.creditTarget} واحد هدف",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            strokeCap = StrokeCap.Round
-                        )
+        // D. Needs attention — rendered only when something is actionable.
+        if (attentionItems.isNotEmpty()) {
+            AttentionCard(
+                items = attentionItems,
+                onAction = { kind ->
+                    when (kind) {
+                        AttentionKind.CLASS_CONFLICT -> scrollToTimetable()
+                        AttentionKind.EXAM_CONFLICT,
+                        AttentionKind.EXAM_WARNING -> scrollToExams()
+                        AttentionKind.MISSING_SEMESTER_START ->
+                            viewModel.navigateTo(AppDestination.SETTINGS)
                     }
                 }
-            }
-        }
-
-        // Today + next class: the most important information comes first.
-        if (enrolledSections.isNotEmpty()) {
-            val calendar = remember { java.util.Calendar.getInstance() }
-            val todayIdx = ScheduleEngine.calendarDayOfWeekToAppDay(
-                calendar.get(java.util.Calendar.DAY_OF_WEEK)
-            )
-            val nowMinutes = calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
-                calendar.get(java.util.Calendar.MINUTE)
-            val weekInfo = remember(
-                preferences.semesterStartEpochDay,
-                preferences.firstWeekIsOdd
-            ) {
-                ScheduleEngine.academicWeek(
-                    ir.courseplanner.app.util.JalaliDate.todayEpochDay(),
-                    preferences.semesterStartEpochDay,
-                    preferences.firstWeekIsOdd
-                )
-            }
-            // Live lookups: what the enrolled program says about right now.
-            // Parity-aware: an odd-week session must never show as ongoing/today
-            // in an even academic week (and vice versa); unknown parity = show all.
-            val todaysClasses = remember(enrolledSections, weekInfo) {
-                ScheduleEngine.sessionsOnDay(enrolledSections, todayIdx, weekInfo?.parity)
-            }
-            val nextClass = remember(enrolledSections, weekInfo) {
-                ScheduleEngine.nextUpcomingSession(
-                    sections = enrolledSections,
-                    dayOfWeek = todayIdx,
-                    nowMinutes = nowMinutes,
-                    todayParity = weekInfo?.parity,
-                    parityForOffset = if (weekInfo == null) null else { offsetDays: Int ->
-                        val startEpoch = preferences.semesterStartEpochDay
-                        if (startEpoch == null) null else {
-                            val todayEpochDay = ir.courseplanner.app.util.JalaliDate.todayEpochDay()
-                            val futureWeekNumber =
-                                ((todayEpochDay - startEpoch + offsetDays) / 7 + 1).toInt()
-                            val isEven = if (preferences.firstWeekIsOdd) futureWeekNumber % 2 == 0
-                            else futureWeekNumber % 2 == 1
-                            if (isEven) ScheduleEngine.WeekParity.EVEN
-                            else ScheduleEngine.WeekParity.ODD
-                        }
-                    }
-                )
-            }
-            TodayNextCard(
-                todayIdx = todayIdx,
-                todaysClasses = todaysClasses,
-                nextClass = nextClass,
-                weekLabel = weekInfo?.let { "هفته ${it.number} • ${it.parity.titleFa}" },
-                // The next-class row itself is NOT clickable (informational only),
-                // so an ongoing class never opens the builder. This callback only
-                // drives the weekly-timetable button inside the card, which
-                // scrolls to the timetable below instead of opening the builder.
-                onOpenWeeklyTimetable = {
-                    timetableGlowJob?.cancel()
-                    timetableGlowJob = homeScope.launch {
-                        weeklyTimetableRequester.bringIntoView()
-                        timetableGlow.animateTo(1f, tween(220))
-                        delay(1_200)
-                        timetableGlow.animateTo(0f, tween(520))
-                    }
-                },
-                nowMinutes = nowMinutes
             )
         }
 
-        // A first-time user needs the guided next step, not four zero-value
-        // cards and a second empty-state message.
-        if (enrolledSections.isNotEmpty()) {
-            ConflictBanner(
-                conflicts = conflicts,
-                hasEnrolledCourses = true,
-                modifier = Modifier.fillMaxWidth()
+        // C. Compact academic overview (safe credit progress, no color noise).
+        if (hasEnrolled) {
+            OverviewCard(
+                credits = metrics.totalCredits,
+                target = preferences.creditTarget,
+                activeDays = metrics.activeDaysCount,
+                gapMinutes = metrics.totalGapMinutes,
+                courseCount = metrics.totalCourses,
+                onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) }
             )
-
-            // Metrics Grid (4 modern cards with colorful icon backdrops)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ModernMetricCard(
-                    title = "تعداد دروس",
-                    value = "${metrics.totalCourses}",
-                    unit = "درس",
-                    icon = Icons.AutoMirrored.Filled.MenuBook,
-                    accentColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                ModernMetricCard(
-                    title = "مجموع واحدها",
-                    value = "${metrics.totalCredits}",
-                    unit = "واحد",
-                    icon = Icons.Default.CalendarMonth,
-                    accentColor = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ModernMetricCard(
-                    title = "روزهای کلاسی",
-                    value = "${metrics.activeDaysCount}",
-                    unit = "روز در هفته",
-                    icon = Icons.Default.DateRange,
-                    accentColor = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.weight(1f)
-                )
-                ModernMetricCard(
-                    title = "زمان مرده (گپ)",
-                    value = if (metrics.totalGapMinutes == 0) "۰" else "${metrics.totalGapMinutes}",
-                    unit = "دقیقه",
-                    icon = Icons.Default.Schedule,
-                    accentColor = if (metrics.totalGapMinutes == 0) {
-                        MaterialTheme.colorScheme.secondary
-                    } else {
-                        MaterialTheme.colorScheme.tertiary
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
         }
 
-        // Stack the primary actions so their Persian labels remain readable on
-        // narrow phones instead of competing for half of the screen each.
+        // E. Primary actions: manage courses vs. build the timetable.
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -392,9 +268,7 @@ fun HomeScreen(
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
-                Text("انتخاب و مدیریت درس‌ها", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text("مدیریت درس‌ها", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
 
             OutlinedButton(
@@ -416,11 +290,11 @@ fun HomeScreen(
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("ساخت برنامه هوشمند", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                Text("ساخت برنامه هوشمند", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        // Documents & Study Material Banner Card
+        // G. Documents entry with the accurate finalized-course count.
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -463,20 +337,18 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = when {
-                                enrolledSections.isEmpty() -> "پس از نهایی‌کردن برنامه، جزوات هر درس اینجا در دسترس است"
+                                !hasEnrolled -> "پس از نهایی‌کردن برنامه، جزوات هر درس اینجا در دسترس است"
                                 visibleDocumentCount == 0 -> "ثبت خلاصه درس، نمونه سوال و فایل‌های کلاسی"
-                                else -> "$visibleDocumentCount جزوه و سند ثبت شده به تفکیک دروس"
+                                else -> "${JalaliDate.toFaDigits(visibleDocumentCount)} جزوه و سند ثبت شده به تفکیک دروس"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -492,76 +364,13 @@ fun HomeScreen(
             }
         }
 
-        // Onboarding Card if empty
-        if (enrolledSections.isEmpty()) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Text(
-                        text = "برنامه کلاسی شما خالی است",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "برای شروع و چینش برنامه، ابتدا درس‌های مورد نظر خود را در بخش «درس‌ها» ثبت یا انتخاب کنید:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { viewModel.navigateTo(AppDestination.COURSES) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(40.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("مدیریت و افزودن درس‌ها", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        OutlinedButton(
-                            onClick = { viewModel.navigateTo(AppDestination.SETTINGS) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(40.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("تنظیمات و ورود داده", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+        // First-run guided sequence: import → pick courses → build. Each step
+        // exists in the app; nothing here is decorative.
+        if (!hasEnrolled) {
+            GuidedEmptyState(
+                onOpenSettings = { viewModel.navigateTo(AppDestination.SETTINGS) },
+                onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) }
+            )
         } else {
             // Share & Copy Timetable Action Bar
             Surface(
@@ -610,7 +419,7 @@ fun HomeScreen(
                 }
             }
 
-            // Exam Schedule Section
+            // Exam Schedule Section (expandable, conflict-aware as before).
             val examList = enrolledSections.filter { it.section.examDate.isNotBlank() }
                 .sortedBy { it.section.examDate }
 
@@ -618,7 +427,9 @@ fun HomeScreen(
                 val hasExamConflict = conflicts.any { it.type == ConflictType.EXAM_OVERLAP }
 
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(examSectionRequester),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 1.dp,
@@ -651,11 +462,11 @@ fun HomeScreen(
                                     )
                                     Text(
                                         text = buildString {
-                                            append("${examList.size} آزمون ثبت شده")
+                                            append("${JalaliDate.toFaDigits(examList.size)} آزمون ثبت شده")
                                             if (hasExamConflict) {
                                                 append(" (همراه با تداخل آزمون!)")
                                             } else if (examWarnings.isNotEmpty()) {
-                                                append(" (${examWarnings.size} هشدار ساعت نامشخص)")
+                                                append(" (${JalaliDate.toFaDigits(examWarnings.size)} هشدار ساعت نامشخص)")
                                             }
                                         },
                                         style = MaterialTheme.typography.labelSmall,
@@ -699,16 +510,14 @@ fun HomeScreen(
                                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    softWrap = false
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
                                                     text = "گروه ${sec.section.sectionCode} • استاد: ${sec.section.instructor.ifBlank { "نامشخص" }}",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    softWrap = false
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
 
@@ -727,8 +536,7 @@ fun HomeScreen(
                                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                                         color = MaterialTheme.colorScheme.primary,
                                                         maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        softWrap = false
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                     if (sec.section.examStartTime.isNotBlank()) {
                                                         Text(
@@ -736,8 +544,7 @@ fun HomeScreen(
                                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                             maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            softWrap = false
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -752,41 +559,60 @@ fun HomeScreen(
             }
         }
 
-        // Weekly Timetable Component
-        val homeParity = remember(
-            preferences.semesterStartEpochDay,
-            preferences.firstWeekIsOdd
-        ) {
-            ScheduleEngine.academicWeek(
-                ir.courseplanner.app.util.JalaliDate.todayEpochDay(),
-                preferences.semesterStartEpochDay,
-                preferences.firstWeekIsOdd
-            )?.parity
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .bringIntoViewRequester(weeklyTimetableRequester)
-                .testTag("home_weekly_timetable_section")
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f * timetableGlow.value)
-                )
-                .border(
-                    width = 1.5.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(
-                        alpha = 0.15f + 0.75f * timetableGlow.value
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                )
-        ) {
-            WeeklyTimetable(
-                sections = enrolledSections,
-                showThursday = preferences.showThursday,
-                density = preferences.timetableDensity,
-                currentParity = homeParity,
-                modifier = Modifier.fillMaxWidth()
-            )
+        // F. Weekly timetable preview: the real component, headed and
+        // parity-labelled, shown only when there is a program to preview.
+        if (hasEnrolled) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "برنامه هفتگی",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (weekInfo != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(weeklyTimetableRequester)
+                        .testTag("home_weekly_timetable_section")
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f * timetableGlow.value)
+                        )
+                        .border(
+                            width = 1.5.dp,
+                            color = MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.15f + 0.75f * timetableGlow.value
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                ) {
+                    WeeklyTimetable(
+                        sections = enrolledSections,
+                        showThursday = preferences.showThursday,
+                        density = preferences.timetableDensity,
+                        currentParity = weekInfo?.parity,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -794,308 +620,300 @@ fun HomeScreen(
 }
 
 /**
- * "Today" hero: today's classes in time order plus the single next class.
- * Placed right after the greeting so the most important info needs no scroll.
+ * A. Compact header: greeting, semester line, Persian date + academic week,
+ * a secondary offline pill, and a zero-safe credit progress row.
  */
 @Composable
-private fun TodayNextCard(
-    todayIdx: Int,
-    todaysClasses: List<ScheduleEngine.UpcomingSession>,
-    nextClass: ScheduleEngine.UpcomingSession?,
-    weekLabel: String?,
-    onOpenWeeklyTimetable: () -> Unit,
-    nowMinutes: Int,
+internal fun DashboardHeader(
+    studentName: String,
+    semesterName: String,
+    major: String,
+    credits: Int,
+    creditTarget: Int,
+    now: DashboardNow,
+    weekInfo: ScheduleEngine.AcademicWeek?,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
+    val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home_header_card"),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "امروز (${ir.courseplanner.app.data.model.ClassSession.getDayName(todayIdx)})",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = if (studentName.isNotBlank()) "سلام، $studentName" else "ترم‌چین",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (weekLabel != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = weekLabel,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    if (todaysClasses.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = "${todaysClasses.size} کلاس",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            if (todaysClasses.isEmpty()) {
-                Text(
-                    text = "امروز کلاسی نداری.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    todaysClasses.forEach { item ->
-                        val startM = ir.courseplanner.app.data.model.ClassSession.timeToMinutes(item.session.startTime)
-                        val endM = ir.courseplanner.app.data.model.ClassSession.timeToMinutes(item.session.endTime)
-                        val isPast = endM <= nowMinutes
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = item.session.startTime,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = if (isPast) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.width(52.dp)
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = item.section.courseName,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = if (isPast) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                                if (item.session.location.isNotBlank()) {
-                                    Text(
-                                        text = item.session.location,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        softWrap = false
-                                    )
-                                }
+                    Text(
+                        text = buildString {
+                            append(semesterName)
+                            if (major.isNotBlank()) {
+                                append(" • ")
+                                append(major)
                             }
-                            if (item.session.weekType != ir.courseplanner.app.data.model.WeekType.EVERY_WEEK) {
-                                Text(
-                                    text = item.session.weekType.titleFa,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val dateLine = todayJalali?.let { j ->
+                        buildString {
+                            append(ClassSession.getDayName(now.appDayIdx))
+                            append(" ")
+                            append(JalaliDate.toFaDigits(j.day))
+                            append(" ")
+                            append(JalaliDate.monthNameFa(j.month))
+                            if (weekInfo != null) {
+                                append(" • هفته ")
+                                append(JalaliDate.toFaDigits(weekInfo.number))
+                                append(" (")
+                                append(weekInfo.parity.titleFa)
+                                append(")")
                             }
                         }
                     }
+                    if (dateLine != null) {
+                        Text(
+                            text = dateLine,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-            }
 
-            if (nextClass != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                // Informational row only — intentionally NOT clickable, so an
-                // ongoing class never drops the user into the schedule builder.
-                // The 90-minute teaching window applies to the LIVE (ongoing) card
-                // only; a future "next class" still shows its real end time, and
-                // the weekly timetable always keeps the full 2-hour slot.
-                val displayEndText = if (nextClass.ongoing) {
-                    val displayEnd = ScheduleEngine.displayEndMinutes(nextClass.session)
-                    "%02d:%02d".format(displayEnd / 60, displayEnd % 60)
-                } else {
-                    nextClass.session.endTime
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Secondary offline pill: the app works offline; the pill must
+                // never read as a warning or a connectivity requirement.
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            Icons.Default.CloudOff,
+                            contentDescription = "برنامه کاملاً آفلاین کار می‌کند",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(13.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (nextClass.ongoing) "در حال برگزاری" else "کلاس بعدی",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = buildString {
-                                    append(nextClass.section.courseName)
-                                    append(" — ")
-                                    if (nextClass.dayOfWeek != todayIdx) {
-                                        append(ir.courseplanner.app.data.model.ClassSession.getDayName(nextClass.dayOfWeek))
-                                        append(" ")
-                                    }
-                                    append(nextClass.session.startTime)
-                                    append(" تا ")
-                                    append(displayEndText)
-                                    if (nextClass.session.location.isNotBlank()) {
-                                        append(" • ")
-                                        append(nextClass.session.location)
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "آفلاین",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            TodayTimetableButton(onOpenWeeklyTimetable = onOpenWeeklyTimetable)
+            val ratio = creditProgressRatio(credits, creditTarget)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "واحدهای اخذشده",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (creditTarget > 0) {
+                            "${JalaliDate.toFaDigits(credits)} از ${JalaliDate.toFaDigits(creditTarget)} واحد"
+                        } else {
+                            "${JalaliDate.toFaDigits(credits)} واحد ثبت شده"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                // A zero/unset target renders no bar: never divide by zero,
+                // never display a NaN progress value.
+                if (ratio != null) {
+                    LinearProgressIndicator(
+                        progress = { ratio },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = StrokeCap.Round
+                    )
+                }
+            }
         }
     }
 }
 
 /**
- * Weekly timetable entry - scrolls the home screen down to the real weekly
- * timetable. The today list and the next-class row above stay informational
- * (deliberately not clickable) so an ongoing class can never drop the user
- * into the schedule builder by accident.
+ * First-run guided sequence. Every step maps to a real destination; the third
+ * step is guidance text (no dead button) until courses exist.
  */
 @Composable
-private fun TodayTimetableButton(onOpenWeeklyTimetable: () -> Unit) {
-    OutlinedButton(
-        onClick = onOpenWeeklyTimetable,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .testTag("home_view_weekly_timetable_button"),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Icon(
-            Icons.Default.CalendarViewWeek,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("مشاهده برنامه هفتگی", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
-    }
-}
-
-@Composable
-private fun ModernMetricCard(
-    title: String,
-    value: String,
-    unit: String,
-    icon: ImageVector,
-    accentColor: Color,
+internal fun GuidedEmptyState(
+    onOpenSettings: () -> Unit,
+    onOpenCourses: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.shadow(1.dp, RoundedCornerShape(16.dp)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home_empty_state"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(accentColor.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-            }
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false
-                )
-                Text(
-                    text = unit,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 2.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false
+                Icon(
+                    Icons.Default.School,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
             }
+
+            Text(
+                text = "برنامه کلاسی شما خالی است",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            GuidedStepRow(
+                number = "۱",
+                title = "ورود اطلاعات درسی",
+                subtitle = "فایل پرتال، JSON یا CSV را وارد کنید",
+                actionLabel = "تنظیمات و ورود داده",
+                onAction = onOpenSettings
+            )
+            GuidedStepRow(
+                number = "۲",
+                title = "انتخاب درس‌ها",
+                subtitle = "درس‌ها را به برنامه اضافه کنید",
+                actionLabel = "مدیریت درس‌ها",
+                onAction = onOpenCourses
+            )
+            GuidedStepRow(
+                number = "۳",
+                title = "ساخت برنامه هوشمند",
+                subtitle = "بعد از انتخاب درس، برنامه هفتگی‌تان را می‌سازید",
+                actionLabel = null,
+                onAction = null
+            )
         }
     }
 }
 
+@Composable
+private fun GuidedStepRow(
+    number: String,
+    title: String,
+    subtitle: String,
+    actionLabel: String?,
+    onAction: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        ),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(30.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = number,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (actionLabel != null && onAction != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = onAction,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 14.dp,
+                            vertical = 6.dp
+                        ),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Text(actionLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
