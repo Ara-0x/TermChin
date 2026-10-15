@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -122,10 +124,21 @@ fun resolveNowNext(
     return NowNextState.LaterDay(next)
 }
 
-/** Persian countdown line for an upcoming class today. */
+/** Persian countdown line for an upcoming class today. Reuses [formatGapFa]
+ * so a long wait reads as «۱ ساعت و ۳۰ دقیقه تا شروع کلاس» — one line, one
+ * hours+minutes pair, never a bare minute count that duplicates a second row. */
 fun countdownFa(minutesToStart: Int): String =
     if (minutesToStart < 1) "کمتر از یک دقیقه تا شروع کلاس"
-    else "${JalaliDate.toFaDigits(minutesToStart)} دقیقه تا شروع کلاس"
+    else "${formatGapFa(minutesToStart)} تا شروع کلاس"
+
+/**
+ * Persian countdown for a class that is running right now. The wording is
+ * explicit about direction — the number counts down to the END of the class,
+ * not its start — so «۱ ساعت و ۱۰ دقیقه تا پایان کلاس» cannot be misread.
+ */
+fun ongoingRemainingFa(minutesLeft: Int): String =
+    if (minutesLeft < 1) "لحظه‌های پایانی کلاس"
+    else "${formatGapFa(minutesLeft)} تا پایان کلاس"
 
 /**
  * Warm, time-aware greeting from real device time (minutes since midnight).
@@ -312,6 +325,7 @@ internal fun NowNextCard(
                             todayClasses = todayClasses,
                             focusedKey = focusedSessionKey(state.item),
                             nowMinutes = nowMinutes,
+                            focusedIsOngoing = true,
                             statusLabelFor = { item ->
                                 if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
                                     "در حال برگزاری"
@@ -321,11 +335,7 @@ internal fun NowNextCard(
                             },
                             statusFor = { item ->
                                 if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
-                                    if (state.minutesLeft <= 0) {
-                                        "کلاس در حال برگزاری است"
-                                    } else {
-                                        "${JalaliDate.toFaDigits(state.minutesLeft)} دقیقه مانده"
-                                    }
+                                    ongoingRemainingFa(state.minutesLeft)
                                 } else {
                                     null
                                 }
@@ -334,7 +344,6 @@ internal fun NowNextCard(
                         TimetableRouteButton(onOpenWeeklyTimetable)
                     }
                 is NowNextState.UpcomingToday -> {
-                    val gapText = gapLineFa(state.item, nowMinutes)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TodayTimeline(
                             todayClasses = todayClasses,
@@ -346,9 +355,6 @@ internal fun NowNextCard(
                                 } else {
                                     null
                                 }
-                            },
-                            detailFor = { item ->
-                                if (focusedSessionKey(item) == focusedSessionKey(state.item)) gapText else null
                             },
                             statusFor = { item ->
                                 if (focusedSessionKey(item) == focusedSessionKey(state.item)) {
@@ -439,16 +445,6 @@ private fun timeRangeFa(session: ClassSession): String =
     session.startTime + " – " + session.endTime
 
 /**
- * Meaningful gap before the next class today, or null when there is no gap
- * worth surfacing (back-to-back or overlapping). Pure on explicit inputs.
- */
-internal fun gapLineFa(item: UpcomingSession, nowMinutes: Int): String? {
-    val gap = item.session.startMinutes - nowMinutes
-    if (gap < 5) return null
-    return formatGapFa(gap) + " فرصت تا شروع"
-}
-
-/**
  * Live progress of the teaching window (start .. display end). Driven by the
  * fixed clock sample of the current frame.
  */
@@ -475,7 +471,7 @@ private fun TodayTimeline(
     nowMinutes: Int,
     statusFor: (UpcomingSession) -> String?,
     statusLabelFor: (UpcomingSession) -> String? = { null },
-    detailFor: (UpcomingSession) -> String? = { null }
+    focusedIsOngoing: Boolean = false
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         todayClasses.sortedBy { it.session.startMinutes }.forEach { item ->
@@ -485,7 +481,7 @@ private fun TodayTimeline(
                     item = item,
                     status = status,
                     statusLabel = statusLabelFor(item),
-                    detail = detailFor(item),
+                    isOngoing = focusedIsOngoing,
                     nowMinutes = nowMinutes
                 )
             } else {
@@ -500,13 +496,21 @@ private fun FocusedClassRow(
     item: UpcomingSession,
     status: String,
     statusLabel: String? = null,
-    detail: String? = null,
+    isOngoing: Boolean = false,
     nowMinutes: Int?
 ) {
+    // An ongoing class gets a warmer accent than a merely-upcoming one, so
+    // "happening now" is distinguishable from "next" before reading a word.
+    val accent = if (isOngoing) MaterialTheme.colorScheme.tertiary
+                 else MaterialTheme.colorScheme.primary
+    val accentContainer = if (isOngoing) MaterialTheme.colorScheme.tertiaryContainer
+                          else MaterialTheme.colorScheme.primaryContainer
+    val onAccentContainer = if (isOngoing) MaterialTheme.colorScheme.onTertiaryContainer
+                            else MaterialTheme.colorScheme.onPrimaryContainer
     Surface(
         shape = TermChinDesign.RowShape,
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+        color = accentContainer.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
@@ -517,16 +521,13 @@ private fun FocusedClassRow(
                     .width(TermChinDesign.FocusBarWidth)
                     .height(48.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(accent)
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 if (statusLabel != null) {
-                    Text(
-                        text = statusLabel,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    StatusPill(label = statusLabel, ongoing = isOngoing)
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
                 Text(
                     text = item.section.courseName,
@@ -550,23 +551,81 @@ private fun FocusedClassRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text(
+                Spacer(modifier = Modifier.height(4.dp))
+                CountdownBadge(
                     text = status,
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.testTag("home_now_next_countdown")
+                    containerColor = accentContainer,
+                    contentColor = onAccentContainer
                 )
-                if (detail != null) {
-                    Text(
-                        text = detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
                 if (nowMinutes != null) {
                     SessionProgress(nowMinutes = nowMinutes, session = item.session)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Small status chip («در حال برگزاری» / «کلاس بعدی») with a leading dot. The
+ * dot is decorative emphasis; the label carries the meaning. Ongoing uses a
+ * warmer accent so "now" reads differently from "next" at a glance.
+ */
+@Composable
+private fun StatusPill(label: String, ongoing: Boolean) {
+    val accent = if (ongoing) MaterialTheme.colorScheme.tertiary
+                 else MaterialTheme.colorScheme.primary
+    Surface(shape = TermChinDesign.PillShape, color = accent.copy(alpha = 0.14f)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(accent)
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = accent,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/**
+ * Countdown rendered as a clock-prefixed chip so it reads as a live timer
+ * rather than static metadata. Owns the `home_now_next_countdown` tag.
+ */
+@Composable
+private fun CountdownBadge(
+    text: String,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Surface(shape = TermChinDesign.PillShape, color = containerColor.copy(alpha = 0.55f)) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 9.dp, vertical = 4.dp)
+                .testTag("home_now_next_countdown"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Schedule,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(TermChinDesign.IconSm)
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = contentColor,
+                maxLines = 1
+            )
         }
     }
 }

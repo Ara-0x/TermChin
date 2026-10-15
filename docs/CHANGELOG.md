@@ -4,6 +4,50 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.15.0] (30) — 2026-10-15 one countdown, clearer accents, friendlier empty days
+
+The Home "today" card showed two countdown lines for the same fact — one in
+bare minutes, one in hours+minutes. Only one survives now, always with a
+hours+minutes pair and an explicit direction ("X تا شروع کلاس" / "تا پایان
+کلاس"). Course cards gain a leading accent bar for courses you actually take,
+the timetable's free-day box becomes an intentional empty state, and the
+Midnight theme's tertiary turns a true purple so the triad no longer reads as
+"blue twice".
+
+No feature removed, no stored value changed, no flow touched. Baseline:
+**34 suites / 247 tests, 0 failures**.
+
+### Changed
+
+- **One countdown in «امروز چه خبر؟».** `countdownFa` reuses
+  `formatGapFa`, so a long wait reads «۱ ساعت و ۳۵ دقیقه تا شروع کلاس»
+  instead of a bare «۹۵ دقیقه تا شروع کلاس». The duplicate detail line
+  (`gapLineFa`, "فرصت تا شروع") is gone; the single line owns the
+  `home_now_next_countdown` tag and now renders as a clock-prefixed chip.
+- **Ongoing classes say where the time goes.** A running class counts down to
+  its end through the new `ongoingRemainingFa` — «۱ ساعت و ۱۰ دقیقه تا پایان
+  کلاس» instead of the ambiguous «۷۰ دقیقه مانده». The status pill and the
+  accent bar turn the warmer tertiary hue while a class runs, so "now" is
+  distinguishable from "next" before reading a word.
+- **Midnight theme tertiary is a true purple.** `#7E5AF0 → #9333EA`
+  (light) and `#B5A2FF → #A855F7` (dark): the primary/tertiary hue gap grows
+  from ~22° to ~39°/43°, matching the separation every other theme enjoys.
+  Text contrast on the new fills stays above AA (4.56 / 5.38).
+- **Course cards show which courses are yours.** `CourseCard` gains a leading
+  accent bar — `primary` when at least one enrolled group exists, a quiet
+  hairline otherwise, so the layout never shifts when you enroll.
+- **The timetable's free-day box is designed now.** A muted `EventBusy`
+  glyph, a «این روز تعطیل است» headline and a «روز استراحت و مطالعه»
+  caption replace the bare sentence that used to float in the box.
+
+### Tests
+
+- New `ongoingRemainingFa` expectations and the hours+minutes countdown
+  assertion replace the removed `gapLineFa` test; the ongoing Compose test
+  now asserts the explicit «تا پایان کلاس» wording.
+- The existing palette suite passes untouched against the new Midnight
+  tertiary (contrast, chroma, hue separation, uniqueness).
+
 ## [2.14.0] (29) — 2026-10-13 nicer copy, calmer documents, better theme names
 
 No logic, stored value, flow or theme removed. A polish pass: the shared

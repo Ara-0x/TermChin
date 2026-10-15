@@ -339,7 +339,10 @@ private val MidnightLight = SchemeTokens(
     primaryContainer = 0xFFDEE4FFL, onPrimaryContainer = 0xFF1A2456L,
     secondary = 0xFF0B7A5CL, onSecondary = 0xFFFFFFFFL,
     secondaryContainer = 0xFFC9F2E4L, onSecondaryContainer = 0xFF07352AL,
-    tertiary = 0xFF7E5AF0L, onTertiary = 0xFFFFFFFFL,
+    // Purple, not lavender-blue: the previous #7E5AF0 sat only ~22 deg from the
+    // blue primary, so the triad read as "blue twice". #9333EA clears it by
+    // ~39 deg (blue 232 -> purple 271), matching the separation other themes get.
+    tertiary = 0xFF9333EAL, onTertiary = 0xFFFFFFFFL,
     tertiaryContainer = 0xFFE7E2FFL, onTertiaryContainer = 0xFF2C165EL,
     background = 0xFFF3F3F3L, onSurface = 0xFF17171DL,
     surface = 0xFFFFFFFFL, surfaceVariant = 0xFFEEEFF2L,
@@ -352,8 +355,10 @@ private val MidnightDark = SchemeTokens(
     primaryContainer = 0xFF232E5CL, onPrimaryContainer = 0xFFDCE4FFL,
     secondary = 0xFF72D9BBL, onSecondary = 0xFF04231BL,
     secondaryContainer = 0xFF134E44L, onSecondaryContainer = 0xFFB9F4E2L,
-    tertiary = 0xFFB5A2FFL, onTertiary = 0xFF241647L,
-    tertiaryContainer = 0xFF3B2A6EL, onTertiaryContainer = 0xFFE4DBFFL,
+    // Same fix as light: a vivid purple clears the blue primary by ~44 deg, so
+    // the swatch and metric accents read as three distinct hues, not two blues.
+    tertiary = 0xFFA855F7L, onTertiary = 0xFF1F0740L,
+    tertiaryContainer = 0xFF5B21B6L, onTertiaryContainer = 0xFFF3E8FFL,
     background = 0xFF0F0F0FL, onSurface = 0xFFEDEDEDL,
     surface = 0xFF1A1A1AL, surfaceVariant = 0xFF292929L,
     onSurfaceVariant = 0xFFAFAFAFL, outline = 0xFF737373L,

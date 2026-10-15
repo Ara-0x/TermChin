@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -123,6 +125,12 @@ internal fun CourseCard(
 ) {
     val course = courseWithSections.course
     val sectionsWithDetails = sections
+    // A course that already owns an enrolled group is "active" in the student's
+    // week. A leading accent bar (same vocabulary as the focused timeline row on
+    // Home) makes those courses scannable in one pass down the list.
+    val hasEnrolled = remember(sectionsWithDetails, enrolledKey) {
+        sectionsWithDetails.any { it.section.isEnrolled }
+    }
 
     Surface(
         modifier = Modifier
@@ -133,7 +141,26 @@ internal fun CourseCard(
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+        ) {
+            // Leading accent: primary for enrolled courses, a quiet hairline
+            // otherwise, so every card keeps the same left/right rhythm.
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(TermChinDesign.FocusBarWidth)
+                    .background(
+                        if (hasEnrolled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
+                    )
+            )
+            Column(modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp, end = 14.dp, top = 14.dp, bottom = 14.dp)
+            ) {
             // Course Header
             // Layout contract: the course name owns the full first line and
             // may wrap to a second one; chips (units, documents) live on a
@@ -357,6 +384,7 @@ internal fun CourseCard(
                 }
             }
         }
+    }
     }
 }
 

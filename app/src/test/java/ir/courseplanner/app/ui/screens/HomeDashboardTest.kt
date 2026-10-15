@@ -329,12 +329,18 @@ class HomeDashboardPureTest {
     }
 
     @Test
-    fun `gap line surfaces meaningful gaps only`() {
-        val item = occurrence(start = "10:00")
+    fun `ongoing countdown counts down to the end of class`() {
+        assertEquals("۱ ساعت و ۱۰ دقیقه تا پایان کلاس", ongoingRemainingFa(70))
+        assertEquals("۳۰ دقیقه تا پایان کلاس", ongoingRemainingFa(30))
+        assertEquals("لحظه‌های پایانی کلاس", ongoingRemainingFa(0))
+    }
 
-        assertEquals("۲ ساعت فرصت تا شروع", gapLineFa(item, 480))
-        assertNull(gapLineFa(item, 597))
-        assertNull(gapLineFa(item, 605))
+    @Test
+    fun `upcoming countdown reads as hours and minutes`() {
+        // A wait over an hour must not render as a bare minute count.
+        assertEquals("۱ ساعت و ۳۵ دقیقه تا شروع کلاس", countdownFa(95))
+        assertEquals("۲ ساعت تا شروع کلاس", countdownFa(120))
+        assertEquals("۳۵ دقیقه تا شروع کلاس", countdownFa(35))
     }
 }
 
@@ -399,7 +405,8 @@ class HomeDashboardUiTest {
         composeTestRule.onNodeWithTag("home_now_next_headline")
             .assertTextEquals("ریاضی ۱")
         composeTestRule.onNodeWithTag("home_now_next_countdown").assertIsDisplayed()
-        composeTestRule.onNodeWithText("۷۰ دقیقه مانده", substring = true).assertIsDisplayed()
+        // The countdown names its target explicitly: it counts down to the end.
+        composeTestRule.onNodeWithText("تا پایان کلاس", substring = true).assertIsDisplayed()
     }
 
     @Test
