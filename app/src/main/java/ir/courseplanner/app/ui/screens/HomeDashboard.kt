@@ -170,7 +170,7 @@ fun creditProgressRatio(credits: Int, target: Int): Float? =
 
 /** Human Persian duration for gap minutes. */
 fun formatGapFa(totalMinutes: Int): String {
-    if (totalMinutes <= 0) return "بدون گپ"
+    if (totalMinutes <= 0) return "ندارد"
     val hours = totalMinutes / 60
     val mins = totalMinutes % 60
     return when {
@@ -304,7 +304,6 @@ internal fun NowNextCard(
     todayClasses: List<UpcomingSession>,
     state: NowNextState,
     nowMinutes: Int,
-    onOpenWeeklyTimetable: () -> Unit,
     onManageCourses: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -349,7 +348,6 @@ internal fun NowNextCard(
                                 }
                             }
                         )
-                        TimetableRouteButton(onOpenWeeklyTimetable)
                     }
                 is NowNextState.UpcomingToday -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -372,7 +370,6 @@ internal fun NowNextCard(
                                 }
                             }
                         )
-                        TimetableRouteButton(onOpenWeeklyTimetable)
                     }
                 }
                 is NowNextState.LaterDay -> {
@@ -386,14 +383,6 @@ internal fun NowNextCard(
                         modifier = Modifier.semantics { heading() }
                     )
                     UpcomingDayCard(item = state.item)
-                    OutlinedButton(
-                        onClick = onOpenWeeklyTimetable,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("home_view_weekly_timetable_button")
-                    ) {
-                        Text("مشاهده برنامه هفتگی")
-                    }
                 }
                 NowNextState.NoneScheduled -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -506,26 +495,10 @@ private fun UpcomingDayCard(item: UpcomingSession) {
     }
 }
 /**
- * Contextual route to the full weekly timetable below. Rendered once per hero
- * state (branches are exclusive), so the tag stays unique on screen.
- */
-@Composable
-private fun TimetableRouteButton(onOpenWeeklyTimetable: () -> Unit) {
-    OutlinedButton(
-        onClick = onOpenWeeklyTimetable,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("home_view_weekly_timetable_button")
-    ) {
-        Text("مشاهده برنامه هفتگی")
-    }
-}
-
-/**
  * Plain HH:mm range for one session, e.g. 08:00-10:00.
  */
 private fun timeRangeFa(session: ClassSession): String =
-    session.startTime + " – " + session.endTime
+    JalaliDate.toFaDigits(session.startTime) + " – " + JalaliDate.toFaDigits(session.endTime)
 
 /**
  * Live progress of the teaching window (start .. display end). Driven by the
@@ -880,7 +853,7 @@ internal fun OverviewCard(
                 )
                 OverviewStat(
                     value = formatGapFa(gapMinutes),
-                    label = "زمان مرده",
+                    label = "تایم خالی",
                     accent = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.weight(1f)
                 )

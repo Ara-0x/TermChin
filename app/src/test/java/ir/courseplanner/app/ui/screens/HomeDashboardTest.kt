@@ -203,7 +203,7 @@ class HomeDashboardPureTest {
 
     @Test
     fun `gap formatting is human Persian`() {
-        assertEquals("بدون گپ", formatGapFa(0))
+        assertEquals("ندارد", formatGapFa(0))
         assertEquals("۴۵ دقیقه", formatGapFa(45))
         assertEquals("۲ ساعت", formatGapFa(120))
         assertEquals("۲ ساعت و ۳۰ دقیقه", formatGapFa(150))
@@ -395,7 +395,6 @@ class HomeDashboardUiTest {
                     todayClasses = listOf(item),
                     state = NowNextState.Ongoing(item, 70),
                     nowMinutes = 620,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
@@ -419,7 +418,6 @@ class HomeDashboardUiTest {
                     todayClasses = listOf(item),
                     state = NowNextState.UpcomingToday(item, 35),
                     nowMinutes = 565,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
@@ -438,7 +436,6 @@ class HomeDashboardUiTest {
                     todayClasses = emptyList(),
                     state = NowNextState.NoneScheduled,
                     nowMinutes = 700,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
@@ -558,6 +555,7 @@ class HomeDashboardUiTest {
                     major = "کامپیوتر",
                     credits = 12,
                     creditTarget = 20,
+                    weekInfo = null,
                     now = now
                 )
             }
@@ -565,42 +563,54 @@ class HomeDashboardUiTest {
 
         composeTestRule.onNodeWithText("صبح بخیر، امیر").assertIsDisplayed()
         composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
-        // Credits progress belongs to identity; the calendar date and the week
-        // number live in TodayDateCard instead.
         composeTestRule.onNodeWithText("نیم‌سال اول • کامپیوتر", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("۱۲ واحد از ۲۰", substring = true).assertIsDisplayed()
     }
 
     @Test
-    fun dateCardShowsJalaliDateAndAcademicWeekTogether() {
+    fun headerMergesJalaliDateAndAcademicWeek() {
         val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
         composeTestRule.setContent {
             MyApplicationTheme {
-                TodayDateCard(
-                    now = now,
-                    weekInfo = ScheduleEngine.AcademicWeek(4, ScheduleEngine.WeekParity.ODD)
+                DashboardHeader(
+                    studentName = "امیر",
+                    semesterName = "نیم‌سال اول",
+                    major = "کامپیوتر",
+                    credits = 12,
+                    creditTarget = 20,
+                    weekInfo = ScheduleEngine.AcademicWeek(4, ScheduleEngine.WeekParity.ODD),
+                    now = now
                 )
             }
         }
 
-        // One card carries both views of the same fact: weekday + Jalali date
-        // on the leading edge, academic week on the trailing edge.
-        composeTestRule.onNodeWithTag("home_today_date_card").assertIsDisplayed()
+        // The date and the academic week now live inside the greeting card —
+        // one block, no second near-identical surface above the hero.
+        composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_header_date_row").assertIsDisplayed()
         // appDayIdx = 3 is Tuesday (سه‌شنبه) in the Saturday-first academic week.
-        composeTestRule.onNodeWithText("سه‌شنبه").assertIsDisplayed()
+        composeTestRule.onNodeWithText("سه‌شنبه", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("هفته ۴ (فرد)").assertIsDisplayed()
     }
 
     @Test
-    fun dateCardStaysReadableWhenSemesterStartIsUnset() {
+    fun headerStaysReadableWhenSemesterStartIsUnset() {
         val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
         composeTestRule.setContent {
             MyApplicationTheme {
-                TodayDateCard(now = now, weekInfo = null)
+                DashboardHeader(
+                    studentName = "امیر",
+                    semesterName = "نیم‌سال اول",
+                    major = "کامپیوتر",
+                    credits = 12,
+                    creditTarget = 20,
+                    weekInfo = null,
+                    now = now
+                )
             }
         }
 
-        composeTestRule.onNodeWithTag("home_today_date_card").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_header_date_row").assertIsDisplayed()
         composeTestRule.onNodeWithText("هفته نامشخص").assertIsDisplayed()
     }
 
@@ -629,7 +639,6 @@ class HomeDashboardUiTest {
                     todayClasses = listOf(first, focused),
                     state = NowNextState.UpcomingToday(focused, 35),
                     nowMinutes = 565,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
@@ -638,7 +647,6 @@ class HomeDashboardUiTest {
         // The focused class is emphasized inline, never duplicated as a hero.
         composeTestRule.onAllNodesWithTag("home_now_next_headline").assertCountEquals(1)
         composeTestRule.onNodeWithText("۳۵ دقیقه تا شروع کلاس").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
     }
 
     @Test
@@ -651,7 +659,6 @@ class HomeDashboardUiTest {
                     todayClasses = emptyList(),
                     state = NowNextState.LaterDay(item),
                     nowMinutes = 700,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
@@ -660,7 +667,6 @@ class HomeDashboardUiTest {
         // A day with no class must say so — never "today's classes are over".
         composeTestRule.onNodeWithText("امروز کلاسی نداری").assertIsDisplayed()
         composeTestRule.onNodeWithText("چهارشنبه", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
     }
 
     @Test
@@ -673,14 +679,12 @@ class HomeDashboardUiTest {
                     todayClasses = listOf(item),
                     state = NowNextState.Ongoing(item, 70),
                     nowMinutes = 620,
-                    onOpenWeeklyTimetable = {},
                     onManageCourses = {}
                 )
             }
         }
 
         composeTestRule.onNodeWithText("در حال برگزاری").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
     }
 
     @Test

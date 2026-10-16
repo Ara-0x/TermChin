@@ -43,6 +43,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -197,14 +198,9 @@ fun HomeScreen(
             major = preferences.major,
             credits = metrics.totalCredits,
             creditTarget = preferences.creditTarget,
+            weekInfo = weekInfo,
             now = now,
             modifier = Modifier.dashboardEntrance(0)
-        )
-
-        TodayDateCard(
-            now = now,
-            weekInfo = weekInfo,
-            modifier = Modifier.dashboardEntrance(1)
         )
 
         // B. Primary hero: now and next, with a live countdown.
@@ -214,7 +210,6 @@ fun HomeScreen(
                 todayClasses = todaysClasses,
                 state = nowNextState,
                 nowMinutes = now.nowMinutes,
-                onOpenWeeklyTimetable = scrollToTimetable,
                 onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) },
                 modifier = Modifier.dashboardEntrance(2)
             )
@@ -234,19 +229,6 @@ fun HomeScreen(
                     }
                 },
                 modifier = Modifier.dashboardEntrance(3)
-            )
-        }
-
-        // C. Compact academic overview (safe credit progress, no color noise).
-        if (hasEnrolled) {
-            OverviewCard(
-                credits = metrics.totalCredits,
-                target = preferences.creditTarget,
-                activeDays = metrics.activeDaysCount,
-                gapMinutes = metrics.totalGapMinutes,
-                courseCount = metrics.totalCourses,
-                onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) },
-                modifier = Modifier.dashboardEntrance(4)
             )
         }
 
@@ -368,7 +350,7 @@ fun HomeScreen(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
-                                                    text = "گروه ${sec.section.sectionCode} • استاد: ${sec.section.instructor.ifBlank { "نامشخص" }}",
+                                                    text = "گروه ${JalaliDate.toFaDigits(sec.section.sectionCode)} • استاد: ${sec.section.instructor.ifBlank { "نامشخص" }}",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1,
@@ -395,7 +377,7 @@ fun HomeScreen(
                                                     )
                                                     if (sec.section.examStartTime.isNotBlank()) {
                                                         Text(
-                                                            text = "${sec.section.examStartTime} تا ${sec.section.examEndTime}",
+                                                            text = "${JalaliDate.toFaDigits(sec.section.examStartTime)} تا ${JalaliDate.toFaDigits(sec.section.examEndTime)}",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                             maxLines = 1,
@@ -443,6 +425,31 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.semantics { heading() }
                     )
+                    Spacer(modifier = Modifier.weight(1f))
+                    // Export lives as bare icons right beside the timetable it
+                    // acts on, not as a full-width card at the page's end.
+                    IconButton(
+                        onClick = { TimetableExporter.copyToClipboard(context, enrolledSections) },
+                        modifier = Modifier.testTag("home_export_copy_button")
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "کپی متن برنامه",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(TermChinDesign.IconMd)
+                        )
+                    }
+                    IconButton(
+                        onClick = { TimetableExporter.shareSchedule(context, enrolledSections) },
+                        modifier = Modifier.testTag("home_export_share_button")
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = "اشتراک‌گذاری برنامه",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(TermChinDesign.IconMd)
+                        )
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -474,10 +481,17 @@ fun HomeScreen(
             )
         }
 
+        // C. Compact academic overview, demoted to the very bottom: it is
+        // reference material ("how full is my term?"), not today's plan, so it
+        // never pushes the timetable below the fold.
         if (hasEnrolled) {
-            HomeExportActions(
-                onCopy = { TimetableExporter.copyToClipboard(context, enrolledSections) },
-                onShare = { TimetableExporter.shareSchedule(context, enrolledSections) },
+            OverviewCard(
+                credits = metrics.totalCredits,
+                target = preferences.creditTarget,
+                activeDays = metrics.activeDaysCount,
+                gapMinutes = metrics.totalGapMinutes,
+                courseCount = metrics.totalCourses,
+                onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) },
                 modifier = Modifier.dashboardEntrance(9)
             )
         }
@@ -509,8 +523,9 @@ private fun Modifier.dashboardEntrance(index: Int): Modifier {
 }
 
 /**
- * A. Personal context. Answers "who am I in this term and how far along are
- * my credits" — time facts deliberately live in [TodayDateCard] below it.
+ * A. Personal context and time facts in a single block: the greeting, the
+ * Jalali date and the academic week all answer "where am I right now", so
+ * they share one card instead of stacking two near-identical surfaces.
  */
 @Composable
 internal fun DashboardHeader(
@@ -519,9 +534,25 @@ internal fun DashboardHeader(
     major: String,
     credits: Int,
     creditTarget: Int,
+    weekInfo: ScheduleEngine.AcademicWeek?,
     now: DashboardNow,
     modifier: Modifier = Modifier
 ) {
+    val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
+    val dateLabel = buildString {
+        append(ClassSession.getDayName(now.appDayIdx))
+        if (todayJalali != null) {
+            append(" ")
+            append(JalaliDate.toFaDigits(todayJalali.day))
+            append(" ")
+            append(JalaliDate.monthNameFa(todayJalali.month))
+        }
+    }
+    val weekLabel = if (weekInfo != null) {
+        "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
+    } else {
+        "هفته نامشخص"
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -538,141 +569,113 @@ internal fun DashboardHeader(
             MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = greetingFa(now.nowMinutes, studentName),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = greetingFa(now.nowMinutes, studentName),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                Text(
-                    text = buildString {
-                        append(semesterName)
-                        if (major.isNotBlank()) {
+                    Text(
+                        text = buildString {
+                            append(semesterName)
+                            if (major.isNotBlank()) {
+                                append(" • ")
+                                append(major)
+                            }
                             append(" • ")
-                            append(major)
-                        }
-                        append(" • ")
-                        append(JalaliDate.toFaDigits(credits))
-                        append(" واحد")
-                        if (creditTarget > 0) {
-                            append(" از ")
-                            append(JalaliDate.toFaDigits(creditTarget))
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(52.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.School,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * A′. Time card. The calendar date and the academic week number are two views
- * of the same fact, so they share one card instead of two surfaces.
- */
-@Composable
-internal fun TodayDateCard(
-    now: DashboardNow,
-    weekInfo: ScheduleEngine.AcademicWeek?,
-    modifier: Modifier = Modifier
-) {
-    val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("home_today_date_card"),
-        shape = TermChinDesign.CardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Event,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(TermChinDesign.IconMd)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = ClassSession.getDayName(now.appDayIdx),
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = todayJalali?.let { j ->
-                            "${JalaliDate.toFaDigits(j.day)} ${JalaliDate.monthNameFa(j.month)} ${JalaliDate.toFaDigits(j.year)}"
-                        }.orEmpty(),
+                            append(JalaliDate.toFaDigits(credits))
+                            append(" واحد")
+                            if (creditTarget > 0) {
+                                append(" از ")
+                                append(JalaliDate.toFaDigits(creditTarget))
+                            }
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
             }
 
-            Surface(
-                shape = TermChinDesign.PillShape,
-                color = MaterialTheme.colorScheme.primary
+            // Date + academic week: the two time facts the standalone date card
+            // used to carry, folded into the greeting block.
+            Row(
+                modifier = Modifier.testTag("home_header_date_row"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (weekInfo != null) {
-                        "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
-                    } else {
-                        "هفته نامشخص"
-                    },
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+                Surface(
+                    shape = TermChinDesign.PillShape,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Event,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = dateLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = TermChinDesign.PillShape,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
+                ) {
+                    Text(
+                        text = weekLabel,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }
@@ -934,64 +937,4 @@ internal fun SecondaryDocumentsLine(
     }
 }
 
-/**
- * Secondary utility actions belong at the end of Home: useful when the
- * student asks for them, but never allowed to compete with today's plan.
- */
-@Composable
-private fun HomeExportActions(
-    onCopy: () -> Unit,
-    onShare: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = TermChinDesign.CardShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "خروجی برنامهٔ هفتگی",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { heading() }
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onCopy,
-                    shape = TermChinDesign.ControlShape,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("کپی متن", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onShare,
-                    shape = TermChinDesign.ControlShape,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("اشتراک‌گذاری", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
+

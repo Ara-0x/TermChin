@@ -134,7 +134,7 @@ fun TermChinBottomBar(
                         .width(itemWidth)
                         .height(BAR_HEIGHT)
                         .clip(RoundedCornerShape(INDICATOR_RADIUS))
-                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                 )
                 Row(
                     modifier = Modifier
@@ -174,7 +174,7 @@ private fun NavItem(
     )
     val contentColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.onSecondaryContainer
+            MaterialTheme.colorScheme.onPrimaryContainer
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },

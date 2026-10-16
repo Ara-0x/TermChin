@@ -4,6 +4,25 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.19.0] (34) — 2026-10-16 declutter Home: merged header, unified digits, simpler nav & timetable
+
+A refinement release driven by on-device user feedback: less clutter, clearer
+hierarchy, neutral wording, and consistent Persian digits everywhere. No logic
+or storage contract changed.
+
+Baseline: **34 suites / 247 tests, 0 failures**.
+
+### Changed
+
+- **Merged header.** The greeting, Jalali date and academic week now share one card instead of two stacked surfaces.
+- **De-cluttered timeline.** Dropped the redundant "مشاهده برنامه هفتگی" button and the duplicated per-card time header; time is shown once, inside each card's badge.
+- **Overview demoted.** The term overview moved to the very bottom so it never pushes the timetable below the fold; export actions became bare icons beside the timetable title.
+- **Neutral gap wording.** "زمان مرده" → "تایم خالی", "بدون گپ" → "ندارد".
+- **Consistent Persian digits** in the weekly timetable, Now/Next card, exam list and schedule metrics.
+- **Selected day clarity.** The active weekday cell now uses a soft primary wash + 2dp border.
+- **Date ordering fixed.** Weekly strip now shows monotonically increasing Jalali days instead of jumping back mid-week.
+- **Nav active color** now follows the theme's primary palette.
+
 ## [2.18.0] (33) — 2026-10-16 clarity pass: honest empty days, calmer scale, sliding nav, faster settings
 
 A refinement release driven by on-device feedback: the dashboard tells the truth

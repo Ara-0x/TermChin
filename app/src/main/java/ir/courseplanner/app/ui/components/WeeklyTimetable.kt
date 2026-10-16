@@ -345,7 +345,7 @@ fun WeeklyTimetable(
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "کد درس: ${item.section.courseCode}  •  تعداد واحد: ${item.section.credits}",
+                                text = "کد درس: ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.section.courseCode)}  •  تعداد واحد: ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.section.credits)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -353,7 +353,7 @@ fun WeeklyTimetable(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "گروه: ${item.section.sectionCode}  •  استاد: ${item.section.instructor.ifBlank { "نامشخص" }}",
+                                text = "گروه: ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.section.sectionCode)}  •  استاد: ${item.section.instructor.ifBlank { "نامشخص" }}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -367,7 +367,7 @@ fun WeeklyTimetable(
                             Icon(Icons.Default.Schedule, contentDescription = null, tint = item.color, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "زمان کلاس: ${ClassSession.getDayName(item.session.dayOfWeek)} ${item.session.startTime} تا ${item.session.endTime}",
+                                text = "زمان کلاس: ${ClassSession.getDayName(item.session.dayOfWeek)} ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.startTime)} تا ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.endTime)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -411,7 +411,7 @@ fun WeeklyTimetable(
                                 Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "تاریخ امتحان: ${item.section.examDate}  (${item.section.examTimeRange})",
+                                    text = "تاریخ امتحان: ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.section.examDate)}  (${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.section.examTimeRange)})",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold,
@@ -537,7 +537,7 @@ private fun TimetableGridView(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = slotStart,
+                                    text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotStart),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary,
                                     maxLines = 1,
@@ -553,7 +553,7 @@ private fun TimetableGridView(
                                     softWrap = false
                                 )
                                 Text(
-                                    text = slotEnd,
+                                    text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotEnd),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -626,7 +626,7 @@ private fun ClassBlock(
             .fillMaxWidth()
             .alpha(if (dimmed) 0.45f else 1f)
             .semantics {
-                contentDescription = "${item.section.courseName}، ${item.session.startTime} تا ${item.session.endTime}"
+                contentDescription = "${item.section.courseName}، ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.startTime)} تا ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.endTime)}"
             }
             .clickable { onClick() },
         shape = TermChinDesign.ChipShape,
@@ -667,7 +667,7 @@ private fun ClassBlock(
                 else -> ""
             }
             Text(
-                text = "${item.session.startTime} تا ${item.session.endTime}$weekSuffix",
+                text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.startTime)} تا ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.endTime)}$weekSuffix",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -700,7 +700,6 @@ private fun WeeklyDateStrip(
         items.groupingBy { it.session.dayOfWeek }.eachCount()
     }
     val accent = MaterialTheme.colorScheme.primary
-    val onAccent = MaterialTheme.colorScheme.onPrimary
     LazyRow(
         state = listState,
         modifier = Modifier
@@ -724,7 +723,6 @@ private fun WeeklyDateStrip(
                 isToday = isToday,
                 highlightedDay = highlightedDay,
                 accent = accent,
-                onAccent = onAccent,
                 onDayChange = onDayChange
             )
         }
@@ -739,13 +737,13 @@ private fun WeeklyDateCell(
     isToday: Boolean,
     highlightedDay: Int?,
     accent: Color,
-    onAccent: Color,
     onDayChange: (Int) -> Unit
 ) {
-    // Flat washes only: selection is read from tint + border weight, never
-    // from a gradient or glow. Keeps every saved theme visually quiet.
+    // A flat, soft-purple wash plus a heavier border makes the selected day the
+    // obvious one whose class list is rendered below. Flat washes only — never
+    // a gradient or glow — so every saved theme stays visually quiet.
     val cellBg = if (isSelected) {
-        TermChinDesign.selectedCell(accent)
+        SolidColor(MaterialTheme.colorScheme.primaryContainer)
     } else {
         SolidColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
     }
@@ -774,7 +772,7 @@ private fun WeeklyDateCell(
             )
             .clip(TermChinDesign.PillShape)
             .background(cellBg)
-            .border(1.dp, cellBorder, TermChinDesign.PillShape)
+            .border(if (isSelected) 2.dp else 1.dp, cellBorder, TermChinDesign.PillShape)
             .clickable(
                 onClickLabel = ClassSession.getDayName(dayIdx),
                 onClick = { onDayChange(dayIdx) }
@@ -797,7 +795,6 @@ private fun WeeklyDateCell(
             isSelected = isSelected,
             isToday = isToday,
             accent = accent,
-            onAccent = onAccent,
             jalaliDay = jalaliDay
         )
     }
@@ -815,12 +812,11 @@ private fun WeeklyDateCellContent(
     isSelected: Boolean,
     isToday: Boolean,
     accent: Color,
-    onAccent: Color,
     jalaliDay: String
 ) {
-    val cellContent = if (isSelected) onAccent
+    val cellContent = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
     else MaterialTheme.colorScheme.onSurface
-    val cellSubtle = if (isSelected) onAccent.copy(alpha = 0.78f)
+    val cellSubtle = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
     else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -858,7 +854,7 @@ private fun WeeklyDateCellContent(
                             .size(TermChinDesign.DateDotSize)
                             .clip(CircleShape)
                             .background(
-                                if (isSelected) onAccent.copy(alpha = 0.9f)
+                                if (isSelected) accent
                                 else accent.copy(alpha = 0.75f)
                             )
                     )
@@ -889,12 +885,13 @@ private fun WeeklyDateCellContent(
  */
 private fun jalaliDayBadge(dayIdx: Int, todayIdx: Int?): String {
     if (todayIdx == null) return ""
-    // Academic week runs Saturday..Friday; offset wraps forward/backward.
-    var offset = dayIdx - todayIdx
-    if (offset > 3) offset -= 7
-    if (offset < -3) offset += 7
-    val baseEpoch = ir.courseplanner.app.util.JalaliDate.todayEpochDay() + offset
-    val resolved = ir.courseplanner.app.util.JalaliDate.fromEpochDay(baseEpoch)
+    // The academic week runs Saturday(0)..Thursday(5) with strictly increasing
+    // dates, so a cell's day-of-month is simply the Saturday anchor plus its
+    // weekday index. The previous ±3 wrap made the strip non-monotonic
+    // (…۲۵، ۲۶، ۲۷، ۲۱، ۲۲); anchoring the whole week removes that.
+    val today = ir.courseplanner.app.util.JalaliDate.todayEpochDay()
+    val saturdayEpoch = if (todayIdx <= 5) today - todayIdx else today + 1
+    val resolved = ir.courseplanner.app.util.JalaliDate.fromEpochDay(saturdayEpoch + dayIdx)
         ?: return ""
     return ir.courseplanner.app.util.JalaliDate.toFaDigits(resolved.day)
 }
@@ -978,12 +975,9 @@ private fun TimetableDayView(
                         maxOf(item.session.startMinutes, slotStartMin) < minOf(item.session.endMinutes, slotEndMin)
                     }
                     if (slotItems.isEmpty()) return@forEach
-                    Text(
-                        text = "$slotStart تا $slotEnd",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                    // The old per-slot «08:00 تا 10:00» heading repeated the
+                    // exact time already printed on each card's badge; the badge
+                    // is now the single place the time is stated.
                     slotItems.forEach { item ->
                         Surface(
                             modifier = Modifier
@@ -1119,7 +1113,7 @@ private fun TimetableDayView(
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "${item.session.startTime} تا ${item.session.endTime}",
+                                            text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.startTime)} تا ${ir.courseplanner.app.util.JalaliDate.toFaDigits(item.session.endTime)}",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = item.color,
                                             maxLines = 1,

@@ -576,21 +576,23 @@ fun ScheduleScreen(
                         ) {
                             MetricBox(
                                 title = "گپ کلاسی",
-                                value = if (currentScored.totalGapMinutes == 0) "۰ دقیقه" else "${currentScored.totalGapMinutes} دقیقه",
+                                value = if (currentScored.totalGapMinutes == 0) "۰ دقیقه" else "${ir.courseplanner.app.util.JalaliDate.toFaDigits(currentScored.totalGapMinutes)} دقیقه",
                                 subtitle = if (currentScored.totalGapMinutes == 0) "پشت سر هم" else "زمان انتظار",
                                 icon = Icons.Default.HourglassEmpty,
                                 modifier = Modifier.weight(1f)
                             )
                             MetricBox(
                                 title = "روزهای حضور",
-                                value = "${currentScored.activeDaysCount} روز",
+                                value = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(currentScored.activeDaysCount)} روز",
                                 subtitle = "در طول هفته",
                                 icon = Icons.Default.CalendarMonth,
                                 modifier = Modifier.weight(1f)
                             )
                             MetricBox(
                                 title = "ساعت کلاس",
-                                value = String.format("%.1f", currentScored.totalWeeklyHours),
+                                value = ir.courseplanner.app.util.JalaliDate.toFaDigits(
+                                    String.format("%.1f", currentScored.totalWeeklyHours).replace('.', '٫')
+                                ),
                                 subtitle = "ساعت در هفته",
                                 icon = Icons.Default.Schedule,
                                 modifier = Modifier.weight(1f)
