@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -208,7 +207,7 @@ internal fun AddCourseDiscoveryContent(
         Surface(
             shape = TermChinDesign.PillShape,
             color = MaterialTheme.colorScheme.primary,
-            shadowElevation = 2.dp
+            shadowElevation = TermChinDesign.CardElevation
         ) {
             Text(
                 text = "$addableCount درس قابل افزودن",
@@ -468,7 +467,7 @@ private fun SuggestionCard(
             ) {
                 Button(
                     onClick = onAdd,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                     modifier = Modifier
                         .height(38.dp)
@@ -480,7 +479,7 @@ private fun SuggestionCard(
                 }
                 OutlinedButton(
                     onClick = onShowGroups,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                     modifier = Modifier.height(38.dp)
                 ) {
@@ -515,7 +514,7 @@ private fun CompatibilityChip(status: SuggestionStatus) {
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = TermChinDesign.ChipShape,
         color = container
     ) {
         Text(
@@ -657,7 +656,7 @@ private fun GroupRow(
             Button(
                 onClick = onEnroll,
                 enabled = enabled,
-                shape = RoundedCornerShape(10.dp),
+                shape = TermChinDesign.ControlShape,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 modifier = Modifier.height(36.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -692,7 +691,7 @@ private fun GroupVerdictChip(verdict: GroupVerdict) {
         GroupVerdict.CONFLICTING -> MaterialTheme.colorScheme.onErrorContainer
         GroupVerdict.INCOMPLETE_TIME_DATA -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Surface(shape = RoundedCornerShape(8.dp), color = container) {
+    Surface(shape = TermChinDesign.ChipShape, color = container) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -735,7 +734,7 @@ private fun AddCourseEmptyState(onOpenSettings: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Button(
             onClick = onOpenSettings,
-            shape = RoundedCornerShape(12.dp),
+            shape = TermChinDesign.RowShape,
             modifier = Modifier.testTag("discovery_open_settings_button")
         ) {
             Text("رفتن به تنظیمات و ورود اطلاعات")
@@ -772,7 +771,7 @@ private fun AddCourseNoMatchState(onClearSearch: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedButton(
             onClick = onClearSearch,
-            shape = RoundedCornerShape(12.dp)
+            shape = TermChinDesign.RowShape
         ) {
             Text("نمایش همه درس‌ها", fontWeight = FontWeight.Bold)
         }

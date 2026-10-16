@@ -33,6 +33,18 @@ object TermChinDesign {
     val RowRadius: Dp = 12.dp
     /** Compact pill (date cells, count chips). */
     val PillRadius: Dp = 14.dp
+    /** Compact control radius (chips, badges, segmented buttons). */
+    val ChipRadius: Dp = 8.dp
+    /** Input / small-button radius — one step under the nested row. */
+    val ControlRadius: Dp = 10.dp
+    /** Micro accent radius for tiny bars and mini badges. */
+    val MicroRadius: Dp = 6.dp
+
+    /**
+     * The only card elevation in the app. Hierarchy comes from tonal surface
+     * color and a hairline outline, never a second shadow step.
+     */
+    val CardElevation: Dp = 1.dp
 
     /** Standard content icon (section headers, attention rows). */
     val IconMd: Dp = 20.dp
@@ -58,6 +70,9 @@ object TermChinDesign {
     val CardShape = RoundedCornerShape(CardRadius)
     val RowShape = RoundedCornerShape(RowRadius)
     val PillShape = RoundedCornerShape(PillRadius)
+    val ChipShape = RoundedCornerShape(ChipRadius)
+    val ControlShape = RoundedCornerShape(ControlRadius)
+    val MicroShape = RoundedCornerShape(MicroRadius)
 
     /**
      * Selected date-cell wash: a flat accent tint. Deliberately a single flat

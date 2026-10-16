@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -55,6 +54,7 @@ import ir.courseplanner.app.data.model.WeekType
 import ir.courseplanner.app.engine.SectionSessionValidator
 import ir.courseplanner.app.ui.ManualSessionInput
 import ir.courseplanner.app.ui.toClassSession
+import ir.courseplanner.app.ui.theme.TermChinDesign
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,7 +137,7 @@ fun AddSectionDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(TermChinDesign.ChipShape)
                             .background(MaterialTheme.colorScheme.errorContainer)
                             .padding(8.dp)
                     ) {
@@ -160,7 +160,7 @@ fun AddSectionDialog(
                         placeholder = { Text("02") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -170,7 +170,7 @@ fun AddSectionDialog(
                         placeholder = { Text("دکتر ...") },
                         modifier = Modifier.weight(1.5f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -185,7 +185,7 @@ fun AddSectionDialog(
                         placeholder = { Text("1403/10/28") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -195,7 +195,7 @@ fun AddSectionDialog(
                         placeholder = { Text("09:00 - 12:00") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -207,7 +207,7 @@ fun AddSectionDialog(
 
                 sessions.forEachIndexed { index, sessionInput ->
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                         modifier = Modifier.fillMaxWidth()
@@ -229,7 +229,7 @@ fun AddSectionDialog(
                                 if (sessions.size > 1) {
                                     IconButton(
                                         onClick = { sessions.removeAt(index) },
-                                        modifier = Modifier.size(40.dp)
+                                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                                     ) {
                                         Icon(
                                             Icons.Default.Delete,
@@ -256,7 +256,7 @@ fun AddSectionDialog(
                                      modifier = Modifier
                                          .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                                          .fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = TermChinDesign.ChipShape
                                 )
 
                                 ExposedDropdownMenu(
@@ -285,7 +285,7 @@ fun AddSectionDialog(
                                     label = { Text("شروع (HH:mm)", fontSize = 11.5.sp) },
                                     modifier = Modifier.weight(1f),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = TermChinDesign.ChipShape
                                 )
 
                                 OutlinedTextField(
@@ -294,7 +294,7 @@ fun AddSectionDialog(
                                     label = { Text("پایان (HH:mm)", fontSize = 11.5.sp) },
                                     modifier = Modifier.weight(1f),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = TermChinDesign.ChipShape
                                 )
                             }
 
@@ -304,7 +304,7 @@ fun AddSectionDialog(
                                 label = { Text("محل کلاس", fontSize = 11.5.sp) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = TermChinDesign.ChipShape
                             )
 
                             // Week recurrence selector
@@ -322,7 +322,7 @@ fun AddSectionDialog(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(TermChinDesign.ChipShape)
                                             .background(
                                                 if (isSelected) MaterialTheme.colorScheme.primaryContainer
                                                 else MaterialTheme.colorScheme.surface
@@ -331,7 +331,7 @@ fun AddSectionDialog(
                                                 1.dp,
                                                 if (isSelected) MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                                RoundedCornerShape(8.dp)
+                                                TermChinDesign.ChipShape
                                             )
                                             .clickable { sessions[index] = sessionInput.copy(weekType = type) }
                                             .padding(vertical = 6.dp),
@@ -366,7 +366,7 @@ fun AddSectionDialog(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = TermChinDesign.ControlShape
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))

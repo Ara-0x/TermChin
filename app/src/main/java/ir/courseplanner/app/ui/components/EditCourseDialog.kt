@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -41,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import ir.courseplanner.app.data.model.Course
+import ir.courseplanner.app.ui.theme.TermChinDesign
 
 /**
  * Edits a course's own fields (name/code/department/credits) in place.
@@ -101,7 +101,7 @@ fun EditCourseDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(TermChinDesign.ChipShape)
                             .background(MaterialTheme.colorScheme.errorContainer)
                             .padding(8.dp)
                     ) {
@@ -126,7 +126,7 @@ fun EditCourseDialog(
                             .weight(1.5f)
                             .testTag("input_edit_course_name"),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -137,7 +137,7 @@ fun EditCourseDialog(
                             .weight(1f)
                             .testTag("input_edit_course_code"),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -153,7 +153,7 @@ fun EditCourseDialog(
                         label = { Text("دانشکده", fontSize = 11.5.sp) },
                         modifier = Modifier.weight(1.4f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     // Credit Counter (1 to 20)
@@ -166,9 +166,9 @@ fun EditCourseDialog(
                         ) {
                             OutlinedButton(
                                 onClick = { if (credits > 1) credits-- },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = TermChinDesign.MicroShape,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                modifier = Modifier.height(36.dp)
+                                modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                             ) {
                                 Text("-", fontWeight = FontWeight.Bold)
                             }
@@ -179,9 +179,9 @@ fun EditCourseDialog(
                             )
                             OutlinedButton(
                                 onClick = { if (credits < 20) credits++ },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = TermChinDesign.MicroShape,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                modifier = Modifier.height(36.dp)
+                                modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                             ) {
                                 Text("+", fontWeight = FontWeight.Bold)
                             }

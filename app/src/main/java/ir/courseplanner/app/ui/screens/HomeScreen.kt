@@ -1,15 +1,12 @@
 package ir.courseplanner.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +23,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -60,10 +56,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.ConflictType
@@ -74,8 +71,6 @@ import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.TimetableExporter
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -114,18 +109,10 @@ fun HomeScreen(
     val weeklyTimetableRequester = remember { BringIntoViewRequester() }
     val examSectionRequester = remember { BringIntoViewRequester() }
     val homeScope = rememberCoroutineScope()
-    val timetableGlow = remember { Animatable(0f) }
-    var timetableGlowJob by remember { mutableStateOf<Job?>(null) }
     var showExamSchedule by remember { mutableStateOf(false) }
 
     val scrollToTimetable: () -> Unit = {
-        timetableGlowJob?.cancel()
-        timetableGlowJob = homeScope.launch {
-            weeklyTimetableRequester.bringIntoView()
-            timetableGlow.animateTo(1f, tween(220))
-            delay(1_200)
-            timetableGlow.animateTo(0f, tween(520))
-        }
+        homeScope.launch { weeklyTimetableRequester.bringIntoView() }
     }
     val scrollToExams: () -> Unit = {
         showExamSchedule = true
@@ -283,13 +270,13 @@ fun HomeScreen(
                         .bringIntoViewRequester(examSectionRequester),
                     shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
                     border = androidx.compose.foundation.BorderStroke(
-                        if (hasExamConflict) 1.5.dp else 1.dp,
+                        1.dp,
                         if (hasExamConflict) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -309,7 +296,8 @@ fun HomeScreen(
                                     Text(
                                         text = "برنامه زمانی امتحانات پایان‌ترم",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                     Text(
                                         text = buildString {
@@ -344,9 +332,11 @@ fun HomeScreen(
                             ) {
                                 examList.forEach { sec ->
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = TermChinDesign.ControlShape,
                                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics(mergeDescendants = true) {}
                                     ) {
                                         Row(
                                             modifier = Modifier
@@ -375,7 +365,7 @@ fun HomeScreen(
                                             Spacer(modifier = Modifier.width(8.dp))
 
                                             Surface(
-                                                shape = RoundedCornerShape(8.dp),
+                                                shape = TermChinDesign.ChipShape,
                                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
                                             ) {
                                                 Column(
@@ -430,8 +420,9 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "تقویم برنامه هفتگی",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.semantics { heading() }
                     )
                 }
                 Box(
@@ -439,17 +430,6 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .bringIntoViewRequester(weeklyTimetableRequester)
                         .testTag("home_weekly_timetable_section")
-                        .clip(TermChinDesign.CardShape)
-                        .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f * timetableGlow.value)
-                        )
-                        .border(
-                            width = 1.5.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(
-                                alpha = 0.15f + 0.75f * timetableGlow.value
-                            ),
-                            shape = TermChinDesign.CardShape
-                        )
                 ) {
                     WeeklyTimetable(
                         sections = enrolledSections,
@@ -514,7 +494,7 @@ internal fun DashboardHeader(
         )
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
@@ -577,7 +557,7 @@ internal fun TodayDateCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -653,23 +633,24 @@ internal fun GuidedEmptyState(
         ) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(TermChinDesign.EmptyArt)
-                        )
+                Icon(
+                    Icons.Default.School,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(TermChinDesign.EmptyArt)
+                )
             }
 
             Text(
                 text = "برنامه کلاسی شما خالی است",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
 
             GuidedStepRow(
@@ -752,14 +733,14 @@ private fun GuidedStepRow(
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
                         onClick = onAction,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             horizontal = 14.dp,
                             vertical = 6.dp
                         ),
-                        modifier = Modifier.height(38.dp)
+                        modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                     ) {
-                        Text(actionLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(actionLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                     }
                 }
             }
@@ -792,14 +773,14 @@ internal fun ContextualSetupCard(
         )
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.AutoAwesome,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(TermChinDesign.IconMd)
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -820,17 +801,17 @@ internal fun ContextualSetupCard(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = onOpenCourses,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp)
+                    shape = TermChinDesign.ControlShape,
+                    modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                 ) {
-                    Text("\u062f\u0631\u0648\u0633", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("\u062f\u0631\u0648\u0633", style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
                 OutlinedButton(
                     onClick = onOpenSchedule,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp)
+                    shape = TermChinDesign.ControlShape,
+                    modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                 ) {
-                    Text("\u0628\u0631\u0646\u0627\u0645\u0647\u200c\u0633\u0627\u0632", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("\u0628\u0631\u0646\u0627\u0645\u0647\u200c\u0633\u0627\u0632", style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
             }
         }
@@ -860,7 +841,7 @@ internal fun SecondaryDocumentsLine(
                 Icons.Default.Description,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(TermChinDesign.IconSm)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -872,7 +853,7 @@ internal fun SecondaryDocumentsLine(
             )
         }
         TextButton(onClick = onOpen) {
-            Text("\u0645\u0634\u0627\u0647\u062f\u0647 \u062c\u0632\u0648\u0627\u062a", fontWeight = FontWeight.Bold, maxLines = 1)
+            Text("\u0645\u0634\u0627\u0647\u062f\u0647 \u062c\u0632\u0648\u0627\u062a", style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }
@@ -897,13 +878,14 @@ private fun HomeExportActions(
         )
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "خروجی برنامهٔ هفتگی",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { heading() }
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -911,25 +893,25 @@ private fun HomeExportActions(
             ) {
                 OutlinedButton(
                     onClick = onCopy,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = TermChinDesign.ControlShape,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(TermChinDesign.MinTouchHeight)
                 ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("کپی متن", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
                 Button(
                     onClick = onShare,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = TermChinDesign.ControlShape,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(TermChinDesign.MinTouchHeight)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("اشتراک‌گذاری", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }

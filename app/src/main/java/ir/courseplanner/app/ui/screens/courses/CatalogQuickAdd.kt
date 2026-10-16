@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -206,7 +205,7 @@ internal fun CatalogQuickAddCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = onAdd,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         horizontal = 12.dp,
                         vertical = 4.dp

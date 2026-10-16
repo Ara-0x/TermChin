@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -58,10 +57,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.ui.AppDestination
@@ -125,7 +125,8 @@ fun ScheduleScreen(
                     Text(
                         text = "برنامه‌ساز هوشمند و بهینه‌ساز",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Text(
                         text = "تولید ترکیب‌های بدون تداخل، حذف گپ‌های خالی و چینش بهینه کلاسی",
@@ -141,10 +142,10 @@ fun ScheduleScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+            shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Tune,
@@ -176,11 +177,11 @@ fun ScheduleScreen(
                             label = {
                                 Text(
                                     pref.titleFa,
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = TermChinDesign.ControlShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -203,10 +204,10 @@ fun ScheduleScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+            shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,7 +219,7 @@ fun ScheduleScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = TermChinDesign.ChipShape,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
                         Text(
@@ -242,7 +243,7 @@ fun ScheduleScreen(
                     OutlinedButton(
                         onClick = { viewModel.navigateTo(AppDestination.COURSES) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Text("مشاهده لیست و انتخاب دروس", fontWeight = FontWeight.SemiBold)
                     }
@@ -250,7 +251,7 @@ fun ScheduleScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         selectedCourses.forEach { cws ->
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -296,13 +297,13 @@ fun ScheduleScreen(
                             .fillMaxWidth()
                             .height(46.dp)
                             .testTag("generate_schedules_button"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             if (isGenerating) "در حال محاسبهٔ برنامه…" else "ساخت و رتبه‌بندی برنامه‌های بهینه",
-                            fontSize = 13.5.sp,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -324,7 +325,7 @@ fun ScheduleScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.Top
                     ) {
                         Icon(
@@ -352,15 +353,15 @@ fun ScheduleScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(2.dp, TermChinDesign.CardShape),
+                        .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape),
                     shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
                     border = androidx.compose.foundation.BorderStroke(
-                        if (isBest) 2.dp else 1.dp,
+                        1.dp,
                         if (isBest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         // Navigation Header
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -439,7 +440,7 @@ fun ScheduleScreen(
                         if (noticeText.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -476,7 +477,7 @@ fun ScheduleScreen(
                         if (currentWarnings.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
                                 modifier = Modifier.fillMaxWidth()
@@ -510,15 +511,14 @@ fun ScheduleScreen(
                             currentScored.tags.forEach { tag ->
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(TermChinDesign.ChipShape)
                                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
                                         .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Text(
                                         text = tag,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 10.5.sp
+                                            fontWeight = FontWeight.Bold
                                         ),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         maxLines = 1,
@@ -571,7 +571,7 @@ fun ScheduleScreen(
                                 .fillMaxWidth()
                                 .height(44.dp)
                                 .testTag("apply_generated_schedule_button"),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = TermChinDesign.RowShape
                         ) {
                             Icon(Icons.Default.Check, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
@@ -627,7 +627,8 @@ private fun ScoreBreakdownSheet(scored: ir.courseplanner.app.engine.ScoredSchedu
         Text(
             text = "چرا این برنامه پیشنهاد شده؟",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() }
         )
         Spacer(modifier = Modifier.height(6.dp))
         scored.breakdown.forEach { component ->
@@ -678,7 +679,7 @@ private fun MetricBox(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = TermChinDesign.RowShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         modifier = modifier

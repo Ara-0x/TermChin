@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -60,6 +60,7 @@ import ir.courseplanner.app.data.model.WeekType
 import ir.courseplanner.app.engine.SectionSessionValidator
 import ir.courseplanner.app.ui.ManualSessionInput
 import ir.courseplanner.app.ui.toClassSession
+import ir.courseplanner.app.ui.theme.TermChinDesign
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +140,7 @@ fun AddCourseDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(TermChinDesign.ChipShape)
                             .background(MaterialTheme.colorScheme.errorContainer)
                             .padding(8.dp)
                     ) {
@@ -165,7 +166,7 @@ fun AddCourseDialog(
                             .weight(1.5f)
                             .testTag("input_course_name"),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -177,7 +178,7 @@ fun AddCourseDialog(
                             .weight(1f)
                             .testTag("input_course_code"),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -194,7 +195,7 @@ fun AddCourseDialog(
                         placeholder = { Text("مهندسی کامپیوتر") },
                         modifier = Modifier.weight(1.4f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     // Credit Counter (1 to 6)
@@ -207,9 +208,9 @@ fun AddCourseDialog(
                         ) {
                             OutlinedButton(
                                 onClick = { if (credits > 1) credits-- },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = TermChinDesign.MicroShape,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                modifier = Modifier.height(36.dp)
+                                modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                             ) {
                                 Text("-", fontWeight = FontWeight.Bold)
                             }
@@ -220,9 +221,9 @@ fun AddCourseDialog(
                             )
                             OutlinedButton(
                                 onClick = { if (credits < 10) credits++ },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = TermChinDesign.MicroShape,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                modifier = Modifier.height(36.dp)
+                                modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                             ) {
                                 Text("+", fontWeight = FontWeight.Bold)
                             }
@@ -242,7 +243,7 @@ fun AddCourseDialog(
                         placeholder = { Text("01") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -252,7 +253,7 @@ fun AddCourseDialog(
                         placeholder = { Text("دکتر صبوری") },
                         modifier = Modifier.weight(1.5f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -268,7 +269,7 @@ fun AddCourseDialog(
                         placeholder = { Text("1403/10/28") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
 
                     OutlinedTextField(
@@ -278,7 +279,7 @@ fun AddCourseDialog(
                         placeholder = { Text("09:00 - 12:00") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = TermChinDesign.ControlShape
                     )
                 }
 
@@ -336,7 +337,7 @@ fun AddCourseDialog(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = TermChinDesign.ControlShape
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -439,7 +440,7 @@ private fun SessionCardInput(
     onDelete: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = TermChinDesign.ControlShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = Modifier.fillMaxWidth()
@@ -462,7 +463,7 @@ private fun SessionCardInput(
                 if (canDelete) {
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                     ) {
                         Icon(
                             Icons.Default.Delete,
@@ -490,7 +491,7 @@ private fun SessionCardInput(
                     modifier = Modifier
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                         .fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = TermChinDesign.ChipShape
                 )
 
                 ExposedDropdownMenu(
@@ -521,7 +522,7 @@ private fun SessionCardInput(
                     placeholder = { Text("08:00") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = TermChinDesign.ChipShape
                 )
 
                 OutlinedTextField(
@@ -531,7 +532,7 @@ private fun SessionCardInput(
                     placeholder = { Text("10:00") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = TermChinDesign.ChipShape
                 )
             }
 
@@ -543,7 +544,7 @@ private fun SessionCardInput(
                 placeholder = { Text("مثال: تالار خوارزمی یا آزمایشگاه") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp)
+                shape = TermChinDesign.ChipShape
             )
 
             // Week Recurrence / Type (هر هفته / زوج / فرد)
@@ -570,7 +571,7 @@ private fun SessionCardInput(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(TermChinDesign.ChipShape)
                                 .background(
                                     if (isSelected) MaterialTheme.colorScheme.primaryContainer
                                     else MaterialTheme.colorScheme.surface
@@ -579,9 +580,10 @@ private fun SessionCardInput(
                                     1.dp,
                                     if (isSelected) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                    RoundedCornerShape(8.dp)
+                                    TermChinDesign.ChipShape
                                 )
                                 .clickable { onUpdate(sessionInput.copy(weekType = type)) }
+                                .heightIn(min = TermChinDesign.MinTouchHeight)
                                 .padding(vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {

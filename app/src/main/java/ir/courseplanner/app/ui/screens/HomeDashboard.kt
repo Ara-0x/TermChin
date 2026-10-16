@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
@@ -41,6 +40,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -267,13 +267,14 @@ fun DashboardSectionHeader(
             icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(TermChinDesign.IconMd)
+            modifier = Modifier.size(TermChinDesign.IconMd)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() }
         )
     }
 }
@@ -314,7 +315,7 @@ internal fun NowNextCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             DashboardSectionHeader(title = "امروز چه خبر؟", icon = Icons.Default.Schedule)
@@ -371,7 +372,8 @@ internal fun NowNextCard(
                     Text(
                         text = "کلاس‌های امروز تمام شد",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                     FocusedClassRow(
                         item = state.item,
@@ -515,12 +517,12 @@ private fun FocusedClassRow(
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
     ) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .width(TermChinDesign.FocusBarWidth)
                     .height(48.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(TermChinDesign.MicroShape)
                     .background(accent)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -640,6 +642,7 @@ private fun PlainTimelineRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -665,7 +668,7 @@ private fun PlainTimelineRow(
             modifier = Modifier
                 .width(2.dp)
                 .height(36.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .clip(TermChinDesign.MicroShape)
                 .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
         )
         Spacer(modifier = Modifier.width(10.dp))
@@ -722,13 +725,14 @@ internal fun OverviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "نمای کلی ترم",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
             val ratio = creditProgressRatio(credits, target)
             Row(
@@ -760,7 +764,7 @@ internal fun OverviewCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                        .clip(TermChinDesign.MicroShape),
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     strokeCap = StrokeCap.Round
@@ -789,12 +793,12 @@ internal fun OverviewCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("home_optimize_schedule_button"),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.ControlShape
                 ) {
                     Icon(
                         Icons.Default.AutoAwesome,
                         contentDescription = null,
-                    modifier = Modifier.size(TermChinDesign.IconSm)
+                        modifier = Modifier.size(TermChinDesign.IconSm)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -862,7 +866,7 @@ internal fun AttentionCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -870,13 +874,14 @@ internal fun AttentionCard(
                     Icons.Default.WarningAmber,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(TermChinDesign.IconMd)
+                    modifier = Modifier.size(TermChinDesign.IconMd)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "نیاز به توجه",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
             items.forEach { item ->

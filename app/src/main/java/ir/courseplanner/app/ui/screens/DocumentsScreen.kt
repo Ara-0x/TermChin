@@ -35,7 +35,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
@@ -92,6 +91,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -119,8 +121,8 @@ import ir.courseplanner.app.data.model.DocumentWithCourse
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.theme.TermChinDesign
-import java.text.SimpleDateFormat
-import java.util.Date
+import ir.courseplanner.app.util.JalaliDate
+import java.util.Calendar
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -200,7 +202,8 @@ fun DocumentsScreen(
                                 text = "جزوات و اسناد دروس",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = "مدیریت فایل‌ها، خلاصه دروس و نمونه‌سوالات",
@@ -213,7 +216,7 @@ fun DocumentsScreen(
                         FilterChip(
                             selected = onlyBookmarked,
                             onClick = { viewModel.toggleOnlyBookmarkedDocs() },
-                            label = { Text("نشان‌شده‌ها", fontSize = 11.5.sp) },
+                            label = { Text("نشان‌شده‌ها", style = MaterialTheme.typography.labelSmall) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = if (onlyBookmarked) Icons.Filled.Star else Icons.Outlined.StarBorder,
@@ -238,7 +241,7 @@ fun DocumentsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("doc_search_field"),
-                        placeholder = { Text("جستجو در عنوان، یادداشت، نام فایل یا درس...", fontSize = 12.5.sp) },
+                        placeholder = { Text("جستجو در عنوان، یادداشت، نام فایل یا درس...", style = MaterialTheme.typography.bodySmall) },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -284,8 +287,8 @@ fun DocumentsScreen(
                                 FilterChip(
                                     selected = selectedCourseId == null,
                                     onClick = { viewModel.onDocCourseFilterSelected(null) },
-                                    shape = RoundedCornerShape(10.dp),
-                                    label = { Text("همه دروس (${allDocs.size})", fontSize = 12.sp, maxLines = 1, softWrap = false) }
+                                    shape = TermChinDesign.ControlShape,
+                                    label = { Text("همه دروس (${allDocs.size})", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
                                 )
 
                                 courses.forEach { course ->
@@ -293,9 +296,9 @@ fun DocumentsScreen(
                                     FilterChip(
                                         selected = selectedCourseId == course.id,
                                         onClick = { viewModel.onDocCourseFilterSelected(course.id) },
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = TermChinDesign.ControlShape,
                                         label = {
-                                            Text("${course.name} ($docCountForCourse)", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                                            Text("${course.name} ($docCountForCourse)", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
                                         }
                                     )
                                 }
@@ -311,16 +314,16 @@ fun DocumentsScreen(
                                 FilterChip(
                                     selected = selectedCategory == null,
                                     onClick = { viewModel.onDocCategoryFilterSelected(null) },
-                                    shape = RoundedCornerShape(10.dp),
-                                    label = { Text("همه دسته‌ها", fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
+                                    shape = TermChinDesign.ControlShape,
+                                    label = { Text("همه دسته‌ها", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
                                 )
 
                                 DocumentCategory.values().forEach { cat ->
                                     FilterChip(
                                         selected = selectedCategory == cat,
                                         onClick = { viewModel.onDocCategoryFilterSelected(cat) },
-                                        shape = RoundedCornerShape(10.dp),
-                                        label = { Text(cat.titleFa, fontSize = 11.5.sp, maxLines = 1, softWrap = false) }
+                                        shape = TermChinDesign.ControlShape,
+                                        label = { Text(cat.titleFa, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
                                     )
                                 }
                             }
@@ -513,7 +516,7 @@ private fun DocumentItemCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.5.dp, TermChinDesign.CardShape)
+            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .testTag("doc_card_${doc.id}"),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
@@ -522,7 +525,7 @@ private fun DocumentItemCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             // Top Row: Course badge, Category badge & Bookmark toggle
             Row(
@@ -533,12 +536,14 @@ private fun DocumentItemCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) {}
                 ) {
                     // Course Badge
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = TermChinDesign.ChipShape,
                         modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
@@ -557,7 +562,7 @@ private fun DocumentItemCard(
                     val (catBg, catFg) = getCategoryColors(doc.category)
                     Surface(
                         color = catBg,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = TermChinDesign.ChipShape
                     ) {
                         Text(
                             text = doc.category.titleFa,
@@ -574,7 +579,7 @@ private fun DocumentItemCard(
                 // Bookmark Star Button
                 IconButton(
                     onClick = onToggleBookmark,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                 ) {
                     Icon(
                         imageVector = if (doc.isBookmarked) Icons.Filled.Star else Icons.Outlined.StarBorder,
@@ -607,7 +612,7 @@ private fun DocumentItemCard(
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -632,7 +637,7 @@ private fun DocumentItemCard(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { expandedNotes = !expandedNotes }
+                                    modifier = Modifier.clickable(role = Role.Button) { expandedNotes = !expandedNotes }
                                 )
                             } else {
                                 Spacer(modifier = Modifier.width(1.dp))
@@ -640,7 +645,7 @@ private fun DocumentItemCard(
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { onCopyNotes(doc.contentNotes) }
+                                modifier = Modifier.clickable(role = Role.Button) { onCopyNotes(doc.contentNotes) }
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.ContentCopy,
@@ -665,7 +670,7 @@ private fun DocumentItemCard(
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = TermChinDesign.RowShape,
                     border = CardDefaults.outlinedCardBorder(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -721,7 +726,7 @@ private fun DocumentItemCard(
                         if (!doc.fileUri.isNullOrBlank()) {
                             IconButton(
                                 onClick = { onOpenUri(doc.fileUri) },
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                             ) {
                                 Icon(
                                      imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -744,7 +749,7 @@ private fun DocumentItemCard(
             ) {
                 IconButton(
                     onClick = onShare,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Share,
@@ -756,7 +761,7 @@ private fun DocumentItemCard(
 
                 IconButton(
                     onClick = onEdit,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Edit,
@@ -768,7 +773,7 @@ private fun DocumentItemCard(
 
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
@@ -893,7 +898,7 @@ private fun AddEditDocumentDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     )
 
                     ExposedDropdownMenu(
@@ -927,7 +932,7 @@ private fun AddEditDocumentDialog(
                     supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.RowShape
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -964,7 +969,7 @@ private fun AddEditDocumentDialog(
                     minLines = 3,
                     maxLines = 5,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.RowShape
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -973,7 +978,7 @@ private fun AddEditDocumentDialog(
                 if (!attachedUri.isNullOrBlank()) {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -1028,7 +1033,7 @@ private fun AddEditDocumentDialog(
                             )
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Icon(Icons.Filled.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1087,7 +1092,7 @@ private fun AddEditDocumentDialog(
                                 isBookmarked
                             )
                         },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Text(if (existingDocument == null) "ذخیره سند" else "به‌روزرسانی")
                     }
@@ -1132,7 +1137,7 @@ private fun NoCoursesEmptyState(onGoToCourses: () -> Unit) {
             Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = onGoToCourses,
-                shape = RoundedCornerShape(12.dp)
+                shape = TermChinDesign.RowShape
             ) {
                 Text("ورود به بخش دروس و افزودن درس")
             }
@@ -1183,7 +1188,7 @@ private fun NoDocumentsEmptyState(onAddFirst: () -> Unit) {
             Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = onAddFirst,
-                shape = RoundedCornerShape(12.dp)
+                shape = TermChinDesign.RowShape
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1220,8 +1225,20 @@ private fun getCategoryColors(category: DocumentCategory): Pair<Color, Color> {
 }
 
 private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("yyyy/MM/dd - HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+    val epochDay = JalaliDate.daysFromCivil(
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH) + 1,
+        cal.get(Calendar.DAY_OF_MONTH)
+    )
+    val ymd = JalaliDate.fromEpochDay(epochDay) ?: return ""
+    val time = String.format(
+        Locale.US,
+        "%02d:%02d",
+        cal.get(Calendar.HOUR_OF_DAY),
+        cal.get(Calendar.MINUTE)
+    )
+    return JalaliDate.toFaDigits("${JalaliDate.format(ymd.year, ymd.month, ymd.day)} - $time")
 }
 
 private fun formatFileSize(bytes: Long): String {

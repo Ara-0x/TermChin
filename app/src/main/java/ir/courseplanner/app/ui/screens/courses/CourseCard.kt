@@ -25,12 +25,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -135,7 +135,7 @@ internal fun CourseCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.5.dp, TermChinDesign.CardShape)
+            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .testTag("course_card_${course.code}"),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
@@ -199,7 +199,7 @@ internal fun CourseCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(TermChinDesign.MicroShape)
                                 .background(MaterialTheme.colorScheme.primaryContainer)
                                 .padding(horizontal = 7.dp, vertical = 2.dp)
                         ) {
@@ -215,7 +215,7 @@ internal fun CourseCard(
 
                         // Documents & Pamphlets shortcut chip
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
+                            shape = TermChinDesign.MicroShape,
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
                             modifier = Modifier.clickable { onOpenDocuments() }
                         ) {
@@ -250,7 +250,7 @@ internal fun CourseCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = TermChinDesign.ChipShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.padding(end = 4.dp)
                     ) {
@@ -270,14 +270,14 @@ internal fun CourseCard(
                                 checked = course.isSelectedForGeneration,
                                 onCheckedChange = onToggleSelectedForGeneration,
                                 colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                             )
                         }
                     }
 
                     IconButton(
                         onClick = onEditCourseClick,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                     ) {
                         Icon(
                             Icons.Default.Edit,
@@ -288,7 +288,7 @@ internal fun CourseCard(
                     }
                     IconButton(
                         onClick = onDeleteCourseClick,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                     ) {
                         Icon(
                             Icons.Default.DeleteOutline,
@@ -345,7 +345,7 @@ internal fun CourseCard(
                 TextButton(
                     onClick = onAddSectionClick,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                    modifier = Modifier.height(28.dp)
+                    modifier = Modifier.height(TermChinDesign.MinTouchHeight)
                 ) {
                     Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -435,7 +435,7 @@ internal fun SectionItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(TermChinDesign.MicroShape)
                             .background(
                                 if (isEnrolled) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                                 else MaterialTheme.colorScheme.surface
@@ -482,16 +482,17 @@ internal fun SectionItem(
                     if (isEnrolled) {
                         Button(
                             onClick = onToggleEnroll,
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(34.dp)
+                            shape = TermChinDesign.ControlShape,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                            modifier = Modifier
+                                .height(TermChinDesign.MinTouchHeight)
+                                .widthIn(min = 118.dp)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "انتخاب شده",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 softWrap = false
@@ -500,14 +501,17 @@ internal fun SectionItem(
                     } else {
                         OutlinedButton(
                             onClick = onToggleEnroll,
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(34.dp)
+                            shape = TermChinDesign.ControlShape,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                            modifier = Modifier
+                                .height(TermChinDesign.MinTouchHeight)
+                                .widthIn(min = 118.dp)
                         ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(TermChinDesign.IconSm))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "انتخاب گروه",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 softWrap = false
@@ -517,25 +521,25 @@ internal fun SectionItem(
 
                     IconButton(
                         onClick = onEditSection,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                     ) {
                         Icon(
                             Icons.Default.Edit,
                             contentDescription = "ویرایش گروه",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(TermChinDesign.IconSm)
                         )
                     }
                     if (canDeleteSection) {
                         IconButton(
                             onClick = onDeleteSection,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(TermChinDesign.MinTouchHeight)
                         ) {
                             Icon(
                                 Icons.Default.DeleteOutline,
                                 contentDescription = "حذف گروه",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(TermChinDesign.IconSm)
                             )
                         }
                     }
@@ -572,7 +576,7 @@ internal fun SectionItem(
                         if (sess.weekType != WeekType.EVERY_WEEK) {
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(TermChinDesign.MicroShape)
                                     .background(
                                         if (sess.weekType == WeekType.EVEN_WEEKS) MaterialTheme.colorScheme.primaryContainer
                                         else MaterialTheme.colorScheme.secondaryContainer
@@ -581,7 +585,7 @@ internal fun SectionItem(
                             ) {
                                 Text(
                                     text = sess.weekType.titleFa,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (sess.weekType == WeekType.EVEN_WEEKS) MaterialTheme.colorScheme.onPrimaryContainer
                                     else MaterialTheme.colorScheme.onSecondaryContainer,
                                     maxLines = 1,
@@ -625,7 +629,7 @@ internal fun SectionItem(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(TermChinDesign.ChipShape)
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically

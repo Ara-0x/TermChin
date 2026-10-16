@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CalendarViewDay
@@ -57,7 +57,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -127,8 +129,9 @@ fun WeeklyTimetable(
 
     // Map each course code to a stable distinct color. Memoized so large
     // timetables are not rebuilt on every recomposition.
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val allItems = remember(sections, isDark) {
+    val isDark = ir.courseplanner.app.ui.theme.isDarkTheme()
+    val fallbackColor = MaterialTheme.colorScheme.secondary
+    val allItems = remember(sections, isDark, fallbackColor) {
         val courseColors = if (isDark) CourseColorListDark else CourseColorListLight
         val uniqueCodes = sections.map { it.courseCode }.distinct()
         val colorMap = uniqueCodes.mapIndexed { idx, code ->
@@ -139,7 +142,7 @@ fun WeeklyTimetable(
                 TimetableItem(
                     section = sec,
                     session = sess,
-                    color = colorMap[sec.courseCode] ?: Color(0xFF2563EB)
+                    color = colorMap[sec.courseCode] ?: fallbackColor
                 )
             }
         }
@@ -164,13 +167,14 @@ fun WeeklyTimetable(
                     Text(
                         text = "تقویم برنامه هفتگی",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.semantics { heading() }
                     )
                 }
             }
 
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = TermChinDesign.ControlShape,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
@@ -182,14 +186,14 @@ fun WeeklyTimetable(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
+                            .clip(TermChinDesign.MicroShape)
                             .background(
                                 if (isGrid) MaterialTheme.colorScheme.primaryContainer
                                 else Color.Transparent
                             )
-                            .clickable { viewMode = "grid" }
-                            .testTag("weekly_timetable_mode_grid")
-                            .padding(vertical = 8.dp),
+                            .clickable(role = Role.RadioButton) { viewMode = "grid" }
+                            .heightIn(min = TermChinDesign.MinTouchHeight)
+                            .testTag("weekly_timetable_mode_grid"),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -213,14 +217,14 @@ fun WeeklyTimetable(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
+                            .clip(TermChinDesign.MicroShape)
                             .background(
                                 if (!isGrid) MaterialTheme.colorScheme.primaryContainer
                                 else Color.Transparent
                             )
-                            .clickable { viewMode = "day" }
-                            .testTag("weekly_timetable_mode_day")
-                            .padding(vertical = 8.dp),
+                            .clickable(role = Role.RadioButton) { viewMode = "day" }
+                            .heightIn(min = TermChinDesign.MinTouchHeight)
+                            .testTag("weekly_timetable_mode_day"),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -335,7 +339,7 @@ fun WeeklyTimetable(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         color = item.color.copy(alpha = 0.08f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, item.color.copy(alpha = 0.3f))
                     ) {
@@ -374,7 +378,7 @@ fun WeeklyTimetable(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
+                                        .clip(TermChinDesign.MicroShape)
                                         .background(item.color.copy(alpha = 0.15f))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
@@ -451,7 +455,7 @@ private fun TimetableGridView(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(1.dp, TermChinDesign.CardShape),
+            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -471,7 +475,7 @@ private fun TimetableGridView(
                         modifier = Modifier
                             .width(76.dp)
                             .height(38.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(TermChinDesign.ChipShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -491,7 +495,7 @@ private fun TimetableGridView(
                                 .width(126.dp)
                                 .height(38.dp)
                                 .padding(horizontal = 3.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(TermChinDesign.ChipShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -527,7 +531,7 @@ private fun TimetableGridView(
                             modifier = Modifier
                                 .width(76.dp)
                                 .height(currentSlotHeight)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(TermChinDesign.ChipShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -571,7 +575,7 @@ private fun TimetableGridView(
                                     .width(126.dp)
                                     .height(currentSlotHeight)
                                     .padding(horizontal = 3.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(TermChinDesign.ChipShape)
                                     .background(
                                         if (matchingItems.isNotEmpty()) {
                                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
@@ -625,9 +629,9 @@ private fun ClassBlock(
                 contentDescription = "${item.section.courseName}، ${item.session.startTime} تا ${item.session.endTime}"
             }
             .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
+        shape = TermChinDesign.ChipShape,
         color = item.color.copy(alpha = 0.12f),
-        border = androidx.compose.foundation.BorderStroke(1.2.dp, item.color.copy(alpha = 0.7f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, item.color.copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = if (isMultiple) 3.dp else 5.dp),
@@ -765,12 +769,12 @@ private fun WeeklyDateCell(
             // A single flat elevation carries the selected cell; no ambient /
             // spot accent glow, which looked like the card was lit from inside.
             .shadow(
-                elevation = if (isSelected) 2.dp else 0.dp,
+                elevation = if (isSelected) TermChinDesign.CardElevation else 0.dp,
                 shape = TermChinDesign.PillShape
             )
             .clip(TermChinDesign.PillShape)
             .background(cellBg)
-            .border(if (isSelected) 2.dp else 1.dp, cellBorder, TermChinDesign.PillShape)
+            .border(1.dp, cellBorder, TermChinDesign.PillShape)
             .clickable(
                 onClickLabel = ClassSession.getDayName(dayIdx),
                 onClick = { onDayChange(dayIdx) }
@@ -988,7 +992,7 @@ private fun TimetableDayView(
                                     if (ScheduleEngine.occursInWeek(item.session, currentParity)) 1f
                                     else 0.45f
                                 )
-                                .shadow(1.dp, TermChinDesign.CardShape)
+                                .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
                                 .clickable { onItemClick(item) },
                             shape = TermChinDesign.CardShape,
                             color = MaterialTheme.colorScheme.surface,
@@ -1010,7 +1014,7 @@ private fun TimetableDayView(
                                     modifier = Modifier
                                         .width(4.dp)
                                         .height(48.dp)
-                                        .clip(RoundedCornerShape(2.dp))
+                                        .clip(TermChinDesign.MicroShape)
                                         .background(item.color)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -1032,7 +1036,7 @@ private fun TimetableDayView(
                                         )
                                         if (item.session.weekType != WeekType.EVERY_WEEK) {
                                             Surface(
-                                                shape = RoundedCornerShape(6.dp),
+                                                shape = TermChinDesign.MicroShape,
                                                 color = item.color.copy(alpha = 0.15f)
                                             ) {
                                                 Text(
@@ -1099,9 +1103,9 @@ private fun TimetableDayView(
 
                                 // Time badge on right
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = TermChinDesign.ControlShape,
                                     color = item.color.copy(alpha = 0.12f),
-                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, item.color.copy(alpha = 0.3f))
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, item.color.copy(alpha = 0.3f))
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

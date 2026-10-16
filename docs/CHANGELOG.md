@@ -4,6 +4,51 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.16.0] (31) — 2026-10-16 visual consistency pass: one radius, one elevation, 48dp targets
+
+A pure polish release: no logic, stored value, flow or string was removed. Every
+screen now draws its corners, elevation and hairline borders from the same
+`TermChinDesign` tokens, every interactive control meets the 48dp touch target,
+section titles expose heading semantics, and the Documents timestamp renders in
+the Jalali (Shamsi) calendar.
+
+Baseline: **34 suites / 247 tests, 0 failures**.
+
+### Changed
+
+- **One corner-radius scale.** The ad-hoc `6/8/9/10/12dp` radii scattered across
+  Home, Courses, Schedule, Documents, Settings and every add/edit dialog are
+  replaced by the shared `MicroShape` / `ChipShape` / `ControlShape` /
+  `RowShape` tokens (values unchanged — the geometry is just owned in one place
+  now).
+- **One card elevation.** The `1.5dp` / `2dp` shadow outliers (Schedule's
+  «پیشنهاد برتر» card, Documents, `CourseCard`, Settings, Add Course,
+  `ConflictBanner`) collapse to `TermChinDesign.CardElevation` (`1dp`); hierarchy
+  stays on tonal surface + hairline, never a second shadow step.
+- **One hairline border.** The `1.2dp` / `0.8dp` borders and the `2dp` selected
+  date-cell ring fold into a single `1dp`, so no edge reads heavier than another.
+- **Controls meet the 48dp target.** Icon buttons, the course checkbox, the
+  credit steppers, the segmented week-type / view toggles and small text buttons
+  (`افزودن گروه دیگر`) now use `MinTouchHeight` instead of `28–46dp`.
+- **No hardcoded colors left in the UI.** The timetable's `#2563EB` selection
+  accent reads the active palette (`colorScheme.secondary`) and the Settings
+  check glyph uses `palette.light.onPrimary`; dark detection goes through
+  `isDarkTheme()`.
+- **Home pulse glow removed.** `HomeScreen` drops the animated border pulse and
+  the redundant box around the timetable, leaving the calm flat surfaces the
+  rest of the app already uses.
+
+### Fixed
+
+- **Documents timestamp is Jalali now.** The card date was a Gregorian
+  `yyyy/MM/dd - HH:mm`; it is formatted as a Shamsi date with Persian digits
+  («۱۴۰۳/۱۰/۲۵ - ۱۰:۳۰»), matching every other date in the app.
+
+### Accessibility
+
+- `heading()` semantics on the screen/section titles (Home, Courses, Schedule,
+  Documents, Settings, timetable) so TalkBack can jump between sections.
+
 ## [2.15.0] (30) — 2026-10-15 one countdown, clearer accents, friendlier empty days
 
 The Home "today" card showed two countdown lines for the same fact — one in

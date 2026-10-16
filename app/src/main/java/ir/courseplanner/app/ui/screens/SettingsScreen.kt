@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessAuto
@@ -86,6 +85,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -364,7 +365,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = TermChinDesign.ChipShape,
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.size(40.dp)
                 ) {
@@ -382,7 +383,8 @@ fun SettingsScreen(
                     Text(
                         text = "تنظیمات",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Text(
                         text = "شش دسته برای ظاهر، تقویم، انتخاب واحد، ترم و داده‌های شما",
@@ -400,7 +402,7 @@ fun SettingsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(TermChinDesign.ControlShape)
                     .background(
                         if (isErrorMessage) MaterialTheme.colorScheme.errorContainer
                         else MaterialTheme.colorScheme.primaryContainer
@@ -433,7 +435,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -523,7 +525,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -647,7 +649,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = { showSemesterStartDialog = true },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         modifier = Modifier
                             .height(34.dp)
                             .testTag("semester_start_edit_button")
@@ -666,7 +668,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -700,7 +702,7 @@ fun SettingsScreen(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = TermChinDesign.ControlShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -721,7 +723,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -752,7 +754,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = { showEditProfileDialog = true },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = TermChinDesign.ControlShape,
                         modifier = Modifier.height(34.dp)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -763,7 +765,7 @@ fun SettingsScreen(
 
                 // Profile Summary Card
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = TermChinDesign.RowShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -907,7 +909,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -934,7 +936,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_json_button"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = TermChinDesign.RowShape,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                     ) {
                         Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -953,7 +955,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_csv_button"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = TermChinDesign.RowShape,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -977,7 +979,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("paste_json_button"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = TermChinDesign.RowShape,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -989,7 +991,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("paste_csv_button"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = TermChinDesign.RowShape,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -1002,7 +1004,7 @@ fun SettingsScreen(
                 // The saved "presented courses" page becomes a hidden catalog;
                 // courses are added to "my courses" later by entering their code.
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -1029,7 +1031,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .height(44.dp)
                         .testTag("import_portal_html_button"),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.RowShape
                 ) {
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1054,7 +1056,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1081,7 +1083,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(17.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1094,7 +1096,7 @@ fun SettingsScreen(
                             .weight(1f)
                             .height(42.dp)
                             .testTag("export_csv_button"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = TermChinDesign.RowShape
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(17.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1119,7 +1121,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = TermChinDesign.RowShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
@@ -1137,7 +1139,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1161,7 +1163,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(42.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.RowShape
                 ) {
                     Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1183,7 +1185,7 @@ fun SettingsScreen(
                         .height(44.dp)
                         .testTag("delete_all_data_button"),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = TermChinDesign.RowShape
                 ) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1199,7 +1201,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp,
+                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1219,7 +1221,7 @@ fun SettingsScreen(
                 // If latest changes are missing, compare GIT_SHA with GitHub commit.
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = TermChinDesign.RowShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                 ) {
                     Column(
@@ -1487,7 +1489,7 @@ internal fun ExportTextDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(300.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(TermChinDesign.ChipShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .verticalScroll(rememberScrollState())
                             .padding(8.dp)
@@ -1840,7 +1842,7 @@ private fun PaletteCard(
             if (selected) palette.light.primary
             else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         ),
-        shadowElevation = if (selected) 2.dp else 0.dp
+        shadowElevation = if (selected) TermChinDesign.CardElevation else 0.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -1862,7 +1864,7 @@ private fun PaletteCard(
                         Icon(
                             Icons.Default.Check,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = palette.light.onPrimary,
                             modifier = Modifier.size(15.dp)
                         )
                     }
@@ -1900,7 +1902,7 @@ private fun PaletteCard(
 private fun PaletteModePreview(scheme: ColorScheme) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(6.dp),
+        shape = TermChinDesign.MicroShape,
         color = scheme.surface,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,

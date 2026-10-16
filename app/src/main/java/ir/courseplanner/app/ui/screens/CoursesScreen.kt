@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -144,7 +143,7 @@ fun CoursesScreen(
                 text = { Text("افزودن درس", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(12.dp),
+                shape = TermChinDesign.RowShape,
                 elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 1.dp),
                 modifier = Modifier.testTag("fab_add_course")
             )
@@ -355,7 +354,7 @@ fun CoursesScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -384,7 +383,7 @@ fun CoursesScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -413,7 +412,7 @@ fun CoursesScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -441,7 +440,7 @@ fun CoursesScreen(
                                     fontWeight = if (onlyWithSessions) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = TermChinDesign.ControlShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -461,7 +460,7 @@ fun CoursesScreen(
                             selected = dayFilter == null,
                             onClick = { viewModel.setDayFilter(null) },
                             label = { Text("همه روزها", fontSize = 11.5.sp) },
-                            shape = RoundedCornerShape(10.dp)
+                            shape = TermChinDesign.ControlShape
                         )
                         FILTERABLE_DAYS.forEach { day ->
                             val isSelected = dayFilter == day
@@ -475,7 +474,7 @@ fun CoursesScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = TermChinDesign.ControlShape,
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -498,7 +497,7 @@ fun CoursesScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = TermChinDesign.ControlShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                     modifier = Modifier.clickable {
@@ -545,7 +544,7 @@ fun CoursesScreen(
                 )
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = TermChinDesign.ChipShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                     Text(
@@ -644,7 +643,7 @@ fun CoursesScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = { showAddCourseDialog = true },
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = TermChinDesign.RowShape
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -668,7 +667,7 @@ fun CoursesScreen(
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Button(
                                     onClick = { viewModel.openAddCourse() },
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = TermChinDesign.RowShape
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -693,7 +692,7 @@ fun CoursesScreen(
                                 ) {
                                     Button(
                                         onClick = { viewModel.openAddCourse() },
-                                        shape = RoundedCornerShape(12.dp)
+                                        shape = TermChinDesign.RowShape
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -872,7 +871,7 @@ fun CoursesScreen(
                         courseToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = TermChinDesign.ControlShape
                 ) {
                     Text("بله، حذف کن")
                 }

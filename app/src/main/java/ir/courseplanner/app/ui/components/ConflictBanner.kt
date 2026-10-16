@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
@@ -117,7 +116,7 @@ fun ConflictBanner(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, TermChinDesign.CardShape)
+            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .clickable(enabled = hasConflict) { isExpanded = !isExpanded }
             .testTag("conflict_banner"),
         shape = TermChinDesign.CardShape,
@@ -196,7 +195,7 @@ fun ConflictBanner(
                 ) {
                     conflicts.forEachIndexed { index, conflict ->
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = TermChinDesign.ControlShape,
                             color = MaterialTheme.colorScheme.surface,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
