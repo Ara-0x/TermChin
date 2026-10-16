@@ -322,8 +322,8 @@ internal fun NowNextCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             DashboardSectionHeader(title = "امروز چه خبر؟", icon = Icons.Default.Schedule)
             when (state) {
@@ -376,17 +376,16 @@ internal fun NowNextCard(
                     }
                 }
                 is NowNextState.LaterDay -> {
+                    // Day-aware heading: a day that simply has no class must not
+                    // claim "today's classes are over" — the card names the real
+                    // reason so the next-day content below never reads as today.
                     Text(
-                        text = "کلاس‌های امروز تمام شد",
+                        text = if (todayClasses.isEmpty()) "امروز کلاسی نداری" else "کلاس‌های امروز تمام شد",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.semantics { heading() }
                     )
-                    FocusedClassRow(
-                        item = state.item,
-                        status = "کلاس بعدی: " + ClassSession.getDayName(state.item.dayOfWeek),
-                        nowMinutes = null
-                    )
+                    UpcomingDayCard(item = state.item)
                     OutlinedButton(
                         onClick = onOpenWeeklyTimetable,
                         modifier = Modifier
@@ -427,6 +426,81 @@ internal fun NowNextCard(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+/**
+ * Next class on a later day, rendered as a future-dated block: the weekday owns
+ * a filled accent badge so the eye reads "not today" before any word does. The
+ * neutral (secondary) accent also separates it from today's primary hero.
+ */
+@Composable
+private fun UpcomingDayCard(item: UpcomingSession) {
+    val accent = MaterialTheme.colorScheme.secondary
+    val onAccent = MaterialTheme.colorScheme.onSecondary
+    val dayName = ClassSession.getDayName(item.dayOfWeek)
+    Surface(
+        shape = TermChinDesign.RowShape,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = "کلاس بعدی در $dayName، " + item.section.courseName
+            }
+    ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = TermChinDesign.ChipShape, color = accent, modifier = Modifier.width(74.dp)) {
+                Column(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.Event,
+                        contentDescription = null,
+                        tint = onAccent,
+                        modifier = Modifier.size(TermChinDesign.IconSm)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = dayName,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = onAccent,
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "کلاس بعدی",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = accent
+                )
+                Text(
+                    text = item.section.courseName,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = buildString {
+                        append(timeRangeFa(item.session))
+                        if (item.session.location.isNotBlank()) {
+                            append(" • ")
+                            append(item.session.location)
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -532,7 +606,7 @@ private fun FocusedClassRow(
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
     ) {
-        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .width(TermChinDesign.FocusBarWidth)
@@ -740,7 +814,7 @@ internal fun OverviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
@@ -905,7 +979,7 @@ internal fun AttentionCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

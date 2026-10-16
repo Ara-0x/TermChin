@@ -72,6 +72,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -81,6 +82,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -118,6 +121,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val MAX_IMPORT_CHARS = 15_000_000
+
+/** One entry in the settings quick-nav index: icon, short label, section slot. */
+private data class SettingsShortcut(
+    val icon: ImageVector,
+    val label: String,
+    val index: Int
+)
+
+/** The six settings categories, in on-screen order, for the quick-nav grid. */
+private val SETTINGS_SHORTCUTS = listOf(
+    SettingsShortcut(Icons.Default.Palette, "ظاهر", 0),
+    SettingsShortcut(Icons.Default.ViewWeek, "تقویم", 1),
+    SettingsShortcut(Icons.Default.Tune, "انتخاب واحد", 2),
+    SettingsShortcut(Icons.Default.Person, "ترم", 3),
+    SettingsShortcut(Icons.Default.CloudDownload, "داده‌ها", 4),
+    SettingsShortcut(Icons.Default.Info, "درباره", 5)
+)
 
 /**
  * Shared header of the six settings categories: meaningful icon, short title
@@ -167,6 +187,62 @@ private fun SettingsGroupHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/** A compact index of the six categories: tap a tile to scroll straight there. */
+@Composable
+private fun SettingsQuickNav(onJump: (Int) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = TermChinDesign.CardShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = TermChinDesign.CardElevation,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "دسترسی سریع",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SETTINGS_SHORTCUTS.chunked(3).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { shortcut ->
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(TermChinDesign.RowShape)
+                                .clickable { onJump(shortcut.index) }
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                shortcut.icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = shortcut.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -341,6 +417,12 @@ fun SettingsScreen(
     }
 
     val scrollState = rememberScrollState()
+    // Top offset (in scroll content) of each category, captured from layout so
+    // the quick-nav can animate straight to it without a fixed height guess.
+    val sectionOffsets = remember { mutableStateMapOf<Int, Int>() }
+    val jumpToSection: (Int) -> Unit = { index ->
+        sectionOffsets[index]?.let { y -> scope.launch { scrollState.animateScrollTo(y) } }
+    }
 
     Column(
         modifier = modifier
@@ -430,9 +512,13 @@ fun SettingsScreen(
             }
         }
 
+        SettingsQuickNav(onJump = jumpToSection)
+
         // ظاهر و شخصی‌سازی
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[0] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,
@@ -522,7 +608,9 @@ fun SettingsScreen(
 
         // برنامه هفتگی
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[1] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,
@@ -665,7 +753,9 @@ fun SettingsScreen(
         // [viewModel.optimizationPreference] است تا انتخاب کاربر در تمام
         // صفحات هماهنگ بماند.
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[2] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,
@@ -720,7 +810,9 @@ fun SettingsScreen(
 
         // اطلاعات دانشجو و ترم
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[3] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,
@@ -906,7 +998,9 @@ fun SettingsScreen(
             subtitle = "ورود، خروجی، اشتراک‌گذاری و پاک‌سازی اطلاعات آفلاین"
         )
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[4] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,
@@ -1198,7 +1292,9 @@ fun SettingsScreen(
 
         // درباره و اطلاعات برنامه: نسخه واقعی بیلد و راهنمای کوتاه استفاده.
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { sectionOffsets[5] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
                     shadowElevation = TermChinDesign.CardElevation,

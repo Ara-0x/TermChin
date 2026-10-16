@@ -4,6 +4,42 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.18.0] (33) — 2026-10-16 clarity pass: honest empty days, calmer scale, sliding nav, faster settings
+
+A refinement release driven by on-device feedback: the dashboard tells the truth
+about a class-free day, the whole type and card scale eases back a notch, and the
+shell gains smoother motion and quicker navigation. No logic, storage or string
+contract changed.
+
+Baseline: **34 suites / 247 tests, 0 failures**.
+
+### Changed
+
+- **Honest "what's happening today".** On a day with no class the hero now says
+  «امروز کلاسی نداری» instead of «کلاس‌های امروز تمام شد», and the next class is
+  shown as a dedicated future-dated block with a filled weekday badge — so it no
+  longer reads as today's schedule at a glance.
+- **Calmer reading scale.** The type ramp eases down one notch from the previous
+  release (`headlineLarge` 26→23, `titleLarge` 21→18.5, `titleMedium` 17→15.5,
+  `bodyMedium` 15→13.5, `bodySmall` 13→12) and Home's cards tighten
+  (padding 18→14dp, rhythm 16→12dp), so the screen feels lighter without losing
+  hierarchy.
+- **Sliding navigation.** The floating pill bar now marks the active tab with a
+  single indicator that *slides* between slots on a spring (direction-aware, so
+  it travels correctly in RTL) while icons and labels fade between states.
+- **Organised settings.** A «دسترسی سریع» index of the six categories sits under
+  the header; tapping a tile animates the page straight to that section.
+- **Clearer strategy picker.** The schedule builder's optimization card lists each
+  strategy as a selectable row with a check indicator and explains only the
+  chosen one inline, instead of a strip of chips plus a detached caption.
+
+### Added
+
+- **Direction-aware slide.** The nav indicator is positioned from the row's real
+  layout direction, so the animation mirrors under RTL instead of mis-placing.
+- **Quick-nav scroll.** Category offsets are measured from layout, so the jump
+  animation targets each section exactly.
+
 ## [2.17.0] (32) — 2026-10-16 modern redesign: bolder type, floating nav, colour-block hero
 
 A full visual redesign release: the app reads visibly larger, softer and

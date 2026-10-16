@@ -657,7 +657,8 @@ class HomeDashboardUiTest {
             }
         }
 
-        composeTestRule.onNodeWithText("کلاس‌های امروز تمام شد").assertIsDisplayed()
+        // A day with no class must say so — never "today's classes are over".
+        composeTestRule.onNodeWithText("امروز کلاسی نداری").assertIsDisplayed()
         composeTestRule.onNodeWithText("چهارشنبه", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithTag("home_view_weekly_timetable_button").assertIsDisplayed()
     }
