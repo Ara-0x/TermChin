@@ -281,7 +281,6 @@ jobs:
       - name: Prepare APK Asset (unique name busts CDN/browser cache)
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/release/app-release.apk "release-output/TermChin-v${VERSION_NAME}-${HEAD_SHA}.apk"
           cp app/build/outputs/apk/release/app-release.apk "release-output/TermChin-v${VERSION_NAME}.apk"
           ls -la release-output/
           sha256sum release-output/*.apk
@@ -295,7 +294,6 @@ jobs:
           # action-gh-release publishes exactly these two paths.
           path: |
             release-output/TermChin-v${{ env.VERSION_NAME }}.apk
-            release-output/TermChin-v${{ env.VERSION_NAME }}-${{ env.HEAD_SHA }}.apk
 
       # The restored keystore must not survive the job. RUNNER_TEMP is wiped
       # with the runner anyway; this makes the intent explicit and covers
@@ -332,8 +330,6 @@ jobs:
           ls -la release-output/
           test -f "release-output/TermChin-v${VERSION_NAME}.apk" \
             || { echo "::error::missing release-output/TermChin-v${VERSION_NAME}.apk"; exit 1; }
-          test -f "release-output/TermChin-v${VERSION_NAME}-${HEAD_SHA}.apk" \
-            || { echo "::error::missing cache-busting asset TermChin-v${VERSION_NAME}-${HEAD_SHA}.apk"; exit 1; }
           sha256sum release-output/*.apk
 
       - name: Upload APK to Release
@@ -375,7 +371,6 @@ jobs:
             > بعد از نصب، در صفحه «تنظیمات» پایین صفحه باید `v${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})` و هش کامیت جدید را ببینید.
           files: |
             release-output/TermChin-v${{ env.VERSION_NAME }}.apk
-            release-output/TermChin-v${{ env.VERSION_NAME }}-${{ env.HEAD_SHA }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
