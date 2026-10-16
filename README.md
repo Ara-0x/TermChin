@@ -194,7 +194,7 @@ cd TermChin
 
 ## 📦 دریافت نسخه نهایی (APK)
 
-**نسخه فعلی: v2.18.0** (بیلد `versionCode=33`)
+**نسخه فعلی: v2.19.0** (بیلد `versionCode=34`)
 
 آخرین نسخه اپلیکیشن را از بخش **[Releases](https://github.com/Ara-0x/TermChin/releases)** دریافت و نصب کنید.
 
