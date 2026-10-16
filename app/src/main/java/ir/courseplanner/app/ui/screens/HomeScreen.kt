@@ -1,6 +1,9 @@
 package ir.courseplanner.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,6 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
@@ -71,6 +76,7 @@ import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.TimetableExporter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -180,8 +186,8 @@ fun HomeScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = TermChinDesign.ScreenMargin, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = TermChinDesign.ScreenMargin, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // A. Personal context, then the time facts, then the one decision that
         // matters now — three calm surfaces, one consistent card scale.
@@ -191,12 +197,14 @@ fun HomeScreen(
             major = preferences.major,
             credits = metrics.totalCredits,
             creditTarget = preferences.creditTarget,
-            now = now
+            now = now,
+            modifier = Modifier.dashboardEntrance(0)
         )
 
         TodayDateCard(
             now = now,
-            weekInfo = weekInfo
+            weekInfo = weekInfo,
+            modifier = Modifier.dashboardEntrance(1)
         )
 
         // B. Primary hero: now and next, with a live countdown.
@@ -207,7 +215,8 @@ fun HomeScreen(
                 state = nowNextState,
                 nowMinutes = now.nowMinutes,
                 onOpenWeeklyTimetable = scrollToTimetable,
-                onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) }
+                onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) },
+                modifier = Modifier.dashboardEntrance(2)
             )
         }
 
@@ -223,7 +232,8 @@ fun HomeScreen(
                         AttentionKind.MISSING_SEMESTER_START ->
                             viewModel.navigateTo(AppDestination.SETTINGS)
                     }
-                }
+                },
+                modifier = Modifier.dashboardEntrance(3)
             )
         }
 
@@ -235,7 +245,8 @@ fun HomeScreen(
                 activeDays = metrics.activeDaysCount,
                 gapMinutes = metrics.totalGapMinutes,
                 courseCount = metrics.totalCourses,
-                onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) }
+                onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) },
+                modifier = Modifier.dashboardEntrance(4)
             )
         }
 
@@ -245,7 +256,8 @@ fun HomeScreen(
         if (hasEnrolled && enrolledSections.any { it.sessions.isEmpty() }) {
             ContextualSetupCard(
                 onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) },
-                onOpenSchedule = { viewModel.navigateTo(AppDestination.SCHEDULE) }
+                onOpenSchedule = { viewModel.navigateTo(AppDestination.SCHEDULE) },
+                modifier = Modifier.dashboardEntrance(5)
             )
         }
 
@@ -254,7 +266,8 @@ fun HomeScreen(
         if (!hasEnrolled) {
             GuidedEmptyState(
                 onOpenSettings = { viewModel.navigateTo(AppDestination.SETTINGS) },
-                onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) }
+                onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) },
+                modifier = Modifier.dashboardEntrance(5)
             )
         } else {
             // Exam Schedule Section (expandable, conflict-aware as before).
@@ -267,6 +280,7 @@ fun HomeScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .dashboardEntrance(6)
                         .bringIntoViewRequester(examSectionRequester),
                     shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
@@ -403,7 +417,12 @@ fun HomeScreen(
         // F. Weekly timetable preview: the real component, headed and
         // parity-labelled, shown only when there is a program to preview.
         if (hasEnrolled) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .dashboardEntrance(7),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 // The section title now sits OUTSIDE the card (the component's
                 // own in-card title is off via showHeader = false), so the
                 // section is named only once instead of twice.
@@ -450,18 +469,42 @@ fun HomeScreen(
         if (hasEnrolled && visibleDocumentCount > 0) {
             SecondaryDocumentsLine(
                 count = visibleDocumentCount,
-                onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) }
+                onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) },
+                modifier = Modifier.dashboardEntrance(8)
             )
         }
 
         if (hasEnrolled) {
             HomeExportActions(
                 onCopy = { TimetableExporter.copyToClipboard(context, enrolledSections) },
-                onShare = { TimetableExporter.shareSchedule(context, enrolledSections) }
+                onShare = { TimetableExporter.shareSchedule(context, enrolledSections) },
+                modifier = Modifier.dashboardEntrance(9)
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+/**
+ * Staggered entrance for the dashboard blocks: each section fades in and
+ * lifts a few pixels, offset by [index], so Home assembles itself instead of
+ * snapping into place. Runs once (finite, no infinite transitions) and only
+ * changes the visual transform — layout and semantics stay put.
+ */
+@Composable
+private fun Modifier.dashboardEntrance(index: Int): Modifier {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        if (index > 0) delay(index * 45L)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing)
+        )
+    }
+    return this.graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * 24.dp.toPx()
     }
 }
 
@@ -484,47 +527,74 @@ internal fun DashboardHeader(
             .fillMaxWidth()
             .testTag("home_header_card"),
         shape = TermChinDesign.CardShape,
+        // A confident colour block instead of a faint tint: the greeting is the
+        // first thing the student sees, so it owns the theme's primary colour.
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.primary
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = greetingFa(now.nowMinutes, studentName),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = greetingFa(now.nowMinutes, studentName),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Text(
-                text = buildString {
-                    append(semesterName)
-                    if (major.isNotBlank()) {
+                Text(
+                    text = buildString {
+                        append(semesterName)
+                        if (major.isNotBlank()) {
+                            append(" • ")
+                            append(major)
+                        }
                         append(" • ")
-                        append(major)
-                    }
-                    append(" • ")
-                    append(JalaliDate.toFaDigits(credits))
-                    append(" واحد")
-                    if (creditTarget > 0) {
-                        append(" از ")
-                        append(JalaliDate.toFaDigits(creditTarget))
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+                        append(JalaliDate.toFaDigits(credits))
+                        append(" واحد")
+                        if (creditTarget > 0) {
+                            append(" از ")
+                            append(JalaliDate.toFaDigits(creditTarget))
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -546,12 +616,12 @@ internal fun TodayDateCard(
             .testTag("home_today_date_card"),
         shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
@@ -572,7 +642,7 @@ internal fun TodayDateCard(
                 Column {
                     Text(
                         text = ClassSession.getDayName(now.appDayIdx),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
@@ -588,16 +658,22 @@ internal fun TodayDateCard(
                 }
             }
 
-            Text(
-                text = if (weekInfo != null) {
-                    "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
-                } else {
-                    "هفته نامشخص"
-                },
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1
-            )
+            Surface(
+                shape = TermChinDesign.PillShape,
+                color = MaterialTheme.colorScheme.primary
+            ) {
+                Text(
+                    text = if (weekInfo != null) {
+                        "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
+                    } else {
+                        "هفته نامشخص"
+                    },
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
         }
     }
 }

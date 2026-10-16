@@ -1,5 +1,9 @@
 package ir.courseplanner.app.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +36,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -272,7 +279,7 @@ fun DashboardSectionHeader(
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.semantics { heading() }
         )
@@ -309,14 +316,14 @@ internal fun NowNextCard(
         // The only persistent primary surface on Home: it answers the
         // student's first question — what do I need to do today?
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             DashboardSectionHeader(title = "امروز چه خبر؟", icon = Icons.Default.Schedule)
             when (state) {
@@ -455,9 +462,17 @@ private fun SessionProgress(nowMinutes: Int, session: ClassSession) {
     val end = ScheduleEngine.displayEndMinutes(session)
     val span = (end - session.startMinutes).coerceAtLeast(1)
     val done = (nowMinutes - session.startMinutes).coerceIn(0, span)
+    val animated by animateFloatAsState(
+        targetValue = done / span.toFloat(),
+        animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
+        label = "sessionProgress"
+    )
     LinearProgressIndicator(
-        progress = { done / span.toFloat() },
-        modifier = Modifier.fillMaxWidth(),
+        progress = { animated },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(TermChinDesign.MicroShape),
         strokeCap = StrokeCap.Round
     )
 }
@@ -517,23 +532,23 @@ private fun FocusedClassRow(
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .width(TermChinDesign.FocusBarWidth)
-                    .height(48.dp)
+                    .height(56.dp)
                     .clip(TermChinDesign.MicroShape)
                     .background(accent)
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 if (statusLabel != null) {
                     StatusPill(label = statusLabel, ongoing = isOngoing)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
                 Text(
                     text = item.section.courseName,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -590,7 +605,7 @@ private fun StatusPill(label: String, ongoing: Boolean) {
             Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = accent,
                 maxLines = 1
             )
@@ -611,7 +626,7 @@ private fun CountdownBadge(
     Surface(shape = TermChinDesign.PillShape, color = containerColor.copy(alpha = 0.55f)) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 9.dp, vertical = 4.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
                 .testTag("home_now_next_countdown"),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -621,10 +636,10 @@ private fun CountdownBadge(
                 tint = contentColor,
                 modifier = Modifier.size(TermChinDesign.IconSm)
             )
-            Spacer(modifier = Modifier.width(5.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = contentColor,
                 maxLines = 1
             )
@@ -721,20 +736,29 @@ internal fun OverviewCard(
             .testTag("home_overview_card"),
         shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = "نمای کلی ترم",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { heading() }
             )
             val ratio = creditProgressRatio(credits, target)
+            // Fills from zero on first paint, then re-animates on any credit
+            // change — the bar reads as a live measure, not a static rule.
+            val animatedRatio = remember { Animatable(0f) }
+            LaunchedEffect(ratio) {
+                animatedRatio.animateTo(
+                    targetValue = ratio ?: 0f,
+                    animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -760,30 +784,36 @@ internal fun OverviewCard(
             // a bogus (NaN) progress value.
             if (ratio != null) {
                 LinearProgressIndicator(
-                    progress = { ratio },
+                    progress = { animatedRatio.value },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp)
+                        .height(10.dp)
                         .clip(TermChinDesign.MicroShape),
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     strokeCap = StrokeCap.Round
                 )
             }
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OverviewStat(
                     value = JalaliDate.toFaDigits(activeDays),
                     label = "روز کلاسی",
+                    accent = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewStat(
                     value = formatGapFa(gapMinutes),
                     label = "زمان مرده",
+                    accent = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewStat(
                     value = JalaliDate.toFaDigits(courseCount),
                     label = "درس",
+                    accent = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -815,27 +845,36 @@ internal fun OverviewCard(
 private fun OverviewStat(
     value: String,
     label: String,
+    accent: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Surface(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        shape = TermChinDesign.RowShape,
+        color = accent.copy(alpha = 0.12f)
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -859,15 +898,15 @@ internal fun AttentionCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -879,7 +918,7 @@ internal fun AttentionCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "نیاز به توجه",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.semantics { heading() }
                 )

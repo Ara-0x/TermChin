@@ -28,17 +28,17 @@ object TermChinDesign {
     val ScreenMargin: Dp = 16.dp
 
     /** Every card on every screen — one radius, no competing scales. */
-    val CardRadius: Dp = 16.dp
+    val CardRadius: Dp = 22.dp
     /** Nested rows inside a card. */
-    val RowRadius: Dp = 12.dp
+    val RowRadius: Dp = 16.dp
     /** Compact pill (date cells, count chips). */
-    val PillRadius: Dp = 14.dp
+    val PillRadius: Dp = 20.dp
     /** Compact control radius (chips, badges, segmented buttons). */
-    val ChipRadius: Dp = 8.dp
+    val ChipRadius: Dp = 10.dp
     /** Input / small-button radius — one step under the nested row. */
-    val ControlRadius: Dp = 10.dp
+    val ControlRadius: Dp = 13.dp
     /** Micro accent radius for tiny bars and mini badges. */
-    val MicroRadius: Dp = 6.dp
+    val MicroRadius: Dp = 8.dp
 
     /**
      * The only card elevation in the app. Hierarchy comes from tonal surface

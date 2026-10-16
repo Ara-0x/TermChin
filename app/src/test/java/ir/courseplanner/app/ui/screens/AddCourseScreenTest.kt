@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import ir.courseplanner.app.data.model.Course
 import ir.courseplanner.app.engine.CourseSuggestionRanker
 import ir.courseplanner.app.ui.theme.MyApplicationTheme
@@ -28,7 +29,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34])
+@Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [34])
 class AddCourseScreenTest {
 
     @get:Rule

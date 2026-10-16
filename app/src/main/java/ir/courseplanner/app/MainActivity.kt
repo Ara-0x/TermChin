@@ -8,9 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -213,11 +216,26 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         AnimatedContent(
             targetState = currentDestination,
             transitionSpec = {
-                // RTL-aware: forward motion slides right-to-left, matching the
-                // RTL layout direction of the app.
-                val slideOffset = if (targetState.ordinal > initialState.ordinal) -160 else 160
-                (slideInHorizontally(animationSpec = tween(260)) { slideOffset } + fadeIn(animationSpec = tween(220)))
-                    .togetherWith(slideOutHorizontally(animationSpec = tween(260)) { -slideOffset / 2 } + fadeOut(animationSpec = tween(180)))
+                // Modern shared-axis feel: a short directional slide combined
+                // with a subtle depth scale and a cross-fade. RTL-aware — forward
+                // motion slides right-to-left so it matches the app's direction.
+                val forward = targetState.ordinal > initialState.ordinal
+                val direction = if (forward) -1 else 1
+                val enter = slideInHorizontally(
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                    initialOffsetX = { fullWidth -> direction * fullWidth / 6 }
+                ) + scaleIn(
+                    initialScale = 0.96f,
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                ) + fadeIn(animationSpec = tween(durationMillis = 260))
+                val exit = slideOutHorizontally(
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                    targetOffsetX = { fullWidth -> -direction * fullWidth / 10 }
+                ) + scaleOut(
+                    targetScale = 0.98f,
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                ) + fadeOut(animationSpec = tween(durationMillis = 200))
+                enter togetherWith exit
             },
             label = "ScreenTransition"
         ) { destination ->

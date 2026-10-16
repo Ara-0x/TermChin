@@ -4,6 +4,46 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.17.0] (32) — 2026-10-16 modern redesign: bolder type, floating nav, colour-block hero
+
+A full visual redesign release: the app reads visibly larger, softer and
+livelier without a single logic, storage or string change. The shell gains a
+floating pill navigation bar, the dashboard opens on a confident primary-colour
+hero, and the surfaces assemble themselves on screen entry.
+
+Baseline: **34 suites / 247 tests, 0 failures**.
+
+### Changed
+
+- **Larger reading scale.** The whole Material type ramp moved up one step —
+  `headlineMedium` 20→24, `titleLarge` 18→21, `titleMedium` 15→17,
+  `bodyMedium` 13.5→15, `bodySmall` 12→13 — so headings lead and body text is
+  comfortable at arm's length. Chips/labels grew only slightly to stay compact.
+- **Softer, more modern geometry.** The shared `TermChinDesign` radii step up
+  app-wide: cards 16→22dp, rows 12→16dp, pills 14→20dp, controls 10→13dp and
+  micro bars 6→8dp. Every screen inherits the rounder look from one token.
+- **Floating pill navigation.** The bottom bar is no longer a full-width slab:
+  it is a rounded 28dp pill that hovers above the content with a 12dp shadow,
+  drawing its own system-navigation inset.
+- **Colour-block hero.** The Home header is now a bold `primary` card (onPrimary
+  text + a translucent accent circle) instead of a faint tint, and the date card
+  goes neutral so the hero leads the hierarchy.
+- **Bento overview.** The three term stats each sit on their own tinted tile
+  (primary / tertiary / secondary) instead of floating on plain surface.
+- **Now/Next is the centerpiece.** Elevation 3, a taller accent bar, the course
+  name at `titleLarge` and a larger clock countdown chip, with the credit bar
+  thickened to 10dp and Home's rhythm loosened from 12 to 16dp.
+
+### Added
+
+- **Staggered entrance.** Home's blocks fade in and lift a few pixels with a
+  45ms cascade (`dashboardEntrance`), assembled once per visit.
+- **Animated numbers.** The credit progress bar fills from zero on first paint
+  and re-animates on any change; the ongoing-class progress animates smoothly.
+- **Modern screen transition.** Tab switches now combine a short directional
+  slide with a subtle depth scale and cross-fade (`FastOutSlowInEasing`).
+- **Springy selection.** The selected navigation icon scales with a spring.
+
 ## [2.16.0] (31) — 2026-10-16 visual consistency pass: one radius, one elevation, 48dp targets
 
 A pure polish release: no logic, stored value, flow or string was removed. Every
