@@ -4,6 +4,21 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.20.2] (37) — 2026-10-20 flatten the now/next card (kill the gray halo)
+
+The gray band reported around the now/next card was NOT a border — it was the
+card's elevation shadow (3dp), which reads as a gray halo ring on light themes.
+The card is now flat (0dp): the tonal fill carries the emphasis, with no shadow
+and no ring. Verified with a light-theme Roborazzi screenshot comparing
+before/after.
+
+Baseline: **34 suites / 246 tests, 0 failures**.
+
+### Changed
+
+- **Flat now/next card.** `NowNextCard` sets card elevation to 0dp and draws no
+  border in either theme; emphasis comes from the primaryContainer tint alone.
+
 ## [2.20.1] (36) — 2026-10-20 drop the now/next card's colored ring
 
 One visual fix from on-device feedback: the 12%-softened ring introduced in

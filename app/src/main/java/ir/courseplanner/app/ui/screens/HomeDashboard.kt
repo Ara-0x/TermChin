@@ -323,7 +323,9 @@ internal fun NowNextCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        // Flat: any elevation painted a gray halo RING around the card on light
+        // themes (the tinted fill is the emphasis, not a shadow).
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
