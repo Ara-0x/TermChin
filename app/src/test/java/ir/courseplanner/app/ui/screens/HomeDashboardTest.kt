@@ -116,12 +116,12 @@ class HomeDashboardPureTest {
     }
 
     @Test
-    fun `ongoing class reports remaining live-window minutes`() {
-        // 10:00-12:00 at 10:20 → live window ends 11:30 → 70 left.
+    fun `ongoing class counts down to its real end`() {
+        // 10:00-12:00 at 10:20 → the card stays honest until 12:00 → 100 left.
         val state = resolveNowNext(upcoming(3, "10:00", "12:00", true), 3, 620)
 
         assertTrue(state is NowNextState.Ongoing)
-        assertEquals(70, (state as NowNextState.Ongoing).minutesLeft)
+        assertEquals(100, (state as NowNextState.Ongoing).minutesLeft)
     }
 
     @Test

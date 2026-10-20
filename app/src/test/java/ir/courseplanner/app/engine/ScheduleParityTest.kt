@@ -150,14 +150,4 @@ class ScheduleParityTest {
         assertEquals(2, ScheduleEngine.sessionsOnDay(both, 0, null).size)
         assertNotNull(ScheduleEngine.nextUpcomingSession(both, 0, 510, null))
     }
-
-    @Test
-    fun `live card caps display length at ninety minutes`() {
-        val twoHour = ClassSession(sectionId = 0, dayOfWeek = 0, startTime = "08:00", endTime = "10:00")
-        assertEquals(90, ScheduleEngine.LIVE_CARD_DISPLAY_MINUTES)
-        // 08:00 + 90 min = 09:30 = 570 minutes from midnight.
-        assertEquals(570, ScheduleEngine.displayEndMinutes(twoHour))
-        val short = twoHour.copy(startTime = "08:00", endTime = "09:00")
-        assertEquals(540, ScheduleEngine.displayEndMinutes(short))
-    }
 }

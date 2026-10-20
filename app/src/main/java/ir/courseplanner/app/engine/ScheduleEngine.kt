@@ -718,18 +718,6 @@ object ScheduleEngine {
     }
 
     /**
-     * Display length of a live class card. University slots are 2h on the
-     * timetable, but only ~90 minutes are real teaching time (the rest is a
-     * break), so the home "ongoing" card counts down a 90-minute window.
-     */
-    const val LIVE_CARD_DISPLAY_MINUTES = 90
-
-    /** End of the live-card window: real end capped at start + 90 minutes. */
-    fun displayEndMinutes(session: ClassSession, capMinutes: Int = LIVE_CARD_DISPLAY_MINUTES): Int {
-        return minOf(session.endMinutes, session.startMinutes + capMinutes)
-    }
-
-    /**
      * Computes basic metrics for a schedule.
      *
      * Day/early-morning semantics: a day (or an 08:00 session) counts when it

@@ -121,7 +121,10 @@ fun resolveNowNext(
 ): NowNextState {
     if (next == null) return NowNextState.NoneScheduled
     if (next.ongoing) {
-        val left = ScheduleEngine.displayEndMinutes(next.session) - nowMinutes
+        // Honest countdown: the class runs until its REAL end time. No invented
+        // display window — the card must never say «لحظات پایانی کلاس» while
+        // the slot is still live.
+        val left = next.session.endMinutes - nowMinutes
         return NowNextState.Ongoing(next, left.coerceAtLeast(0))
     }
     if (next.dayOfWeek == todayIdx) {
@@ -307,6 +310,9 @@ internal fun NowNextCard(
     onManageCourses: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // The emphasis ring reads as a hard dark stripe on light themes
+    // (saturated primary over a pale surface); in dark it stays as designed.
+    val isDark = ir.courseplanner.app.ui.theme.isDarkTheme()
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -318,7 +324,10 @@ internal fun NowNextCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.35f else 0.12f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -501,12 +510,12 @@ private fun timeRangeFa(session: ClassSession): String =
     JalaliDate.toFaDigits(session.startTime) + " – " + JalaliDate.toFaDigits(session.endTime)
 
 /**
- * Live progress of the teaching window (start .. display end). Driven by the
- * fixed clock sample of the current frame.
+ * Live progress across the class's real time window (start .. real end).
+ * Driven by the fixed clock sample of the current frame.
  */
 @Composable
 private fun SessionProgress(nowMinutes: Int, session: ClassSession) {
-    val end = ScheduleEngine.displayEndMinutes(session)
+    val end = session.endMinutes
     val span = (end - session.startMinutes).coerceAtLeast(1)
     val done = (nowMinutes - session.startMinutes).coerceIn(0, span)
     val animated by animateFloatAsState(

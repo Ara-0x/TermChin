@@ -327,20 +327,40 @@ internal fun CourseCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Sections List Header & Add Group Button
+            // Groups expander: one bar per course. Collapsed by default —
+            // except while the course owns an enrolled group — so a long
+            // catalog of groups never stretches the course list.
+            var sectionsExpanded by remember(course.id, hasEnrolled) {
+                mutableStateOf(hasEnrolled)
+            }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(TermChinDesign.MicroShape)
+                    .clickable { sectionsExpanded = !sectionsExpanded }
+                    .testTag("course_sections_toggle_${course.code}"),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "گروه‌های ارائه شده (${sectionsWithDetails.size}):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "گروه‌های ارائه شده (${sectionsWithDetails.size}):",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
+                    )
+                    Icon(
+                        if (sectionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (sectionsExpanded) "بستن گروه‌ها" else "نمایش گروه‌ها",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
 
                 TextButton(
                     onClick = onAddSectionClick,
@@ -362,7 +382,12 @@ internal fun CourseCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimatedVisibility(
+                visible = sectionsExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 sectionsWithDetails.forEach { sec ->
                     val isEnrolled = sec.section.isEnrolled
                     // Conflict math (pairwise session comparison + strings) is memoized:
@@ -381,6 +406,7 @@ internal fun CourseCard(
                         onDeleteSection = { onDeleteSectionClick(sec) },
                         onEditSection = { onEditSectionClick(sec) }
                     )
+                }
                 }
             }
         }

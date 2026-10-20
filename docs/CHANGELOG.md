@@ -4,6 +4,39 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.20.0] (35) — 2026-10-20 honest live countdown, collapsible groups, day-view dedupe
+
+A fix-and-comfort release driven by on-device user feedback: the ongoing card
+counts down to the class's REAL end («لحظات پایانی کلاس» can no longer linger
+past an invented 90-minute window), each course's groups fold behind one
+expander bar in the Courses screen, the daily timetable view no longer paints a
+long class in two consecutive buckets, and the now/next card's emphasis ring
+stays a hairline in light themes.
+
+Baseline: **34 suites / 246 tests, 0 failures**.
+
+### Changed
+
+- **Honest ongoing countdown.** The invented 90-minute "display window" is gone:
+  a live class counts down to its real end time and its progress bar spans the
+  real start..end window — a 14–17 class no longer claims «لحظات پایانی کلاس»
+  half an hour before it actually ends.
+- **Duplicate day view fixed.** The daily (تفکیک روزانه) timetable rendered each
+  session in EVERY 2-hour bucket it overlapped, so a 14:00–17:00 class appeared
+  twice (14–16 and 16–18). It is now one flat, start-sorted list — every class
+  exactly once, carrying its own real time range.
+- **Collapsible groups.** The Courses screen folds each course's sections behind
+  a single expander bar (group count + chevron; expanded by default only for
+  courses with an enrolled group) so long catalogs no longer stretch the list.
+- **Calmer light-mode border.** The now/next card's primary ring keeps its
+  dark-theme emphasis (35% alpha) but eases to a 12% hairline in light themes,
+  where it previously read as a hard dark stripe.
+
+### Removed
+
+- `ScheduleEngine.LIVE_CARD_DISPLAY_MINUTES` and `displayEndMinutes` — the
+  invented display window no longer exists anywhere.
+
 ## [2.19.0] (34) — 2026-10-16 declutter Home: merged header, unified digits, simpler nav & timetable
 
 A refinement release driven by on-device user feedback: less clutter, clearer

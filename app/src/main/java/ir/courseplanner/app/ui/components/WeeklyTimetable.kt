@@ -968,17 +968,13 @@ private fun TimetableDayView(
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TimetableTwoHourSlots.forEach { (slotStart, slotEnd) ->
-                    val slotStartMin = ClassSession.timeToMinutes(slotStart)
-                    val slotEndMin = ClassSession.timeToMinutes(slotEnd)
-                    val slotItems = dayItems.filter { item ->
-                        maxOf(item.session.startMinutes, slotStartMin) < minOf(item.session.endMinutes, slotEndMin)
-                    }
-                    if (slotItems.isEmpty()) return@forEach
-                    // The old per-slot «08:00 تا 10:00» heading repeated the
-                    // exact time already printed on each card's badge; the badge
-                    // is now the single place the time is stated.
-                    slotItems.forEach { item ->
+                // Flat list (dayItems is already sorted by start): every class
+                // renders EXACTLY ONCE, with its real time range on the badge.
+                // The old per-bucket overlap match repeated a long class —
+                // «14:00 تا 17:00» was painted in BOTH the 14–16 and the 16–18
+                // buckets — because buckets are a display grid, not session
+                // boundaries.
+                dayItems.forEach { item ->
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1125,7 +1121,6 @@ private fun TimetableDayView(
                             }
                         }
                     }
-                }
             }
         }
     }
