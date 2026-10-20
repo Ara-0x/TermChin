@@ -310,24 +310,20 @@ internal fun NowNextCard(
     onManageCourses: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // The emphasis ring reads as a hard dark stripe on light themes
-    // (saturated primary over a pale surface); in dark it stays as designed.
-    val isDark = ir.courseplanner.app.ui.theme.isDarkTheme()
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_now_next_card"),
         shape = TermChinDesign.CardShape,
-        // The only persistent primary surface on Home: it answers the
-        // student's first question — what do I need to do today?
+        // The only persistent tinted surface on Home: it answers the
+        // student's first question — what do I need to do today? Emphasis
+        // comes from the tonal fill + elevation alone. NO colored ring: any
+        // alpha of saturated primary around this card reads as a harsh,
+        // unprofessional stripe on light themes.
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.35f else 0.12f)
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

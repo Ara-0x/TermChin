@@ -4,6 +4,21 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.20.1] (36) — 2026-10-20 drop the now/next card's colored ring
+
+One visual fix from on-device feedback: the 12%-softened ring introduced in
+2.20.0 STILL read as a muddy dark stripe in light themes. The colored border is
+now gone in BOTH modes — the card emphasizes itself with the tonal container
+fill and elevation only, the standard Material 3 pattern for a highlighted
+surface.
+
+Baseline: **34 suites / 246 tests, 0 failures**.
+
+### Changed
+
+- **No ring anywhere.** `NowNextCard` renders without a border in light and dark
+  themes; emphasis comes from the primaryContainer tint (30%) + 3dp elevation.
+
 ## [2.20.0] (35) — 2026-10-20 honest live countdown, collapsible groups, day-view dedupe
 
 A fix-and-comfort release driven by on-device user feedback: the ongoing card
