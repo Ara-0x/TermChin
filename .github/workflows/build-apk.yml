@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout Repository (full history for correct SHA)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -58,17 +58,17 @@ jobs:
           echo "version_name=$VN" >> "$GITHUB_OUTPUT"
           echo "Building versionCode=$VC versionName=$VN"
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '25'
           cache: 'gradle'
 
-      - name: Accept Android SDK Licenses & Install Platform 36
+      - name: Accept Android SDK Licenses & Install Platform 36.1
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || yes | sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "platforms;android-36.1" "build-tools;36.0.0" || true
 
       # The RELEASE keystore signs every official APK and lives ONLY in the
       # RELEASE_KEYSTORE_BASE64 repository secret (never in git). It is written
@@ -101,7 +101,7 @@ jobs:
       - name: Ensure Gradle Wrapper
         run: |
           if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 9.3.1
+            gradle wrapper --gradle-version 9.6.0
           fi
           chmod +x ./gradlew
 
@@ -133,6 +133,19 @@ jobs:
       # Tests gate the APK: a red suite must never produce a release artifact.
       - name: Unit tests (must pass before assembling)
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      # Room exports every schema version to app/schemas. A database bump
+      # without the matching JSON (or with a stale one) must fail here, before
+      # an APK can ship: the schema files are the migration contract.
+      - name: Room schema gate (schemas must be committed and current)
+        run: |
+          CHANGED=$(git status --porcelain -- app/schemas)
+          if [ -n "$CHANGED" ]; then
+            echo "$CHANGED"
+            echo "::error::Room schema output is out of date. Commit app/schemas after any @Database version change."
+            exit 1
+          fi
+          echo "OK: app/schemas matches the committed schema export."
 
       # IMPORTANT: `clean` + --no-configuration-cache guarantees the APK is
       # rebuilt from current sources. Without clean, stale dex/resources from
@@ -286,12 +299,10 @@ jobs:
           sha256sum release-output/*.apk
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TermChin-v${{ env.VERSION_NAME }}-APK-${{ env.HEAD_SHA }}
-          # Both assets must travel to the release job: the assertion there
-          # requires the plain name AND the cache-busting name, and
-          # action-gh-release publishes exactly these two paths.
+          # The release job asserts this exact path before publishing.
           path: |
             release-output/TermChin-v${{ env.VERSION_NAME }}.apk
 
@@ -320,7 +331,7 @@ jobs:
           echo "HEAD_SHA=${{ needs.build.outputs.head_sha }}" >> "$GITHUB_ENV"
 
       - name: Download APK artifact produced by the build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: TermChin-v${{ needs.build.outputs.version_name }}-APK-${{ needs.build.outputs.head_sha }}
           path: release-output
@@ -333,7 +344,7 @@ jobs:
           sha256sum release-output/*.apk
 
       - name: Upload APK to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           target_commitish: ${{ github.sha }}
