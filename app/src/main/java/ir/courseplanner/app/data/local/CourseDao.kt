@@ -30,6 +30,11 @@ interface CourseDao {
     @Query("SELECT * FROM courses ORDER BY code ASC")
     fun getCoursesWithSections(): Flow<List<CourseWithSections>>
 
+    /** One-shot full snapshot used by the atomic end-of-term archive. */
+    @Transaction
+    @Query("SELECT * FROM courses ORDER BY code ASC")
+    suspend fun getCoursesWithSectionsOnce(): List<CourseWithSections>
+
     @Transaction
     @Query("SELECT * FROM courses WHERE isSelectedForGeneration = 1 ORDER BY code ASC")
     fun getCoursesSelectedForGeneration(): Flow<List<CourseWithSections>>
@@ -76,6 +81,12 @@ interface CourseDao {
     @Query("DELETE FROM courses")
     suspend fun deleteAllCourses()
 
+    @Query("DELETE FROM courses WHERE id IN (:courseIds)")
+    suspend fun deleteCoursesByIds(courseIds: List<Long>)
+
     @Query("SELECT COUNT(*) FROM courses")
     suspend fun getCourseCount(): Int
+
+    @Query("SELECT COUNT(*) FROM courses WHERE isSelectedForGeneration = 1")
+    suspend fun getSelectedCourseCount(): Int
 }

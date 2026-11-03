@@ -37,11 +37,17 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,12 +73,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ir.courseplanner.app.data.model.AttendanceRecord
+import ir.courseplanner.app.data.model.AttendanceStatus
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.ConflictType
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.AttendanceSheet
+import ir.courseplanner.app.ui.components.AttendanceSummaryCard
+import ir.courseplanner.app.ui.components.EndTermConfirmDialog
+import ir.courseplanner.app.ui.components.TimetableItem
 import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
@@ -102,6 +115,10 @@ fun HomeScreen(
     // Lifecycle-aware clock: ticks only while this screen is collected, so the
     // countdown and day rollover stay correct without leaking background jobs.
     val tick by viewModel.dashboardTick.collectAsStateWithLifecycle()
+    val attendanceRecords by viewModel.attendanceRecords.collectAsStateWithLifecycle()
+    val attendanceByCourse by viewModel.attendanceByCourse.collectAsStateWithLifecycle()
+    val passedCourses by viewModel.passedCourses.collectAsStateWithLifecycle()
+    val currentTermCourseCount by viewModel.currentTermCourseCount.collectAsStateWithLifecycle()
     // The Documents screen intentionally exposes material only for finalized
     // courses, so the dashboard must use that same scope for its badge.
     val visibleDocumentCount = remember(allDocs, enrolledSections) {
@@ -117,6 +134,9 @@ fun HomeScreen(
     val examSectionRequester = remember { BringIntoViewRequester() }
     val homeScope = rememberCoroutineScope()
     var showExamSchedule by remember { mutableStateOf(false) }
+    var showEndTermConfirm by remember { mutableStateOf(false) }
+    var attendanceTarget by remember { mutableStateOf<ScheduleEngine.UpcomingSession?>(null) }
+    var attendanceTimetableTarget by remember { mutableStateOf<TimetableItem?>(null) }
 
     val scrollToTimetable: () -> Unit = {
         homeScope.launch { weeklyTimetableRequester.bringIntoView() }
@@ -200,8 +220,22 @@ fun HomeScreen(
             creditTarget = preferences.creditTarget,
             weekInfo = weekInfo,
             now = now,
+            isTermActive = preferences.isTermActive,
+            hasCurrentTermCourses = currentTermCourseCount > 0,
+            onEndTerm = { showEndTermConfirm = true },
+            onAcademicRecords = { viewModel.openAcademicRecords() },
+            onStartNewTerm = { viewModel.requestStartNewTerm() },
             modifier = Modifier.dashboardEntrance(0)
         )
+
+        if (!preferences.isTermActive) {
+            InactiveTermCard(
+                archivedRecordsAvailable = true,
+                onStartNewTerm = { viewModel.requestStartNewTerm() },
+                onOpenRecords = { viewModel.openAcademicRecords() },
+                modifier = Modifier.dashboardEntrance(1)
+            )
+        }
 
         // B. Primary hero: now and next, with a live countdown.
         if (hasEnrolled) {
@@ -212,6 +246,18 @@ fun HomeScreen(
                 nowMinutes = now.nowMinutes,
                 onManageCourses = { viewModel.navigateTo(AppDestination.COURSES) },
                 modifier = Modifier.dashboardEntrance(2)
+            )
+        }
+
+        // Today's attendance: only classes that belong to today (parity-aware
+        // via todaysClasses). A class can be marked once it has started.
+        if (todaysClasses.isNotEmpty()) {
+            TodayAttendanceCard(
+                classes = todaysClasses,
+                recordsToday = attendanceRecords.filter { it.dateEpochDay == now.epochDay },
+                nowMinutes = now.nowMinutes,
+                onMark = { attendanceTarget = it },
+                modifier = Modifier.dashboardEntrance(3)
             )
         }
 
@@ -245,7 +291,7 @@ fun HomeScreen(
 
         // First-run guided sequence: import → pick courses → build. Each step
         // exists in the app; nothing here is decorative.
-        if (!hasEnrolled) {
+        if (!hasEnrolled && preferences.isTermActive) {
             GuidedEmptyState(
                 onOpenSettings = { viewModel.navigateTo(AppDestination.SETTINGS) },
                 onOpenCourses = { viewModel.navigateTo(AppDestination.COURSES) },
@@ -465,6 +511,7 @@ fun HomeScreen(
                         density = preferences.timetableDensity,
                         currentParity = weekInfo?.parity,
                         showHeader = false,
+                        onOpenAttendance = { item -> attendanceTimetableTarget = item },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -481,6 +528,23 @@ fun HomeScreen(
             )
         }
 
+        if (hasEnrolled) {
+            AttendanceSummaryCard(
+                enrolledSections = enrolledSections,
+                statsByCourse = attendanceByCourse,
+                absenceLimit = preferences.absenceLimit,
+                onOpenSchedule = { viewModel.navigateTo(AppDestination.SCHEDULE) },
+                modifier = Modifier.dashboardEntrance(8)
+            )
+        }
+
+        PassedCoursesShortcutCard(
+            courseCount = passedCourses.size,
+            totalCredits = passedCourses.sumOf { it.credits },
+            onOpen = { viewModel.openPassedCourses() },
+            modifier = Modifier.dashboardEntrance(9)
+        )
+
         // C. Compact academic overview, demoted to the very bottom: it is
         // reference material ("how full is my term?"), not today's plan, so it
         // never pushes the timetable below the fold.
@@ -492,11 +556,374 @@ fun HomeScreen(
                 gapMinutes = metrics.totalGapMinutes,
                 courseCount = metrics.totalCourses,
                 onOptimize = { viewModel.navigateTo(AppDestination.SCHEDULE) },
-                modifier = Modifier.dashboardEntrance(9)
+                modifier = Modifier.dashboardEntrance(10)
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+    }
+
+    // Attendance sheet for today's class rows.
+    attendanceTarget?.let { target ->
+        val section = target.section
+        val session = target.session
+        val occurrence = now.epochDay
+        val existing = attendanceRecords.firstOrNull {
+            it.sectionId == section.section.id &&
+                it.dateEpochDay == occurrence &&
+                it.startTime == session.startTime
+        }
+        val started = now.nowMinutes >= session.startMinutes
+        AttendanceSheet(
+            section = section,
+            session = session,
+            occurrenceEpochDay = occurrence,
+            existing = existing,
+            sectionHistory = attendanceRecords
+                .filter { it.sectionId == section.section.id }
+                .sortedByDescending { it.dateEpochDay },
+            canRecord = started,
+            blockedReason = if (!started) {
+                "کلاس هنوز شروع نشده است؛ پس از شروع می‌توانید حضور را ثبت کنید."
+            } else null,
+            onDismiss = { attendanceTarget = null },
+            onSave = { epochDay, status, note ->
+                viewModel.markAttendance(
+                    sectionId = section.section.id,
+                    dateEpochDay = epochDay,
+                    startTime = session.startTime,
+                    endTime = session.endTime,
+                    status = status,
+                    note = note
+                )
+                attendanceTarget = null
+            },
+            onClear = {
+                viewModel.clearAttendance(section.section.id, occurrence, session.startTime)
+                attendanceTarget = null
+            },
+            onDeleteHistory = { viewModel.deleteAttendance(it) }
+        )
+    }
+
+    // Attendance sheet opened from the weekly timetable detail dialog. The
+    // occurrence is resolved inside the current week only: past days can be
+    // marked, future days show a reason instead of writing a record.
+    attendanceTimetableTarget?.let { item ->
+        val section = item.section
+        val session = item.session
+        val day = session.dayOfWeek
+        val occurrence = if (day <= now.appDayIdx) {
+            now.epochDay - (now.appDayIdx - day)
+        } else {
+            now.epochDay + (day - now.appDayIdx)
+        }
+        val occurs = ScheduleEngine.occursInWeek(session, weekInfo?.parity)
+        val dateIsPast = occurrence < now.epochDay
+        val startedToday = occurrence == now.epochDay && now.nowMinutes >= session.startMinutes
+        val canRecord = occurs && (dateIsPast || startedToday)
+        val reason = when {
+            !occurs -> "این جلسه در هفتهٔ جاری (${weekInfo?.parity?.titleFa ?: "نامشخص"}) تشکیل نمی‌شود."
+            occurrence > now.epochDay -> "این کلاس در روزهای آیندهٔ همین هفته برگزار می‌شود."
+            occurrence == now.epochDay && !startedToday -> "کلاس هنوز شروع نشده است."
+            else -> null
+        }
+        val existing = attendanceRecords.firstOrNull {
+            it.sectionId == section.section.id &&
+                it.dateEpochDay == occurrence &&
+                it.startTime == session.startTime
+        }
+        AttendanceSheet(
+            section = section,
+            session = session,
+            occurrenceEpochDay = occurrence,
+            existing = existing,
+            sectionHistory = attendanceRecords
+                .filter { it.sectionId == section.section.id }
+                .sortedByDescending { it.dateEpochDay },
+            canRecord = canRecord,
+            blockedReason = reason,
+            onDismiss = { attendanceTimetableTarget = null },
+            onSave = { epochDay, status, note ->
+                viewModel.markAttendance(
+                    sectionId = section.section.id,
+                    dateEpochDay = epochDay,
+                    startTime = session.startTime,
+                    endTime = session.endTime,
+                    status = status,
+                    note = note
+                )
+                attendanceTimetableTarget = null
+            },
+            onClear = {
+                viewModel.clearAttendance(section.section.id, occurrence, session.startTime)
+                attendanceTimetableTarget = null
+            },
+            onDeleteHistory = { viewModel.deleteAttendance(it) }
+        )
+    }
+
+    if (showEndTermConfirm) {
+        EndTermConfirmDialog(
+            courseCount = currentTermCourseCount,
+            onDismiss = { showEndTermConfirm = false },
+            onConfirm = {
+                showEndTermConfirm = false
+                viewModel.openEndTerm()
+            }
+        )
+    }
+}
+
+/**
+ * Today's classes as attendance rows. Only classes whose start time has
+ * passed are actionable; earlier records show their saved status instead.
+ */
+@Composable
+private fun TodayAttendanceCard(
+    classes: List<ScheduleEngine.UpcomingSession>,
+    recordsToday: List<AttendanceRecord>,
+    nowMinutes: Int,
+    onMark: (ScheduleEngine.UpcomingSession) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val byKey = remember(recordsToday) {
+        recordsToday.associateBy { "${it.sectionId}|${it.startTime}" }
+    }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home_today_attendance"),
+        shape = TermChinDesign.CardShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(TermChinDesign.IconMd)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "حضور امروز",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "برای ثبت لمس کنید",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            classes.forEach { item ->
+                val record = byKey["${item.section.section.id}|${item.session.startTime}"]
+                val started = nowMinutes >= item.session.startMinutes
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(TermChinDesign.MicroShape)
+                        .clickable(enabled = started) { onMark(item) }
+                        .background(
+                            if (record != null) {
+                                when (record.status) {
+                                    AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                                    else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                }
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f)
+                            }
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.section.courseName,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${JalaliDate.toFaDigits(item.session.startTime)} تا ${JalaliDate.toFaDigits(item.session.endTime)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = when {
+                            record != null -> record.status.titleFa
+                            !started -> "شروع نشده"
+                            else -> "ثبت حضور"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = when {
+                            record?.status == AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.error
+                            record != null -> MaterialTheme.colorScheme.primary
+                            !started -> MaterialTheme.colorScheme.outline
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Compact entry point to the academic record, always available. */
+@Composable
+private fun PassedCoursesShortcutCard(
+    courseCount: Int,
+    totalCredits: Int,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(TermChinDesign.CardShape)
+            .clickable(onClick = onOpen)
+            .testTag("home_passed_courses"),
+        shape = TermChinDesign.CardShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(TermChinDesign.ControlShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.School,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "دروس پاس‌شده",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (courseCount == 0) {
+                        "سابقهٔ دروس گذرانده‌شده را ثبت کنید"
+                    } else {
+                        "${JalaliDate.toFaDigits(courseCount)} درس • ${JalaliDate.toFaDigits(totalCredits)} واحد"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "باز کردن دروس پاس‌شده",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Shown only while no term is active. It states the fact plainly and offers
+ * exactly the two useful next steps: open the new term, or read the archive.
+ */
+@Composable
+private fun InactiveTermCard(
+    archivedRecordsAvailable: Boolean,
+    onStartNewTerm: () -> Unit,
+    onOpenRecords: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("home_inactive_term"),
+        shape = TermChinDesign.CardShape,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Flag,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(TermChinDesign.IconMd)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "ترم فعالی ندارید",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "ترم قبلی آرشیو شده و اطلاعاتش در سوابق تحصیلی محفوظ است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onStartNewTerm,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(TermChinDesign.PrimaryButtonHeight)
+                        .testTag("home_start_new_term_button"),
+                    shape = TermChinDesign.ControlShape
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(TermChinDesign.IconSm)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("شروع ترم جدید", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                if (archivedRecordsAvailable) {
+                    OutlinedButton(
+                        onClick = onOpenRecords,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(TermChinDesign.PrimaryButtonHeight),
+                        shape = TermChinDesign.ControlShape
+                    ) { Text("سوابق تحصیلی", fontSize = 13.sp) }
+                }
+            }
+        }
     }
 }
 
@@ -536,8 +963,14 @@ internal fun DashboardHeader(
     creditTarget: Int,
     weekInfo: ScheduleEngine.AcademicWeek?,
     now: DashboardNow,
+    isTermActive: Boolean = true,
+    hasCurrentTermCourses: Boolean = false,
+    onEndTerm: () -> Unit = {},
+    onAcademicRecords: () -> Unit = {},
+    onStartNewTerm: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var showTermMenu by remember { mutableStateOf(false) }
     val todayJalali = remember(now.epochDay) { JalaliDate.fromEpochDay(now.epochDay) }
     val dateLabel = buildString {
         append(ClassSession.getDayName(now.appDayIdx))
@@ -614,6 +1047,61 @@ internal fun DashboardHeader(
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
+
+                Box {
+                    IconButton(
+                        onClick = { showTermMenu = true },
+                        modifier = Modifier
+                            .size(TermChinDesign.IconButtonSize)
+                            .testTag("home_term_menu_button")
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "مدیریت ترم",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showTermMenu,
+                        onDismissRequest = { showTermMenu = false }
+                    ) {
+                        if (isTermActive) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (hasCurrentTermCourses) "ثبت پایان ترم"
+                                        else "ثبت پایان ترم (بدون درس)"
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                                enabled = hasCurrentTermCourses,
+                                onClick = {
+                                    showTermMenu = false
+                                    onEndTerm()
+                                }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("شروع ترم جدید") },
+                                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                                onClick = {
+                                    showTermMenu = false
+                                    onStartNewTerm()
+                                }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("سوابق تحصیلی") },
+                            leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
+                            onClick = {
+                                showTermMenu = false
+                                onAcademicRecords()
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Surface(
                     shape = CircleShape,

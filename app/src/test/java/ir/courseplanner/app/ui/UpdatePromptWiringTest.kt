@@ -99,7 +99,14 @@ class UpdatePromptWiringTest {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = CourseRepository(db, db.courseDao(), db.sectionDao(), db.documentDao())
+        repository = CourseRepository(
+            db,
+            db.courseDao(),
+            db.sectionDao(),
+            db.documentDao(),
+            db.passedCourseDao(),
+            db.attendanceDao()
+        )
         preferencesManager = PreferencesManager(context)
     }
 

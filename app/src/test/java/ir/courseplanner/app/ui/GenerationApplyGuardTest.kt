@@ -60,7 +60,14 @@ class GenerationApplyGuardTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = CourseRepository(db, db.courseDao(), db.sectionDao(), db.documentDao())
+        repository = CourseRepository(
+            db,
+            db.courseDao(),
+            db.sectionDao(),
+            db.documentDao(),
+            db.passedCourseDao(),
+            db.attendanceDao()
+        )
         viewModel = CoursePlannerViewModel(
             application = ApplicationProvider.getApplicationContext<Application>(),
             repository = repository,

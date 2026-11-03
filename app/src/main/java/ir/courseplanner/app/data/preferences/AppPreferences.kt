@@ -110,7 +110,18 @@ data class UserPreferences(
      */
     val semesterStartEpochDay: Long? = null,
     /** University convention: is week 1 (first 7 days) an odd week? Default true. */
-    val firstWeekIsOdd: Boolean = true
+    val firstWeekIsOdd: Boolean = true,
+    /**
+     * How many absences are tolerated before the app warns. A single global
+     * value (not per course) keeps the rule simple and editable in Settings.
+     */
+    val absenceLimit: Int = 3,
+    /**
+     * Whether the current term is still running. Ending a term archives it and
+     * sets this to false; the Home screen then offers «شروع ترم جدید».
+     * Defaults to true so existing installs stay exactly as they were.
+     */
+    val isTermActive: Boolean = true
 )
 
 private const val DATASTORE_NAME = "planner_user_prefs"
@@ -181,6 +192,61 @@ class PreferencesManager @Inject constructor(
         update { it[KEY_FIRST_WEEK_IS_ODD] = firstWeekIsOdd }
     }
 
+    /** Global absence limit; [Int] range is clamped so the warning stays meaningful. */
+    fun setAbsenceLimit(limit: Int) {
+        update { it[KEY_ABSENCE_LIMIT] = limit.coerceIn(0, 20) }
+    }
+
+    /**
+     * Marks the current term as finished. Suspends until the flag is durable so
+     * the caller can do it only after the archive transaction succeeded.
+     * [termName] records the label the student confirmed for the archive.
+     */
+    suspend fun endActiveTerm(termName: String? = null) {
+        dataStore.edit { prefs ->
+            prefs[KEY_TERM_ACTIVE] = false
+            termName?.trim()?.takeIf { it.isNotBlank() }?.let {
+                prefs[KEY_SEMESTER_NAME] = it
+            }
+        }
+    }
+
+    /**
+     * Starts a fresh term: a new name + start date and the active flag again.
+     * The previous term stays untouched in the archive; only the "current term"
+     * label moves on. Course selection is intentionally NOT forced here.
+     */
+    suspend fun startNewTerm(name: String, startEpochDay: Long?) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SEMESTER_NAME] = name.trim().ifBlank { DEFAULT_SEMESTER }
+            if (startEpochDay == null) prefs.remove(KEY_SEMESTER_START_EPOCH_DAY)
+            else prefs[KEY_SEMESTER_START_EPOCH_DAY] = startEpochDay
+            prefs[KEY_TERM_ACTIVE] = true
+        }
+    }
+
+    /**
+     * Restores every preference to its default. Only the "update prompt was
+     * already shown" marker is kept, so resetting the profile does not show
+     * the same release notification again.
+     */
+    suspend fun resetToDefaults() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_THEME)
+            prefs.remove(KEY_THEME_MODE)
+            prefs.remove(KEY_STUDENT_NAME)
+            prefs.remove(KEY_MAJOR)
+            prefs.remove(KEY_SEMESTER_NAME)
+            prefs.remove(KEY_CREDIT_TARGET)
+            prefs.remove(KEY_SHOW_THURSDAY)
+            prefs.remove(KEY_DENSITY)
+            prefs.remove(KEY_SEMESTER_START_EPOCH_DAY)
+            prefs.remove(KEY_FIRST_WEEK_IS_ODD)
+            prefs.remove(KEY_ABSENCE_LIMIT)
+            prefs.remove(KEY_TERM_ACTIVE)
+        }
+    }
+
     /**
      * Version whose update prompt was already shown to this user.
      *
@@ -223,7 +289,9 @@ class PreferencesManager @Inject constructor(
             showThursday = this[KEY_SHOW_THURSDAY] ?: true,
             timetableDensity = TimetableDensity.fromId(this[KEY_DENSITY]),
             semesterStartEpochDay = this[KEY_SEMESTER_START_EPOCH_DAY],
-            firstWeekIsOdd = this[KEY_FIRST_WEEK_IS_ODD] ?: true
+            firstWeekIsOdd = this[KEY_FIRST_WEEK_IS_ODD] ?: true,
+            absenceLimit = this[KEY_ABSENCE_LIMIT] ?: 3,
+            isTermActive = this[KEY_TERM_ACTIVE] ?: true
         )
     }
 
@@ -239,6 +307,8 @@ class PreferencesManager @Inject constructor(
         private val KEY_DENSITY = stringPreferencesKey("timetable_density")
         private val KEY_SEMESTER_START_EPOCH_DAY = longPreferencesKey("semester_start_epoch_day")
         private val KEY_FIRST_WEEK_IS_ODD = booleanPreferencesKey("first_week_is_odd")
+        private val KEY_ABSENCE_LIMIT = intPreferencesKey("absence_limit")
+        private val KEY_TERM_ACTIVE = booleanPreferencesKey("term_active")
         private val KEY_LAST_PROMPTED_UPDATE_VERSION =
             stringPreferencesKey("last_prompted_update_version")
         // NOTE: the old "release_clean_courses_v1" marker was removed in v2.5.0.

@@ -62,7 +62,9 @@ class StartupDataPreservationTest {
                 db = db,
                 courseDao = db.courseDao(),
                 sectionDao = db.sectionDao(),
-                documentDao = db.documentDao()
+                documentDao = db.documentDao(),
+                passedCourseDao = db.passedCourseDao(),
+                attendanceDao = db.attendanceDao()
             )
             // Fresh DataStore: no "release clean" marker exists at all (the exact
             // situation that used to trigger the wipe).

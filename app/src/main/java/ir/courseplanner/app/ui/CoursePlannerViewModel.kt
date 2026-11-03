@@ -8,16 +8,25 @@ import ir.courseplanner.app.data.importer.ImportItem
 import ir.courseplanner.app.data.importer.ImportResult
 import ir.courseplanner.app.data.importer.MhtHtmlExtractor
 import ir.courseplanner.app.data.importer.PooyaHtmlParser
+import ir.courseplanner.app.data.model.AcademicTermWithCourses
+import ir.courseplanner.app.data.model.AttendanceRecord
+import ir.courseplanner.app.data.model.AttendanceStats
+import ir.courseplanner.app.data.model.AttendanceStatus
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.Conflict
 import ir.courseplanner.app.data.model.Course
 import ir.courseplanner.app.data.model.CourseDocument
 import ir.courseplanner.app.data.model.CourseSection
 import ir.courseplanner.app.data.model.CourseWithSections
+import ir.courseplanner.app.data.model.DataCounts
+import ir.courseplanner.app.data.model.DataDeletionSelection
 import ir.courseplanner.app.data.model.DocumentCategory
 import ir.courseplanner.app.data.model.DocumentWithCourse
+import ir.courseplanner.app.data.model.PassedCourse
 import ir.courseplanner.app.data.model.SectionWithDetails
+import ir.courseplanner.app.data.model.TermCourseStatus
 import ir.courseplanner.app.data.model.WeekType
+import ir.courseplanner.app.data.model.normalizeCode
 import ir.courseplanner.app.data.preferences.AppColorTheme
 import ir.courseplanner.app.data.preferences.PreferencesManager
 import ir.courseplanner.app.data.preferences.ThemeMode
@@ -32,6 +41,7 @@ import ir.courseplanner.app.engine.ScoredSchedule
 import ir.courseplanner.app.update.AvailableUpdate
 import ir.courseplanner.app.update.UpdateChecker
 import ir.courseplanner.app.update.UpdatePromptGate
+import ir.courseplanner.app.util.JalaliDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,7 +63,13 @@ enum class AppDestination {
     DOCUMENTS,
     SETTINGS,
     /** Sub-screen of Courses: smart discovery + add course (not a bottom-nav tab). */
-    ADD_COURSE
+    ADD_COURSE,
+    /** Sub-screen of Courses: the student's academic record (passed courses). */
+    PASSED_COURSES,
+    /** Full page: choose the final status of every course and archive the term. */
+    END_TERM,
+    /** Full page: archived terms (name, courses, statuses, grades, credits). */
+    ACADEMIC_RECORDS
 }
 
 data class ManualSessionInput(
@@ -103,6 +119,59 @@ data class GenerationState(
     /** The current candidate may replace the user's program. */
     val canApplyCurrent: Boolean get() = isGenerated && combinations.isNotEmpty() && isComplete
 }
+
+/** Form state for one course on the end-term screen (survives rotation). */
+data class TermCourseDraft(
+    val status: TermCourseStatus? = null,
+    val grade: String = ""
+)
+
+/** One current-term row shown in the end-term form and the final summary. */
+data class EndTermCourseItem(
+    val courseId: Long,
+    val code: String,
+    val name: String,
+    val credits: Int,
+    val sectionCode: String,
+    val instructor: String,
+    val attendance: AttendanceStats,
+    val status: TermCourseStatus?,
+    val grade: String
+)
+
+data class EndTermUiState(
+    val courses: List<EndTermCourseItem> = emptyList(),
+    val isSubmitting: Boolean = false,
+    val showSummary: Boolean = false,
+    val archivedTermId: Long? = null,
+    val archivedTermName: String = "",
+    val archivedCourseCount: Int = 0,
+    val archivedPassedCount: Int = 0,
+    val archivedPassedCredits: Int = 0,
+    val error: String? = null
+) {
+    /** Every course has an explicit choice; [TermCourseStatus.INCOMPLETE] counts. */
+    val isComplete: Boolean get() = courses.isNotEmpty() && courses.all { it.status != null }
+
+    val passedCount: Int get() = courses.count { it.status == TermCourseStatus.PASSED }
+    val failedCount: Int get() = courses.count { it.status == TermCourseStatus.FAILED }
+    val withdrawnCount: Int get() = courses.count { it.status == TermCourseStatus.WITHDRAWN }
+    val incompleteCount: Int get() = courses.count { it.status == TermCourseStatus.INCOMPLETE }
+
+    val passedCredits: Int
+        get() = courses.filter { it.status == TermCourseStatus.PASSED }.sumOf { it.credits }
+
+    val totalCredits: Int get() = courses.sumOf { it.credits }
+
+    fun countOf(status: TermCourseStatus): Int = courses.count { it.status == status }
+}
+
+data class AcademicRecordsSummary(
+    val termCount: Int = 0,
+    val courseCount: Int = 0,
+    /** Distinct passed courses, so a re-take never double-counts its credits. */
+    val passedCredits: Int = 0
+)
 
 enum class CourseStatusFilter(val titleFa: String) {
     // There is intentionally no «واحدهای من» tab: every enrolled course is
@@ -337,6 +406,172 @@ class CoursePlannerViewModel @Inject constructor(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScheduleMetrics(0, 0, 0, 0f, 0))
 
+    // ---------------------------------------------------------------------
+    // Passed courses (academic record)
+    // ---------------------------------------------------------------------
+
+    val passedCourses: StateFlow<List<PassedCourse>> = repository.passedCourses
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Normalized codes, used for the non-blocking «قبلاً پاس شده» badge. */
+    val passedCourseCodes: StateFlow<Set<String>> = passedCourses
+        .map { list -> list.map { normalizeCode(it.code) }.toSet() }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val passedCourseCount: StateFlow<Int> = passedCourses
+        .map { it.size }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val passedCourseCredits: StateFlow<Int> = passedCourses
+        .map { list -> list.sumOf { it.credits } }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // ---------------------------------------------------------------------
+    // Attendance
+    // ---------------------------------------------------------------------
+
+    val attendanceRecords: StateFlow<List<AttendanceRecord>> = repository.attendanceRecords
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Per-group aggregate for the attendance sheet/summary. */
+    val attendanceBySection: StateFlow<Map<Long, AttendanceStats>> = attendanceRecords
+        .map { records -> records.groupBy { it.sectionId }.mapValues { AttendanceStats.from(it.value) } }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /**
+     * Per-course aggregate: a group's records are rolled up to its course so
+     * the dashboard can warn about the limit at the level the student thinks
+     * in (the course), while the sheet still writes against the group.
+     */
+    val attendanceByCourse: StateFlow<Map<Long, AttendanceStats>> = combine(
+        attendanceRecords,
+        allSections
+    ) { records, sections ->
+        val courseBySection = sections.associate { it.section.id to it.course.id }
+        val grouped = mutableMapOf<Long, AttendanceStats>()
+        for (record in records) {
+            val courseId = courseBySection[record.sectionId] ?: continue
+            grouped[courseId] = (grouped[courseId] ?: AttendanceStats()) + statsOf(record)
+        }
+        grouped
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** Live counts for the advanced-deletion dialog. */
+    val dataCounts: StateFlow<DataCounts> = repository.dataCounts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DataCounts())
+
+    // ---------------------------------------------------------------------
+    // End of term / academic records
+    // ---------------------------------------------------------------------
+
+    /** Number of courses in the current term (selected for the generator OR enrolled). */
+    val currentTermCourseCount: StateFlow<Int> = coursesWithSections
+        .map { courses ->
+            courses.count { cws ->
+                cws.course.isSelectedForGeneration || cws.sections.any { it.section.isEnrolled }
+            }
+        }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val academicTerms: StateFlow<List<AcademicTermWithCourses>> = repository.academicTerms
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Overall record facts. Credits are summed over DISTINCT normalized codes,
+     * so passing the same course again in a later term never inflates the total.
+     */
+    val academicRecordsSummary: StateFlow<AcademicRecordsSummary> = academicTerms
+        .map { terms ->
+            val archivedCourses = terms.flatMap { it.courses }.map { it.course }
+            val distinctPassed = archivedCourses
+                .filter { it.status == TermCourseStatus.PASSED }
+                .distinctBy { normalizeCode(it.code) }
+            AcademicRecordsSummary(
+                termCount = terms.size,
+                courseCount = archivedCourses.size,
+                passedCredits = distinctPassed.sumOf { it.credits }
+            )
+        }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            AcademicRecordsSummary()
+        )
+
+    private val _endTermDrafts = MutableStateFlow<Map<Long, TermCourseDraft>>(emptyMap())
+
+    private data class EndTermFlags(
+        val isSubmitting: Boolean = false,
+        val showSummary: Boolean = false,
+        val archivedTermId: Long? = null,
+        val archivedTermName: String = "",
+        val archivedCourseCount: Int = 0,
+        val archivedPassedCount: Int = 0,
+        val archivedPassedCredits: Int = 0,
+        val error: String? = null
+    )
+
+    private val _endTermFlags = MutableStateFlow(EndTermFlags())
+
+    private val _showStartNewTermDialog = MutableStateFlow(false)
+    val showStartNewTermDialog: StateFlow<Boolean> = _showStartNewTermDialog.asStateFlow()
+
+    /**
+     * The end-term form: live current-term rows + the user's draft choices.
+     * Draft state lives in the ViewModel so rotating the screen (or a data
+     * refresh from another tab) cannot silently discard the student's work.
+     */
+    val endTermState: StateFlow<EndTermUiState> = combine(
+        coursesWithSections,
+        attendanceByCourse,
+        _endTermDrafts,
+        _endTermFlags
+    ) { courses, attendance, drafts, flags ->
+        val items = courses.filter { cws ->
+            cws.course.isSelectedForGeneration || cws.sections.any { it.section.isEnrolled }
+        }.map { cws ->
+            val enrolled = cws.sections.firstOrNull { it.section.isEnrolled }
+            val draft = drafts[cws.course.id] ?: TermCourseDraft()
+            EndTermCourseItem(
+                courseId = cws.course.id,
+                code = cws.course.code,
+                name = cws.course.name,
+                credits = cws.course.credits,
+                sectionCode = enrolled?.section?.sectionCode.orEmpty(),
+                instructor = enrolled?.section?.instructor.orEmpty(),
+                attendance = attendance[cws.course.id] ?: AttendanceStats(),
+                status = draft.status,
+                grade = draft.grade
+            )
+        }.sortedBy { it.name }
+        EndTermUiState(
+            courses = items,
+            isSubmitting = flags.isSubmitting,
+            showSummary = flags.showSummary,
+            archivedTermId = flags.archivedTermId,
+            archivedTermName = flags.archivedTermName,
+            archivedCourseCount = flags.archivedCourseCount,
+            archivedPassedCount = flags.archivedPassedCount,
+            archivedPassedCredits = flags.archivedPassedCredits,
+            error = flags.error
+        )
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EndTermUiState())
+
+    private fun statsOf(record: AttendanceRecord): AttendanceStats = when (record.status) {
+        AttendanceStatus.PRESENT -> AttendanceStats(present = 1)
+        AttendanceStatus.ABSENT -> AttendanceStats(absent = 1)
+        AttendanceStatus.LATE -> AttendanceStats(late = 1)
+        AttendanceStatus.EXCUSED -> AttendanceStats(excused = 1)
+    }
+
     /**
      * Wall-clock tick driving the Home dashboard's time-sensitive UI
      * (ongoing/upcoming status, countdowns, day rollover). Emits the current
@@ -540,6 +775,363 @@ class CoursePlannerViewModel @Inject constructor(
 
     fun setFirstWeekIsOdd(firstWeekIsOdd: Boolean) {
         preferencesManager.setFirstWeekIsOdd(firstWeekIsOdd)
+    }
+
+    fun setAbsenceLimit(limit: Int) {
+        preferencesManager.setAbsenceLimit(limit)
+    }
+
+    /** Courses → academic record sub-screen; back returns to «دروس من». */
+    fun openPassedCourses() {
+        _currentDestination.value = AppDestination.PASSED_COURSES
+    }
+
+    // ---------------------------------------------------------------------
+    // End of term / start of a new term
+    // ---------------------------------------------------------------------
+
+    /** Opens the form from a fresh draft; nothing is written until final confirm. */
+    fun openEndTerm() {
+        _endTermDrafts.value = emptyMap()
+        _endTermFlags.value = EndTermFlags()
+        _currentDestination.value = AppDestination.END_TERM
+    }
+
+    fun openAcademicRecords() {
+        _currentDestination.value = AppDestination.ACADEMIC_RECORDS
+    }
+
+    fun setEndTermStatus(courseId: Long, status: TermCourseStatus) {
+        _endTermDrafts.value = _endTermDrafts.value.toMutableMap().apply {
+            val current = this[courseId] ?: TermCourseDraft()
+            this[courseId] = current.copy(status = status)
+        }
+        if (_endTermFlags.value.error != null) {
+            _endTermFlags.value = _endTermFlags.value.copy(error = null)
+        }
+    }
+
+    fun setEndTermGrade(courseId: Long, grade: String) {
+        _endTermDrafts.value = _endTermDrafts.value.toMutableMap().apply {
+            val current = this[courseId] ?: TermCourseDraft()
+            this[courseId] = current.copy(grade = grade)
+        }
+    }
+
+    /** Shows the review step; refuses while any course is still unanswered. */
+    fun reviewEndTerm() {
+        val state = endTermState.value
+        when {
+            !userPreferences.value.isTermActive ->
+                showError("ترم فعلی از قبل بسته شده است.")
+            state.courses.isEmpty() ->
+                showError("درسی برای ثبت پایان ترم وجود ندارد.")
+            !state.isComplete ->
+                showError("برای همهٔ درس‌ها یک وضعیت نهایی انتخاب کنید.")
+            else -> _endTermFlags.value = _endTermFlags.value.copy(
+                showSummary = true,
+                error = null
+            )
+        }
+    }
+
+    fun editEndTerm() {
+        _endTermFlags.value = _endTermFlags.value.copy(showSummary = false, error = null)
+    }
+
+    /**
+     * Final confirmation. The repository archives everything in ONE database
+     * transaction; the DataStore "active term" flag is flipped only AFTER that
+     * succeeds. Cancelling before this point writes nothing at all.
+     *
+     * [termName] is the label the student confirms for the archive, so the
+     * academic record is never named behind their back.
+     */
+    fun confirmEndTerm(termName: String) {
+        val safeTermName = termName.trim()
+        if (safeTermName.isBlank()) {
+            showError("نام ترم نمی‌تواند خالی باشد.")
+            return
+        }
+        val state = endTermState.value
+        if (_endTermFlags.value.isSubmitting) return
+        if (state.courses.isEmpty()) {
+            showError("درسی برای ثبت پایان ترم وجود ندارد.")
+            return
+        }
+        if (!state.isComplete) {
+            showError("برای همهٔ درس‌ها یک وضعیت نهایی انتخاب کنید.")
+            return
+        }
+        val preferences = userPreferences.value
+        if (!preferences.isTermActive) {
+            showError("ترم فعلی از قبل بسته شده است.")
+            return
+        }
+        val entries = state.courses.associate { course ->
+            course.courseId to CourseRepository.EndTermCourseEntry(
+                status = course.status!!,
+                grade = course.grade
+            )
+        }
+        _endTermFlags.value = _endTermFlags.value.copy(isSubmitting = true, error = null)
+        viewModelScope.launch {
+            try {
+                when (
+                    val result = repository.endCurrentTerm(
+                        termName = safeTermName,
+                        startEpochDay = preferences.semesterStartEpochDay,
+                        endEpochDay = JalaliDate.todayEpochDay(),
+                        entries = entries
+                    )
+                ) {
+                    is CourseRepository.EndTermResult.Success -> {
+                        // Durable write first, then the UI may say "finished".
+                        // A DataStore failure must NOT be reported as a failed
+                        // archive: the database snapshot is already committed.
+                        val activeFlagSaved = try {
+                            preferencesManager.endActiveTerm(safeTermName)
+                            true
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            android.util.Log.e("CoursePlannerVM", "Term active flag write failed", e)
+                            false
+                        }
+                        _generationState.value = GenerationState()
+                        _endTermFlags.value = EndTermFlags(
+                            archivedTermId = result.termId,
+                            archivedTermName = safeTermName,
+                            archivedCourseCount = state.courses.size,
+                            archivedPassedCount = state.passedCount,
+                            archivedPassedCredits = state.passedCredits
+                        )
+                        val archiveMessage =
+                            "ترم «$safeTermName» آرشیو شد؛ " +
+                                "${JalaliDate.toFaDigits(result.archivedCourses)} درس در سوابق تحصیلی ثبت شد."
+                        if (activeFlagSaved) {
+                            showInfo(archiveMessage)
+                        } else {
+                            showError(
+                                archiveMessage +
+                                    " اما وضعیت «ترم فعال» ذخیره نشد؛ با «شروع ترم جدید» ادامه دهید."
+                            )
+                        }
+                    }
+                    is CourseRepository.EndTermResult.MissingStatuses -> {
+                        val message = "وضعیت این درس‌ها مشخص نشده است: " +
+                            result.courseNames.joinToString("، ")
+                        _endTermFlags.value = _endTermFlags.value.copy(
+                            isSubmitting = false,
+                            showSummary = false,
+                            error = message
+                        )
+                        showError(message)
+                    }
+                    CourseRepository.EndTermResult.NoCourses -> {
+                        _endTermFlags.value = _endTermFlags.value.copy(
+                            isSubmitting = false,
+                            showSummary = false,
+                            error = "درسی برای ثبت پایان ترم وجود ندارد."
+                        )
+                        showError("درسی برای ثبت پایان ترم وجود ندارد.")
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("CoursePlannerVM", "End-term archive failed", e)
+                _endTermFlags.value = _endTermFlags.value.copy(
+                    isSubmitting = false,
+                    error = "آرشیو ترم ناموفق بود؛ هیچ تغییری ذخیره نشد. لطفاً دوباره تلاش کنید."
+                )
+                showError("آرشیو ترم ناموفق بود؛ هیچ تغییری ذخیره نشد. لطفاً دوباره تلاش کنید.")
+            }
+        }
+    }
+
+    fun requestStartNewTerm() {
+        _showStartNewTermDialog.value = true
+    }
+
+    fun dismissStartNewTerm() {
+        _showStartNewTermDialog.value = false
+    }
+
+    /**
+     * Creates the next term: just a name + start date and the active flag.
+     * Choosing courses is deliberately optional and can happen later.
+     */
+    fun startNewTerm(name: String, startEpochDay: Long?) {
+        if (name.isBlank()) {
+            showError("نام ترم جدید نمی‌تواند خالی باشد.")
+            return
+        }
+        val alreadyArchived = _endTermFlags.value.archivedTermId != null
+        if (userPreferences.value.isTermActive && !alreadyArchived) {
+            showError("ابتدا ترم فعلی را با «ثبت پایان ترم» ببندید.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                preferencesManager.startNewTerm(name.trim(), startEpochDay)
+                _generationState.value = GenerationState()
+                _endTermDrafts.value = emptyMap()
+                _endTermFlags.value = EndTermFlags()
+                _showStartNewTermDialog.value = false
+                _currentDestination.value = AppDestination.HOME
+                showInfo(
+                    "ترم «${name.trim()}» آغاز شد؛ از «دروس» می‌توانید درس‌های این ترم را انتخاب کنید."
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("CoursePlannerVM", "Starting a new term failed", e)
+                showError("شروع ترم جدید ناموفق بود؛ لطفاً دوباره تلاش کنید.")
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Passed course actions
+    // ---------------------------------------------------------------------
+
+    fun addPassedCourse(
+        code: String,
+        name: String,
+        credits: Int,
+        grade: String?,
+        termLabel: String?,
+        note: String
+    ) {
+        savePassedCourse(
+            PassedCourse(
+                code = code,
+                name = name,
+                credits = credits,
+                grade = grade,
+                termLabel = termLabel,
+                note = note
+            )
+        )
+    }
+
+    fun updatePassedCourse(
+        id: Long,
+        code: String,
+        name: String,
+        credits: Int,
+        grade: String?,
+        termLabel: String?,
+        note: String
+    ) {
+        savePassedCourse(
+            PassedCourse(
+                id = id,
+                code = code,
+                name = name,
+                credits = credits,
+                grade = grade,
+                termLabel = termLabel,
+                note = note
+            )
+        )
+    }
+
+    private fun savePassedCourse(course: PassedCourse) {
+        launchDbWrite(onErrorMessage = { "ذخیرهٔ درس پاس‌شده ناموفق بود." }) {
+            when (repository.savePassedCourse(course)) {
+                is CourseRepository.PassedCourseResult.Success -> showInfo(
+                    if (course.id == 0L) "درس پاس‌شده «${course.name.trim()}» ثبت شد."
+                    else "درس پاس‌شده «${course.name.trim()}» ویرایش شد."
+                )
+                CourseRepository.PassedCourseResult.BlankCode ->
+                    showError("کد درس نمی‌تواند خالی باشد.")
+                CourseRepository.PassedCourseResult.BlankName ->
+                    showError("نام درس نمی‌تواند خالی باشد.")
+                CourseRepository.PassedCourseResult.InvalidCredits ->
+                    showError("تعداد واحد باید بین ۰ تا ۳۰ باشد.")
+                CourseRepository.PassedCourseResult.DuplicateCode ->
+                    showError("این کد قبلاً در دروس پاس‌شده ثبت شده است.")
+                CourseRepository.PassedCourseResult.NotFound ->
+                    showError("درس پاس‌شده پیدا نشد؛ ممکن است قبلاً حذف شده باشد.")
+            }
+        }
+    }
+
+    fun deletePassedCourse(id: Long, name: String) {
+        launchDbWrite(onErrorMessage = { "حذف درس پاس‌شده ناموفق بود." }) {
+            repository.deletePassedCourse(id)
+            showInfo("درس پاس‌شده «$name» حذف شد.")
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Attendance actions
+    // ---------------------------------------------------------------------
+
+    fun markAttendance(
+        sectionId: Long,
+        dateEpochDay: Long,
+        startTime: String,
+        endTime: String,
+        status: AttendanceStatus,
+        note: String = ""
+    ) {
+        launchDbWrite(onErrorMessage = { "ثبت حضور ناموفق بود." }) {
+            val saved = repository.markAttendance(
+                sectionId = sectionId,
+                dateEpochDay = dateEpochDay,
+                startTime = startTime,
+                endTime = endTime,
+                status = status,
+                note = note
+            )
+            if (saved) {
+                showInfo("وضعیت «${status.titleFa}» برای این جلسه ثبت شد.")
+            } else {
+                showError("گروه این جلسه پیدا نشد؛ ممکن است حذف شده باشد.")
+            }
+        }
+    }
+
+    fun clearAttendance(sectionId: Long, dateEpochDay: Long, startTime: String) {
+        launchDbWrite(onErrorMessage = { "حذف ثبت حضور ناموفق بود." }) {
+            repository.clearAttendance(sectionId, dateEpochDay, startTime)
+            showInfo("ثبت حضور این جلسه حذف شد.")
+        }
+    }
+
+    fun deleteAttendance(id: Long) {
+        launchDbWrite(onErrorMessage = { "حذف سابقهٔ حضور ناموفق بود." }) {
+            repository.deleteAttendance(id)
+            showInfo("سابقهٔ حضور حذف شد.")
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Selective data deletion
+    // ---------------------------------------------------------------------
+
+    /**
+     * Deletes only the selected domains. Nothing is implicit: `preferences`
+     * resets DataStore separately, and an empty selection is a no-op.
+     */
+    fun deleteSelectedData(selection: DataDeletionSelection) {
+        if (selection.isEmpty) {
+            showInfo("هیچ داده‌ای برای حذف انتخاب نشده است.")
+            return
+        }
+        launchDbWrite(onErrorMessage = { "حذف داده‌های انتخاب‌شده ناموفق بود." }) {
+            repository.clearData(selection)
+            if (selection.preferences) {
+                preferencesManager.resetToDefaults()
+            }
+            if (selection.myCourses || selection.catalog || selection.schedule) {
+                _generationState.value = GenerationState()
+            }
+            showInfo("داده‌های انتخاب‌شده با موفقیت حذف شدند.")
+        }
     }
 
     fun setOptimizationPreference(preference: OptimizationPreference) {
@@ -756,7 +1348,13 @@ class CoursePlannerViewModel @Inject constructor(
             // remaining branches turn every refusal into a visible reason.
             when (repository.addManualCourse(course, section, sessionEntities)) {
                 is CourseRepository.AddCourseResult.Success -> {
-                    showInfo("درس «${name.trim()}» با موفقیت اضافه شد.")
+                    if (passedCourseCodes.value.contains(normalizeCode(code))) {
+                        showInfo(
+                            "درس «${name.trim()}» اضافه شد؛ هشدار: این درس قبلاً در سوابق پاس‌شده ثبت شده است."
+                        )
+                    } else {
+                        showInfo("درس «${name.trim()}» با موفقیت اضافه شد.")
+                    }
                 }
                 CourseRepository.AddCourseResult.DuplicateCode ->
                     showError("کد «${code.trim()}» قبلاً برای درس دیگری ثبت شده است.")
@@ -1122,11 +1720,15 @@ class CoursePlannerViewModel @Inject constructor(
         launchDbWrite(onErrorMessage = { "افزودن درس به دروس من ناموفق بود." }) {
             val target = coursesWithSections.value.firstOrNull { it.course.id == courseId }
             repository.toggleCourseSelectedForGeneration(courseId, true)
+            val alreadyPassed = target?.let {
+                passedCourseCodes.value.contains(normalizeCode(it.course.code))
+            } == true
             showInfo(
-                if (target != null) {
-                    "درس «${target.course.name}» به دروس من اضافه شد."
-                } else {
-                    "درس به دروس من اضافه شد."
+                when {
+                    target == null -> "درس به دروس من اضافه شد."
+                    alreadyPassed ->
+                        "درس «${target.course.name}» اضافه شد؛ هشدار: این درس قبلاً در سوابق پاس‌شده ثبت شده است."
+                    else -> "درس «${target.course.name}» به دروس من اضافه شد."
                 }
             )
         }
@@ -1140,11 +1742,9 @@ class CoursePlannerViewModel @Inject constructor(
     }
 
     fun clearAllData() {
-        launchDbWrite(onErrorMessage = { "پاکسازی اطلاعات ناموفق بود." }) {
-            repository.clearAllData()
-            _generationState.value = GenerationState()
-            showInfo("تمامی اطلاعات با موفقیت پاکسازی شدند.")
-        }
+        // Kept as a thin alias for existing callers/tests; the advanced dialog
+        // uses deleteSelectedData with an explicit selection.
+        deleteSelectedData(DataDeletionSelection.ALL)
     }
 
     fun clearScheduleOnly() {

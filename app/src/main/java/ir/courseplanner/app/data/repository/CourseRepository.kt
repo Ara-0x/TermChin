@@ -2,25 +2,43 @@ package ir.courseplanner.app.data.repository
 
 import androidx.room.withTransaction
 import ir.courseplanner.app.data.importer.ImportItem
+import ir.courseplanner.app.data.local.AcademicTermDao
 import ir.courseplanner.app.data.local.AppDatabase
+import ir.courseplanner.app.data.local.AttendanceDao
 import ir.courseplanner.app.data.local.CourseDao
 import ir.courseplanner.app.data.local.CourseDocumentDao
+import ir.courseplanner.app.data.local.PassedCourseDao
 import ir.courseplanner.app.data.local.SectionDao
+import ir.courseplanner.app.data.model.AcademicTerm
+import ir.courseplanner.app.data.model.AcademicTermWithCourses
+import ir.courseplanner.app.data.model.ArchivedClassSession
+import ir.courseplanner.app.data.model.ArchivedCourse
+import ir.courseplanner.app.data.model.AttendanceRecord
+import ir.courseplanner.app.data.model.AttendanceStats
+import ir.courseplanner.app.data.model.AttendanceStatus
 import ir.courseplanner.app.data.model.ClassSession
 import ir.courseplanner.app.data.model.Course
 import ir.courseplanner.app.data.model.CourseDocument
 import ir.courseplanner.app.data.model.CourseSection
 import ir.courseplanner.app.data.model.CourseWithSections
+import ir.courseplanner.app.data.model.DataCounts
+import ir.courseplanner.app.data.model.DataDeletionSelection
+import ir.courseplanner.app.data.model.PassedCourse
 import ir.courseplanner.app.data.model.SectionWithDetails
+import ir.courseplanner.app.data.model.TermCourseStatus
 import ir.courseplanner.app.data.model.normalizeCode
 import ir.courseplanner.app.engine.SectionSessionValidator
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 class CourseRepository(
     private val db: AppDatabase,
     private val courseDao: CourseDao,
     private val sectionDao: SectionDao,
-    private val documentDao: CourseDocumentDao
+    private val documentDao: CourseDocumentDao,
+    private val passedCourseDao: PassedCourseDao,
+    private val attendanceDao: AttendanceDao,
+    private val academicTermDao: AcademicTermDao = db.academicTermDao()
 ) {
     val allCourses: Flow<List<Course>> = courseDao.getAllCourses()
     val coursesWithSections: Flow<List<CourseWithSections>> = courseDao.getCoursesWithSections()
@@ -28,6 +46,39 @@ class CourseRepository(
     val enrolledSections: Flow<List<SectionWithDetails>> = sectionDao.getEnrolledSections()
     val allSectionsWithDetails: Flow<List<SectionWithDetails>> = sectionDao.getAllSectionsWithDetails()
     val allDocuments: Flow<List<CourseDocument>> = documentDao.getAllDocuments()
+    val passedCourses: Flow<List<PassedCourse>> = passedCourseDao.getAllPassedCourses()
+    val attendanceRecords: Flow<List<AttendanceRecord>> = attendanceDao.getAllAttendance()
+    val academicTerms: Flow<List<AcademicTermWithCourses>> = academicTermDao.getAllTerms()
+
+    /**
+     * Live row counts for the advanced-deletion dialog. `myCourses` mirrors
+     * the Courses tab definition (selected for the generator OR enrolled), so
+     * the number the user sees is exactly the number about to be deleted.
+     * Catalog count is the complement inside the same snapshot.
+     */
+    val dataCounts: Flow<DataCounts> = combine(
+        courseDao.getCoursesWithSections(),
+        documentDao.getAllDocuments(),
+        passedCourseDao.getAllPassedCourses(),
+        attendanceDao.getAllAttendance()
+    ) { courses, docs, passed, attendance ->
+        var enrolledSections = 0
+        var myCourses = 0
+        var catalogCourses = 0
+        for (cws in courses) {
+            val enrolled = cws.sections.count { it.section.isEnrolled }
+            enrolledSections += enrolled
+            if (cws.course.isSelectedForGeneration || enrolled > 0) myCourses++ else catalogCourses++
+        }
+        DataCounts(
+            enrolledSections = enrolledSections,
+            myCourses = myCourses,
+            catalogCourses = catalogCourses,
+            documents = docs.size,
+            passedCourses = passed.size,
+            attendanceRecords = attendance.size
+        )
+    }
 
     fun getDocumentsByCourse(courseId: Long): Flow<List<CourseDocument>> {
         return documentDao.getDocumentsByCourse(courseId)
@@ -419,6 +470,313 @@ class CourseRepository(
         sectionDao.clearAllEnrollments()
     }
 
+    // ---------------------------------------------------------------------
+    // Passed courses (academic record)
+    // ---------------------------------------------------------------------
+
+    sealed interface PassedCourseResult {
+        data class Success(val id: Long) : PassedCourseResult
+        data object BlankCode : PassedCourseResult
+        data object BlankName : PassedCourseResult
+        data object InvalidCredits : PassedCourseResult
+        /** Another passed course already uses this normalized code. */
+        data object DuplicateCode : PassedCourseResult
+        data object NotFound : PassedCourseResult
+    }
+
+    /**
+     * Inserts (id == 0) or updates a passed course. The code is compared with
+     * [normalizeCode], so " math101 " cannot be recorded twice.
+     */
+    suspend fun savePassedCourse(course: PassedCourse): PassedCourseResult = db.withTransaction {
+        val code = course.code.trim()
+        val name = course.name.trim()
+        if (code.isBlank()) return@withTransaction PassedCourseResult.BlankCode
+        if (name.isBlank()) return@withTransaction PassedCourseResult.BlankName
+        if (course.credits !in 0..30) return@withTransaction PassedCourseResult.InvalidCredits
+        val wanted = normalizeCode(code)
+        val duplicate = passedCourseDao.getAllPassedCoursesOnce()
+            .any { it.id != course.id && normalizeCode(it.code) == wanted }
+        if (duplicate) return@withTransaction PassedCourseResult.DuplicateCode
+        val existing = if (course.id == 0L) null else passedCourseDao.getPassedCourseById(course.id)
+        if (course.id != 0L && existing == null) {
+            return@withTransaction PassedCourseResult.NotFound
+        }
+        val id = if (existing == null) {
+            passedCourseDao.insertPassedCourse(
+                course.copy(
+                    id = 0,
+                    code = code,
+                    name = name,
+                    grade = course.grade?.trim()?.ifBlank { null },
+                    termLabel = course.termLabel?.trim()?.ifBlank { null },
+                    note = course.note.trim(),
+                    recordedAt = System.currentTimeMillis()
+                )
+            )
+        } else {
+            passedCourseDao.updatePassedCourse(
+                course.copy(
+                    code = code,
+                    name = name,
+                    grade = course.grade?.trim()?.ifBlank { null },
+                    termLabel = course.termLabel?.trim()?.ifBlank { null },
+                    note = course.note.trim()
+                )
+            )
+            course.id
+        }
+        PassedCourseResult.Success(id)
+    }
+
+    suspend fun deletePassedCourse(id: Long) {
+        passedCourseDao.deletePassedCourseById(id)
+    }
+
+    // ---------------------------------------------------------------------
+    // Attendance
+    // ---------------------------------------------------------------------
+
+    /**
+     * Records (or updates) attendance for one class occurrence.
+     *
+     * The logical key is (section, epoch day, start time): marking the same
+     * class again updates the existing row instead of duplicating it.
+     * Returns false when the section no longer exists (deleted group), so the
+     * UI can report a real error instead of writing an orphan row.
+     */
+    suspend fun markAttendance(
+        sectionId: Long,
+        dateEpochDay: Long,
+        startTime: String,
+        endTime: String,
+        status: AttendanceStatus,
+        note: String = ""
+    ): Boolean = db.withTransaction {
+        if (sectionDao.getSectionById(sectionId) == null) return@withTransaction false
+        val existing = attendanceDao.getAttendanceForOccurrence(sectionId, dateEpochDay, startTime)
+        attendanceDao.upsertAttendance(
+            AttendanceRecord(
+                id = existing?.id ?: 0,
+                sectionId = sectionId,
+                dateEpochDay = dateEpochDay,
+                startTime = startTime,
+                endTime = endTime,
+                status = status,
+                note = note.trim(),
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        true
+    }
+
+    suspend fun clearAttendance(sectionId: Long, dateEpochDay: Long, startTime: String) {
+        attendanceDao.deleteAttendanceForOccurrence(sectionId, dateEpochDay, startTime)
+    }
+
+    suspend fun deleteAttendance(id: Long) {
+        attendanceDao.deleteAttendanceById(id)
+    }
+
+    // ---------------------------------------------------------------------
+    // End of term archive
+    // ---------------------------------------------------------------------
+
+    /** What the student decided for one course in the end-term form. */
+    data class EndTermCourseEntry(
+        val status: TermCourseStatus,
+        val grade: String? = null
+    )
+
+    sealed interface EndTermResult {
+        data class Success(
+            val termId: Long,
+            val archivedCourses: Int,
+            val addedPassedCourses: Int
+        ) : EndTermResult
+
+        /** The form was submitted before every course had a status. */
+        data class MissingStatuses(val courseNames: List<String>) : EndTermResult
+
+        /** Nothing is selected or enrolled, so there is no term to archive. */
+        data object NoCourses : EndTermResult
+    }
+
+    /**
+     * Archives the current term in ONE transaction:
+     * 1. snapshot the term + every current course (selected for the generator
+     *    OR enrolled in a group) with its final status/grade/attendance stats;
+     * 2. snapshot the enrolled group's class times;
+     * 3. add passed courses to the academic record WITHOUT overwriting an
+     *    earlier result for the same normalized code;
+     * 4. only then clear the "active" flags (generator ticks + enrollments).
+     *
+     * Catalog rows, documents and attendance history are NEVER deleted: the
+     * archive is an additional snapshot, so an interrupted operation can only
+     * roll back completely. The DataStore "term active" flag is written by the
+     * caller after this returns, so a failure here cannot mark a term finished.
+     */
+    suspend fun endCurrentTerm(
+        termName: String,
+        startEpochDay: Long?,
+        endEpochDay: Long,
+        entries: Map<Long, EndTermCourseEntry>
+    ): EndTermResult = db.withTransaction {
+        val snapshot = courseDao.getCoursesWithSectionsOnce()
+        val currentCourses = snapshot.filter { cws ->
+            cws.course.isSelectedForGeneration || cws.sections.any { it.section.isEnrolled }
+        }
+        if (currentCourses.isEmpty()) return@withTransaction EndTermResult.NoCourses
+
+        val missing = currentCourses
+            .filter { entries[it.course.id] == null }
+            .map { it.course.name }
+        if (missing.isNotEmpty()) return@withTransaction EndTermResult.MissingStatuses(missing)
+
+        val attendanceBySection = attendanceDao.getAllAttendanceOnce().groupBy { it.sectionId }
+        val archivedAt = System.currentTimeMillis()
+        val safeTermName = termName.trim().ifBlank { "ترم پایان‌یافته" }
+
+        val termId = academicTermDao.insertTerm(
+            AcademicTerm(
+                name = safeTermName,
+                startEpochDay = startEpochDay,
+                endEpochDay = endEpochDay,
+                endedAt = archivedAt
+            )
+        )
+
+        // Build the archive in memory first so a single insert sets every id,
+        // then attach the group's sessions to the real archived-course ids.
+        val pendingCourses = currentCourses.map { cws ->
+            val entry = entries.getValue(cws.course.id)
+            val group = cws.sections.firstOrNull { it.section.isEnrolled }
+            val records = cws.sections
+                .flatMap { section -> attendanceBySection[section.section.id].orEmpty() }
+            val stats = AttendanceStats.from(records)
+            val archivedCourse = ArchivedCourse(
+                termId = termId,
+                courseId = cws.course.id,
+                code = cws.course.code,
+                name = cws.course.name,
+                credits = cws.course.credits,
+                department = cws.course.department,
+                sectionCode = group?.section?.sectionCode.orEmpty(),
+                instructor = group?.section?.instructor.orEmpty(),
+                status = entry.status,
+                grade = entry.grade?.trim()?.ifBlank { null },
+                attendancePresent = stats.present,
+                attendanceAbsent = stats.absent,
+                attendanceLate = stats.late,
+                attendanceExcused = stats.excused,
+                archivedAt = archivedAt
+            )
+            val sessions = group?.sessions.orEmpty().map { session ->
+                ArchivedClassSession(
+                    archivedCourseId = 0,
+                    dayOfWeek = session.dayOfWeek,
+                    startTime = session.startTime,
+                    endTime = session.endTime,
+                    location = session.location,
+                    weekType = session.weekType
+                )
+            }
+            archivedCourse to sessions
+        }
+
+        val archivedIds = academicTermDao.insertArchivedCourses(pendingCourses.map { it.first })
+        val sessionsToInsert = pendingCourses.flatMapIndexed { index, (_, sessions) ->
+            sessions.map { it.copy(archivedCourseId = archivedIds[index]) }
+        }
+        if (sessionsToInsert.isNotEmpty()) {
+            academicTermDao.insertArchivedSessions(sessionsToInsert)
+        }
+
+        // Academic record: only add what is not there yet. An older result for
+        // the same normalized code is history and must never be rewritten.
+        val existingPassedCodes = passedCourseDao.getAllPassedCoursesOnce()
+            .map { normalizeCode(it.code) }
+            .toMutableSet()
+        var addedPassed = 0
+        for (cws in currentCourses) {
+            val entry = entries.getValue(cws.course.id)
+            if (entry.status != TermCourseStatus.PASSED) continue
+            if (cws.course.code.isBlank() || cws.course.name.isBlank()) continue
+            if (!existingPassedCodes.add(normalizeCode(cws.course.code))) continue
+            passedCourseDao.insertPassedCourse(
+                PassedCourse(
+                    code = cws.course.code,
+                    name = cws.course.name,
+                    credits = cws.course.credits,
+                    grade = entry.grade?.trim()?.ifBlank { null },
+                    termLabel = safeTermName,
+                    note = "ثبت خودکار در پایان ترم",
+                    recordedAt = archivedAt
+                )
+            )
+            addedPassed++
+        }
+
+        // Leave the active term only after the snapshot is safely written.
+        courseDao.clearAllSelectedForGeneration()
+        sectionDao.clearAllEnrollments()
+
+        EndTermResult.Success(
+            termId = termId,
+            archivedCourses = pendingCourses.size,
+            addedPassedCourses = addedPassed
+        )
+    }
+
+    // ---------------------------------------------------------------------
+    // Selective data deletion
+    // ---------------------------------------------------------------------
+
+    /**
+     * Deletes exactly the domains the user selected, in one transaction.
+     *
+     * CASCADE rules make the dependency explicit: removing a course also
+     * removes its groups, sessions, documents and attendance history. The UI
+     * shows that dependency before confirming. Preferences live in DataStore
+     * and are reset by the ViewModel, not here.
+     */
+    suspend fun clearData(selection: DataDeletionSelection) {
+        if (!selection.touchesDatabase) return
+        db.withTransaction {
+            // «دروس من» is resolved BEFORE clearing enrollments: a course that
+            // is enrolled but not marked for generation must still be deleted
+            // when both flags are selected (ALL preset).
+            if (selection.myCourses) {
+                val selectedIds = courseDao.getCoursesSelectedForGenerationOnce().map { it.id }
+                val enrolledIds = sectionDao.getEnrolledCourseIdsOnce()
+                val ids = (selectedIds + enrolledIds).distinct()
+                if (ids.isNotEmpty()) courseDao.deleteCoursesByIds(ids)
+            }
+            if (selection.schedule) {
+                sectionDao.clearAllEnrollments()
+            }
+            if (selection.catalog) {
+                // Recomputed after "my courses" removal: only rows that are
+                // neither selected nor enrolled may be dropped.
+                val enrolledIds = sectionDao.getEnrolledCourseIdsOnce().toSet()
+                val catalogIds = courseDao.getAllCoursesOnce()
+                    .filter { !it.isSelectedForGeneration && it.id !in enrolledIds }
+                    .map { it.id }
+                if (catalogIds.isNotEmpty()) courseDao.deleteCoursesByIds(catalogIds)
+            }
+            if (selection.documents) documentDao.deleteAllDocuments()
+            if (selection.passedCourses) passedCourseDao.deleteAllPassedCourses()
+            if (selection.attendance) attendanceDao.deleteAllAttendance()
+        }
+    }
+
+    /**
+     * Catalog restore only: clears courses/sections/sessions/documents.
+     * The academic record (separate table) survives on purpose. Attendance
+     * rows follow their group through CASCADE: once the group is gone there is
+     * no occurrence left to attribute them to. Full user-data removal is only
+     * done through [clearData] with an explicit selection.
+     */
     suspend fun clearAllData() {
         db.withTransaction {
             documentDao.deleteAllDocuments()

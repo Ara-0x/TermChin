@@ -48,11 +48,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import ir.courseplanner.app.data.preferences.ThemeMode
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.StartNewTermDialog
 import ir.courseplanner.app.ui.components.UpdateAvailableDialog
+import ir.courseplanner.app.ui.screens.AcademicRecordsScreen
 import ir.courseplanner.app.ui.screens.AddCourseScreen
 import ir.courseplanner.app.ui.screens.CoursesScreen
 import ir.courseplanner.app.ui.screens.DocumentsScreen
+import ir.courseplanner.app.ui.screens.EndTermScreen
 import ir.courseplanner.app.ui.screens.HomeScreen
+import ir.courseplanner.app.ui.screens.PassedCoursesScreen
 import ir.courseplanner.app.ui.screens.ScheduleScreen
 import ir.courseplanner.app.ui.screens.SettingsScreen
 import ir.courseplanner.app.ui.theme.MyApplicationTheme
@@ -109,6 +113,7 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
     val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
+    val showStartNewTermDialog by viewModel.showStartNewTermDialog.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val backScope = rememberCoroutineScope()
     val activity = LocalContext.current as? android.app.Activity
@@ -119,7 +124,9 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
     // The discovery sub-screen is a child of Courses, so system back there
     // returns to «دروس من» instead of skipping straight to Home.
     BackHandler {
-        if (currentDestination == AppDestination.ADD_COURSE) {
+        if (currentDestination == AppDestination.ADD_COURSE ||
+            currentDestination == AppDestination.PASSED_COURSES
+        ) {
             lastHomeBackPressAt = 0L
             viewModel.navigateTo(AppDestination.COURSES)
         } else if (currentDestination != AppDestination.HOME) {
@@ -170,6 +177,13 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         )
     }
 
+    if (showStartNewTermDialog) {
+        StartNewTermDialog(
+            onDismiss = viewModel::dismissStartNewTerm,
+            onConfirm = viewModel::startNewTerm
+        )
+    }
+
     // App-wide result channel: every repository write in the ViewModel reports
     // through userMessage/isErrorMessage, so no DB failure can die silently in
     // a coroutine — success and error results land here as a visible snackbar.
@@ -201,7 +215,12 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         bottomBar = {
             // The discovery sub-screen is a full page of its own: standard
             // back affordance in its header replaces the bottom navigation.
-            if (currentDestination != AppDestination.ADD_COURSE) {
+            // Ending a term and the academic-record page are full pages too.
+            if (currentDestination != AppDestination.ADD_COURSE &&
+                currentDestination != AppDestination.PASSED_COURSES &&
+                currentDestination != AppDestination.END_TERM &&
+                currentDestination != AppDestination.ACADEMIC_RECORDS
+            ) {
                 TermChinBottomBar(
                     current = currentDestination,
                     onNavigate = { viewModel.navigateTo(it) }
@@ -248,6 +267,9 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
                 // Discovery sub-screen of Courses: full page with its own
                 // back button; no extra bottom-nav tab is created for it.
                 AppDestination.ADD_COURSE -> AddCourseScreen(viewModel = viewModel, modifier = screenModifier)
+                AppDestination.PASSED_COURSES -> PassedCoursesScreen(viewModel = viewModel, modifier = screenModifier)
+                AppDestination.END_TERM -> EndTermScreen(viewModel = viewModel, modifier = screenModifier)
+                AppDestination.ACADEMIC_RECORDS -> AcademicRecordsScreen(viewModel = viewModel, modifier = screenModifier)
             }
         }
     }

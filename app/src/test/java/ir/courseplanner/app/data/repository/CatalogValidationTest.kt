@@ -49,7 +49,9 @@ class CatalogValidationTest {
             db = db,
             courseDao = db.courseDao(),
             sectionDao = db.sectionDao(),
-            documentDao = db.documentDao()
+            documentDao = db.documentDao(),
+            passedCourseDao = db.passedCourseDao(),
+            attendanceDao = db.attendanceDao()
         )
     }
 
