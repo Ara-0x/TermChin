@@ -50,6 +50,12 @@ interface SectionDao {
     @Query("UPDATE course_sections SET isEnrolled = 0")
     suspend fun clearAllEnrollments()
 
+    @Query("SELECT COUNT(*) FROM course_sections WHERE isEnrolled = 1")
+    suspend fun getEnrolledSectionCount(): Int
+
+    @Query("SELECT DISTINCT courseId FROM course_sections WHERE isEnrolled = 1")
+    suspend fun getEnrolledCourseIdsOnce(): List<Long>
+
     @Query("DELETE FROM course_sections WHERE id = :sectionId")
     suspend fun deleteSectionById(sectionId: Long)
 

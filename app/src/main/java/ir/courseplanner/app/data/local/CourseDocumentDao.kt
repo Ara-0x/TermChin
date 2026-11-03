@@ -37,4 +37,7 @@ interface CourseDocumentDao {
 
     @Query("DELETE FROM course_documents")
     suspend fun deleteAllDocuments()
+
+    @Query("SELECT COUNT(*) FROM course_documents")
+    suspend fun countDocuments(): Int
 }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -111,6 +112,7 @@ import ir.courseplanner.app.data.preferences.TimetableDensity
 import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.AdvancedDeleteDialog
 import ir.courseplanner.app.ui.theme.paletteOf
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
@@ -330,6 +332,7 @@ fun SettingsScreen(
     val allCoursesWithSections by viewModel.coursesWithSections.collectAsStateWithLifecycle()
     val enrolledSections by viewModel.enrolledSections.collectAsStateWithLifecycle()
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
+    val dataCounts by viewModel.dataCounts.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isErrorMessage by viewModel.isErrorMessage.collectAsStateWithLifecycle()
     // ترجیحات انتخاب واحد: منبع state واحد مشترک با صفحه برنامه‌ساز.
@@ -931,6 +934,55 @@ fun SettingsScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "حد غیبت مجاز:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "با رسیدن به این تعداد، هشدار نمایش داده می‌شود.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.setAbsenceLimit(preferences.absenceLimit - 1)
+                                    },
+                                    enabled = preferences.absenceLimit > 0,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(38.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                                ) { Text("−", fontSize = 16.sp) }
+                                Text(
+                                    text = JalaliDate.toFaDigits(preferences.absenceLimit),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.widthIn(min = 22.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.setAbsenceLimit(preferences.absenceLimit + 1)
+                                    },
+                                    enabled = preferences.absenceLimit < 20,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(38.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                                ) { Text("+", fontSize = 16.sp) }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
@@ -1246,7 +1298,7 @@ fun SettingsScreen(
                     title = "پاک‌سازی داده‌ها"
                 )
                 Text(
-                    text = "برنامه هفتگی را بدون حذف دروس خالی کنید، یا در صورت نیاز همه اطلاعات را پاک کنید:",
+                    text = "برنامه هفتگی را بدون حذف دروس خالی کنید، یا با انتخاب دقیق مشخص کنید کدام داده‌ها پاک شوند:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1271,7 +1323,8 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                // Delete All Data (With strict confirmation)
+                // Advanced, explicitly scoped deletion (replaces the old
+                // single "delete everything" button).
                 Button(
                     onClick = { showDeleteAllDialog = true },
                     modifier = Modifier
@@ -1283,7 +1336,7 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("حذف تمام اطلاعات (Delete All)", fontWeight = FontWeight.Bold)
+                    Text("پاک‌سازی پیشرفته (انتخاب داده‌ها)", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1343,38 +1396,15 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // Confirmation Dialog for Delete All
+    // Advanced deletion dialog: explicit per-domain selection.
     if (showDeleteAllDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteAllDialog = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = {
-                Text(
-                    text = "تأیید حذف تمام اطلاعات",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            },
-            text = {
-                Text(
-                    text = "آیا مطمئن هستید که می‌خواهید تمام دروس، گروه‌ها، برنامه‌های هفتگی و جزوات را حذف کنید؟ این عمل غیرقابل بازگشت است.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearAllData()
-                        showDeleteAllDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("بله، تمام داده‌ها حذف شوند")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteAllDialog = false }) {
-                    Text("انصراف")
-                }
+        AdvancedDeleteDialog(
+            counts = dataCounts,
+            hasProfile = preferences.studentName.isNotBlank() || preferences.major.isNotBlank(),
+            onDismiss = { showDeleteAllDialog = false },
+            onConfirm = { selection ->
+                viewModel.deleteSelectedData(selection)
+                showDeleteAllDialog = false
             }
         )
     }
