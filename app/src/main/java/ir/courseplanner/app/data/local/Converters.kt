@@ -1,7 +1,9 @@
 package ir.courseplanner.app.data.local
 
 import androidx.room.TypeConverter
+import ir.courseplanner.app.data.model.AttendanceStatus
 import ir.courseplanner.app.data.model.DocumentCategory
+import ir.courseplanner.app.data.model.TermCourseStatus
 import ir.courseplanner.app.data.model.WeekType
 
 class Converters {
@@ -30,6 +32,35 @@ class Converters {
             if (value.isNullOrBlank()) DocumentCategory.PAMPHLET else DocumentCategory.valueOf(value)
         } catch (e: Exception) {
             DocumentCategory.PAMPHLET
+        }
+    }
+
+    @TypeConverter
+    fun fromAttendanceStatus(value: AttendanceStatus?): String {
+        return (value ?: AttendanceStatus.PRESENT).name
+    }
+
+    @TypeConverter
+    fun toAttendanceStatus(value: String?): AttendanceStatus {
+        return try {
+            if (value.isNullOrBlank()) AttendanceStatus.PRESENT else AttendanceStatus.valueOf(value)
+        } catch (e: Exception) {
+            AttendanceStatus.PRESENT
+        }
+    }
+
+    @TypeConverter
+    fun fromTermCourseStatus(value: TermCourseStatus?): String {
+        return (value ?: TermCourseStatus.INCOMPLETE).name
+    }
+
+    @TypeConverter
+    fun toTermCourseStatus(value: String?): TermCourseStatus {
+        return try {
+            if (value.isNullOrBlank()) TermCourseStatus.INCOMPLETE
+            else TermCourseStatus.valueOf(value)
+        } catch (e: Exception) {
+            TermCourseStatus.INCOMPLETE
         }
     }
 }

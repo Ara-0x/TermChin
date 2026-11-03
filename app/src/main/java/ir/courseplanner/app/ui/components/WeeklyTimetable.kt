@@ -110,7 +110,12 @@ fun WeeklyTimetable(
      * (Home does, so the same section is never named twice: once outside the
      * card and once inside it).
      */
-    showHeader: Boolean = true
+    showHeader: Boolean = true,
+    /**
+     * Optional hook that opens the attendance sheet for a class occurrence.
+     * Null keeps the timetable read-only (previews/tests) and hides the button.
+     */
+    onOpenAttendance: ((TimetableItem) -> Unit)? = null
 ) {
     // A six-day grid needs horizontal scrolling on a phone. Start with the
     // focused day view there, while retaining the full grid as one tap away.
@@ -420,6 +425,27 @@ fun WeeklyTimetable(
                                 )
                             }
                         }
+
+                        if (onOpenAttendance != null) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = {
+                                    inspectItem = null
+                                    onOpenAttendance(item)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(TermChinDesign.MinTouchHeight),
+                                shape = TermChinDesign.RowShape
+                            ) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(TermChinDesign.IconSm)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("ثبت حضور / تاریخچه", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
             },
@@ -520,7 +546,8 @@ private fun TimetableGridView(
                     val hasMultipleInSlot = days.any { dayIdx ->
                         items.count { item ->
                             item.session.dayOfWeek == dayIdx &&
-                            maxOf(item.session.startMinutes, slotStartMin) < minOf(item.session.endMinutes, slotEndMin)
+                            item.session.startMinutes >= slotStartMin &&
+                            item.session.startMinutes < slotEndMin
                         } > 1
                     }
                     val currentSlotHeight = if (hasMultipleInSlot) baseCellHeight + 28.dp else baseCellHeight
@@ -567,7 +594,8 @@ private fun TimetableGridView(
                         days.forEach { dayIdx ->
                             val matchingItems = items.filter { item ->
                                 item.session.dayOfWeek == dayIdx &&
-                                maxOf(item.session.startMinutes, slotStartMin) < minOf(item.session.endMinutes, slotEndMin)
+                                item.session.startMinutes >= slotStartMin &&
+                                item.session.startMinutes < slotEndMin
                             }
 
                             Box(

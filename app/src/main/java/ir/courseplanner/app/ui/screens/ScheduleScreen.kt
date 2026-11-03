@@ -64,6 +64,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ir.courseplanner.app.data.model.AttendanceRecord
+import ir.courseplanner.app.engine.ScheduleEngine
+import ir.courseplanner.app.ui.components.AttendanceSheet
+import ir.courseplanner.app.ui.components.AttendanceSummaryCard
+import ir.courseplanner.app.ui.components.TimetableItem
 import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
@@ -85,6 +90,10 @@ fun ScheduleScreen(
     val optimizationPref by viewModel.optimizationPreference.collectAsStateWithLifecycle()
     val coursesWithSections by viewModel.coursesWithSections.collectAsStateWithLifecycle()
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
+    val enrolledSections by viewModel.enrolledSections.collectAsStateWithLifecycle()
+    val attendanceRecords by viewModel.attendanceRecords.collectAsStateWithLifecycle()
+    val attendanceByCourse by viewModel.attendanceByCourse.collectAsStateWithLifecycle()
+    var attendanceTarget by remember { mutableStateOf<TimetableItem?>(null) }
     val selectedCourses = coursesWithSections.filter { it.course.isSelectedForGeneration }
 
     val scrollState = rememberScrollState()
@@ -136,6 +145,14 @@ fun ScheduleScreen(
                     )
                 }
             }
+        }
+
+        if (enrolledSections.isNotEmpty()) {
+            AttendanceSummaryCard(
+                enrolledSections = enrolledSections,
+                statsByCourse = attendanceByCourse,
+                absenceLimit = preferences.absenceLimit
+            )
         }
 
         // Optimization Preference Selector — one row per strategy, the selected
@@ -261,7 +278,7 @@ fun ScheduleScreen(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = "${selectedCourses.size} درس (${selectedCourses.sumOf { it.course.credits }} واحد)",
+                            text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.size)} درس (${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.sumOf { it.course.credits })} واحد)",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -311,7 +328,7 @@ fun ScheduleScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "${cws.sections.size} گروه ارائه شده",
+                                        text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(cws.sections.size)} گروه ارائه شده",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
@@ -422,7 +439,7 @@ fun ScheduleScreen(
                                         Spacer(modifier = Modifier.width(4.dp))
                                     }
                                     Text(
-                                        text = if (isBest) "پیشنهاد برتر" else "پیشنهاد ${generationState.currentIndex + 1} از $count",
+                                        text = if (isBest) "پیشنهاد برتر" else "پیشنهاد ${ir.courseplanner.app.util.JalaliDate.toFaDigits(generationState.currentIndex + 1)} از ${ir.courseplanner.app.util.JalaliDate.toFaDigits(count)}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (isBest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
@@ -432,7 +449,7 @@ fun ScheduleScreen(
                                 }
 
                                 Text(
-                                    text = "$totalCredits واحد • ${currentScored.schedule.size} درس • ${currentScored.activeDaysCount} روز",
+                                    text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(totalCredits)} واحد • ${ir.courseplanner.app.util.JalaliDate.toFaDigits(currentScored.schedule.size)} درس • ${ir.courseplanner.app.util.JalaliDate.toFaDigits(currentScored.activeDaysCount)} روز",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -509,6 +526,7 @@ fun ScheduleScreen(
                             showThursday = preferences.showThursday,
                             density = preferences.timetableDensity,
                             currentParity = resultParity,
+                            onOpenAttendance = { item -> attendanceTarget = item },
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -522,7 +540,7 @@ fun ScheduleScreen(
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                                     Text(
-                                        text = "${currentWarnings.size} هشدار امتحانی (ساعت نامشخص) — مانع برنامه نیست، ولی بررسی کن:",
+                                        text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(currentWarnings.size)} هشدار امتحانی (ساعت نامشخص) — مانع برنامه نیست، ولی بررسی کن:",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -648,6 +666,66 @@ fun ScheduleScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    attendanceTarget?.let { item ->
+        val now = dashboardNow(System.currentTimeMillis())
+        val weekInfo = ScheduleEngine.academicWeek(
+            now.epochDay,
+            preferences.semesterStartEpochDay,
+            preferences.firstWeekIsOdd
+        )
+        val section = item.section
+        val session = item.session
+        val day = session.dayOfWeek
+        val occurrence = if (day <= now.appDayIdx) {
+            now.epochDay - (now.appDayIdx - day)
+        } else {
+            now.epochDay + (day - now.appDayIdx)
+        }
+        val occurs = ScheduleEngine.occursInWeek(session, weekInfo?.parity)
+        val dateIsPast = occurrence < now.epochDay
+        val startedToday = occurrence == now.epochDay && now.nowMinutes >= session.startMinutes
+        val canRecord = occurs && (dateIsPast || startedToday)
+        val reason = when {
+            !occurs -> "این جلسه در هفتهٔ جاری (${weekInfo?.parity?.titleFa ?: "نامشخص"}) تشکیل نمی‌شود."
+            occurrence > now.epochDay -> "این کلاس در روزهای آیندهٔ همین هفته برگزار می‌شود."
+            occurrence == now.epochDay && !startedToday -> "کلاس هنوز شروع نشده است."
+            else -> null
+        }
+        val existing = attendanceRecords.firstOrNull {
+            it.sectionId == section.section.id &&
+                it.dateEpochDay == occurrence &&
+                it.startTime == session.startTime
+        }
+        AttendanceSheet(
+            section = section,
+            session = session,
+            occurrenceEpochDay = occurrence,
+            existing = existing,
+            sectionHistory = attendanceRecords
+                .filter { it.sectionId == section.section.id }
+                .sortedByDescending { it.dateEpochDay },
+            canRecord = canRecord,
+            blockedReason = reason,
+            onDismiss = { attendanceTarget = null },
+            onSave = { epochDay, status, note ->
+                viewModel.markAttendance(
+                    sectionId = section.section.id,
+                    dateEpochDay = epochDay,
+                    startTime = session.startTime,
+                    endTime = session.endTime,
+                    status = status,
+                    note = note
+                )
+                attendanceTarget = null
+            },
+            onClear = {
+                viewModel.clearAttendance(section.section.id, occurrence, session.startTime)
+                attendanceTarget = null
+            },
+            onDeleteHistory = { viewModel.deleteAttendance(it) }
+        )
     }
 }
 

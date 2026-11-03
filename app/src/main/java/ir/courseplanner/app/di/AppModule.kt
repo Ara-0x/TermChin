@@ -26,6 +26,9 @@ object AppModule {
             db = database,
             courseDao = database.courseDao(),
             sectionDao = database.sectionDao(),
-            documentDao = database.documentDao()
+            documentDao = database.documentDao(),
+            passedCourseDao = database.passedCourseDao(),
+            attendanceDao = database.attendanceDao(),
+            academicTermDao = database.academicTermDao()
         )
 }
