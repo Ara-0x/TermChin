@@ -2,6 +2,8 @@ package ir.courseplanner.app.ui.screens.courses
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -40,7 +43,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GroupAdd
@@ -76,13 +78,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -105,6 +112,7 @@ import ir.courseplanner.app.ui.components.AddSectionDialog
 import ir.courseplanner.app.ui.components.EditCourseDialog
 import ir.courseplanner.app.data.model.Conflict
 import ir.courseplanner.app.ui.theme.TermChinDesign
+import ir.courseplanner.app.util.JalaliDate
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -113,6 +121,7 @@ internal fun CourseCard(
     sections: List<SectionWithDetails>,
     enrolledKey: String,
     docCount: Int = 0,
+    isPassed: Boolean = false,
     onOpenDocuments: () -> Unit = {},
     onToggleSelectedForGeneration: (Boolean) -> Unit,
     onSelectSection: (SectionWithDetails, Boolean) -> Unit,
@@ -204,13 +213,34 @@ internal fun CourseCard(
                                 .padding(horizontal = 7.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "${course.credits} واحد",
+                                text = "${JalaliDate.toFaDigits(course.credits)} واحد",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 softWrap = false
                             )
+                        }
+
+                        // Non-blocking academic-record hint: the course is
+                        // already passed, but the student may still add it
+                        // (e.g. to retake for a better grade).
+                        if (isPassed) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(TermChinDesign.MicroShape)
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "قبلاً پاس شده",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    softWrap = false
+                                )
+                            }
                         }
 
                         // Documents & Pamphlets shortcut chip
@@ -231,7 +261,7 @@ internal fun CourseCard(
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = if (docCount > 0) "$docCount جزوه" else "+ جزوه",
+                                    text = if (docCount > 0) "${JalaliDate.toFaDigits(docCount)} جزوه" else "+ جزوه",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     maxLines = 1,
@@ -307,7 +337,7 @@ internal fun CourseCard(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "کد: ${course.code}",
+                        text = "کد: ${JalaliDate.toFaDigits(course.code)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -327,56 +357,116 @@ internal fun CourseCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Groups expander: one bar per course. Collapsed by default —
-            // except while the course owns an enrolled group — so a long
-            // catalog of groups never stretches the course list.
-            var sectionsExpanded by remember(course.id, hasEnrolled) {
-                mutableStateOf(hasEnrolled)
+            // Groups expander: one bar per course. Closed by default for every
+            // course (even an enrolled one) so the list stays short; the state
+            // is remembered per course while the user scrolls or filters.
+            val enrolledSection = remember(sectionsWithDetails, enrolledKey) {
+                sectionsWithDetails.firstOrNull { it.section.isEnrolled }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(TermChinDesign.MicroShape)
-                    .clickable { sectionsExpanded = !sectionsExpanded }
-                    .testTag("course_sections_toggle_${course.code}"),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            var sectionsExpanded by rememberSaveable(course.id) { mutableStateOf(false) }
+            val chevronRotation by animateFloatAsState(
+                targetValue = if (sectionsExpanded) 180f else 0f,
+                animationSpec = tween(durationMillis = 180),
+                label = "sectionsChevron"
+            )
+            val expanderColor by animateColorAsState(
+                targetValue = if (sectionsExpanded) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+                },
+                label = "sectionsExpanderColor"
+            )
+
+            Surface(
+                shape = TermChinDesign.RowShape,
+                color = expanderColor,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (sectionsExpanded) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    }
+                ),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "گروه‌های ارائه شده (${sectionsWithDetails.size}):",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        softWrap = false
-                    )
-                    Icon(
-                        if (sectionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (sectionsExpanded) "بستن گروه‌ها" else "نمایش گروه‌ها",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(TermChinDesign.ControlShape)
+                            .toggleable(
+                                value = sectionsExpanded,
+                                role = Role.Button,
+                                onValueChange = { sectionsExpanded = it }
+                            )
+                            .semantics {
+                                stateDescription = if (sectionsExpanded) "باز" else "بسته"
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("course_sections_toggle_${course.code}"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "گروه‌های ارائه شده",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = when {
+                                    sectionsWithDetails.isEmpty() ->
+                                        "هنوز گروهی ثبت نشده است"
+                                    enrolledSection != null ->
+                                        "${JalaliDate.toFaDigits(sectionsWithDetails.size)} گروه • گروه ${JalaliDate.toFaDigits(enrolledSection.sectionCode)} در برنامه"
+                                    else ->
+                                        "${JalaliDate.toFaDigits(sectionsWithDetails.size)} گروه • برای دیدن جزئیات لمس کنید"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ExpandMore,
+                            contentDescription = if (sectionsExpanded) "بستن گروه‌ها" else "نمایش گروه‌ها",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(20.dp)
+                                .rotate(chevronRotation)
+                        )
+                    }
 
-                TextButton(
-                    onClick = onAddSectionClick,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                    modifier = Modifier.height(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "افزودن گروه دیگر",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        softWrap = false
-                    )
+                    TextButton(
+                        onClick = {
+                            // Adding a group is a clear request to see it.
+                            sectionsExpanded = true
+                            onAddSectionClick()
+                        },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .height(TermChinDesign.MinTouchHeight)
+                    ) {
+                        Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "افزودن گروه",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                    }
                 }
             }
 
@@ -384,29 +474,29 @@ internal fun CourseCard(
 
             AnimatedVisibility(
                 visible = sectionsExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                enter = expandVertically(animationSpec = tween(180)) + fadeIn(animationSpec = tween(120)),
+                exit = shrinkVertically(animationSpec = tween(160)) + fadeOut(animationSpec = tween(100))
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                sectionsWithDetails.forEach { sec ->
-                    val isEnrolled = sec.section.isEnrolled
-                    // Conflict math (pairwise session comparison + strings) is memoized:
-                    // it only re-runs when this section or the enrollment set changes,
-                    // not on every recomposition (e.g. while typing in search).
-                    val conflict = remember(sec, isEnrolled, enrolledKey) {
-                        if (!isEnrolled) checkConflict(sec) else null
-                    }
+                    sectionsWithDetails.forEach { sec ->
+                        val isEnrolled = sec.section.isEnrolled
+                        // Conflict math (pairwise session comparison + strings) is memoized:
+                        // it only re-runs when this section or the enrollment set changes,
+                        // not on every recomposition (e.g. while typing in search).
+                        val conflict = remember(sec, isEnrolled, enrolledKey) {
+                            if (!isEnrolled) checkConflict(sec) else null
+                        }
 
-                    SectionItem(
-                        section = sec,
-                        isEnrolled = isEnrolled,
-                        conflict = conflict,
-                        canDeleteSection = sectionsWithDetails.size > 1,
-                        onToggleEnroll = { onSelectSection(sec, !isEnrolled) },
-                        onDeleteSection = { onDeleteSectionClick(sec) },
-                        onEditSection = { onEditSectionClick(sec) }
-                    )
-                }
+                        SectionItem(
+                            section = sec,
+                            isEnrolled = isEnrolled,
+                            conflict = conflict,
+                            canDeleteSection = sectionsWithDetails.size > 1,
+                            onToggleEnroll = { onSelectSection(sec, !isEnrolled) },
+                            onDeleteSection = { onDeleteSectionClick(sec) },
+                            onEditSection = { onEditSectionClick(sec) }
+                        )
+                    }
                 }
             }
         }
@@ -469,7 +559,7 @@ internal fun SectionItem(
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "گروه ${section.sectionCode}",
+                            text = "گروه ${JalaliDate.toFaDigits(section.sectionCode)}",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (isEnrolled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -589,7 +679,10 @@ internal fun SectionItem(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "${ClassSession.getDayName(sess.dayOfWeek)} ${sess.startTime} تا ${sess.endTime}${if (sess.location.isNotBlank()) " (${sess.location})" else ""}",
+                            text = JalaliDate.toFaDigits(
+                                "${ClassSession.getDayName(sess.dayOfWeek)} ${sess.startTime} تا ${sess.endTime}" +
+                                    if (sess.location.isNotBlank()) " (${sess.location})" else ""
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
@@ -101,6 +102,7 @@ import ir.courseplanner.app.ui.screens.courses.CatalogQuickAddResults
 import ir.courseplanner.app.ui.screens.courses.CourseCard
 import ir.courseplanner.app.ui.screens.courses.FilterLabelRow
 import ir.courseplanner.app.ui.theme.TermChinDesign
+import ir.courseplanner.app.util.JalaliDate
 
 @Composable
 fun CoursesScreen(
@@ -120,6 +122,8 @@ fun CoursesScreen(
         allCoursesWithSections.count { it.course.isSelectedForGeneration }
     }
     val enrolledSections by viewModel.enrolledSections.collectAsStateWithLifecycle()
+    val passedCourses by viewModel.passedCourses.collectAsStateWithLifecycle()
+    val passedCourseCodes by viewModel.passedCourseCodes.collectAsStateWithLifecycle()
 
     var showAddCourseDialog by remember { mutableStateOf(false) }
     var courseForAddSection by remember { mutableStateOf<Course?>(null) }
@@ -202,6 +206,68 @@ fun CoursesScreen(
                     ),
                     shape = TermChinDesign.CardShape
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Academic-record shortcut: passed courses are a separate page,
+            // never mixed into «دروس من» or the generator.
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.openPassedCourses() }
+                    .testTag("open_passed_courses"),
+                shape = TermChinDesign.CardShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(TermChinDesign.MicroShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "دروس پاس‌شده",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (passedCourses.isEmpty()) {
+                                "سابقهٔ دروس گذرانده‌شده را ثبت کنید"
+                            } else {
+                                "${JalaliDate.toFaDigits(passedCourses.size)} درس • ${JalaliDate.toFaDigits(passedCourses.sumOf { it.credits })} واحد"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronLeft,
+                        contentDescription = "باز کردن دروس پاس‌شده",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -728,6 +794,9 @@ fun CoursesScreen(
                             sections = sectionsByCourse[cws.course.id].orEmpty(),
                             enrolledKey = enrolledKey,
                             docCount = documentCountByCourse[cws.course.id] ?: 0,
+                            isPassed = passedCourseCodes.contains(
+                                ir.courseplanner.app.data.model.normalizeCode(cws.course.code)
+                            ),
                             onOpenDocuments = {
                                 viewModel.navigateToCourseDocuments(cws.course.id)
                             },
