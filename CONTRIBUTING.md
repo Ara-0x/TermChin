@@ -24,8 +24,8 @@
 
 ### پیش‌نیازها
 
-- **JDK 17**
-- **Android SDK Platform 36**
+- **JDK 25** (دیمن Gradle با `gradle/gradle-daemon-jvm.properties` روی ۲۵ پین شده است؛ `JAVA_HOME` باید به آن اشاره کند)
+- **Android SDK Platform 36.1**
 - **Android Studio Koala** یا جدیدتر
 
 پروژه از `Kotlin`، `Jetpack Compose`، `Material 3`، `Room`، `Hilt` و `Kotlin Coroutines/StateFlow` استفاده می‌کند.

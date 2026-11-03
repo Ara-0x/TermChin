@@ -15,8 +15,9 @@ the repository root.
 
 ## 1. Prerequisites
 
-- **JDK 17** (release build toolchain; `JAVA_HOME` must point at it)
-- **Android SDK** with **Platform 36** and **Build-tools 36.0.0**
+- **JDK 25** (the Gradle daemon is pinned to 25 by
+  `gradle/gradle-daemon-jvm.properties`; `JAVA_HOME` must point at it)
+- **Android SDK** with **Platform 36.1** and **Build-tools 36.0.0**
   (`ANDROID_HOME` must point at it, or `sdk.dir` in `local.properties`)
 - **Gradle Wrapper is checked in** — `gradlew`, `gradlew.bat` and
   `gradle/wrapper/gradle-wrapper.jar` are committed, so no preinstalled Gradle

@@ -128,7 +128,7 @@ ir.courseplanner.app/
 │   ├── CoursePlannerViewModel.kt # مدیریت State و منطق View
 │   ├── screens/                  # صفحات (Home, Courses, Schedule, Documents, Settings)
 │   ├── components/               # کامپوننت‌ها (جدول هفتگی، دیالوگ‌ها)
-│   └── theme/                    # رنگ‌ها، تایپوگرافی و تم‌های هفت‌گانه
+│   └── theme/                    # رنگ‌ها، تایپوگرافی و تم‌های هشت‌گانه
 └── util/                         # توابع کمکی (زمان، اکسپورت)
 ```
 
@@ -137,8 +137,8 @@ ir.courseplanner.app/
 ## 🚀 راه‌اندازی و بیلد
 
 ### پیش‌نیازها
-- **JDK 17**
-- **Android SDK Platform 36** (حداقل API 24)
+- **JDK 25** (دیمن Gradle با `gradle/gradle-daemon-jvm.properties` روی ۲۵ پین شده است)
+- **Android SDK Platform 36.1** (حداقل API 24)
 - **Android Studio Koala یا جدیدتر**
 
 ### مراحل بیلد
