@@ -4,6 +4,60 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.21.0] (38) — 2026-11-03 end-of-term archive, academic records, attendance
+
+The term now has a full lifecycle. A finished term is archived in ONE database
+transaction: every course gets a final status (passed, failed, withdrawn,
+incomplete) and an optional grade, together with its schedule and attendance
+snapshot. The student confirms the archive name right before the write, the
+current term stops being active, and starting the next term becomes a separate,
+deliberate step. The archive is readable on its own «سوابق تحصیلی» page, and
+starting a new term never touches the previous term's data.
+
+Alongside the archive, this release adds class attendance, a passed-course
+record, scoped data deletion and the design-token cleanup that had been sitting
+in the working tree.
+
+Baseline: **41 suites / 282 tests, 0 failures**.
+
+### Added
+
+- **End term.** Review every current course, pick one final status per course,
+  optionally enter a grade, see a result summary, then confirm the archive name.
+  The archive runs atomically and only clears the active/selected flags — the
+  catalog, sections, sessions, documents, attendance and the previous schedule
+  stay exactly where they are.
+- **Academic records.** A read-only page listing every archived term with its
+  courses, statuses, grades and passed credits, reachable from Home.
+- **Start new term.** After the archive, create the next term with a name and an
+  optional start date; courses can be added now or later.
+- **Attendance.** Mark present / absent / late / excused for a class occurrence
+  from the timetable and the schedule page, see a per-course summary on Home,
+  and configure the absence limit in Settings.
+- **Passed courses.** A dedicated page for completed courses, a passed badge on
+  course cards, and a shortcut from the courses screen. Re-taking a course never
+  overwrites the earlier result.
+- **Scoped data deletion.** Replace the single "delete everything" action with
+  an explicit selection of the domains to erase (schedule, passed courses,
+  attendance, documents, profile), each with its own count.
+- **Design tokens.** Shared size/shape tokens, collapsible course groups and an
+  eighth colour palette (`AppColors`).
+
+### Changed
+
+- **CI/build.** Gradle 9.6, AGP 9.5, KSP 2.3.6 and a JDK 25 daemon pin; CI now
+  runs on JDK 25, installs SDK platform 36.1, uses the current action majors and
+  fails when `app/schemas` drifts from Room's export.
+- **Home.** A term-management menu (end term / start new term / academic
+  records) and a clear "no active term" card after archiving.
+
+### Database
+
+- Schema 5 adds `passed_courses` and `attendance_records`; schema 6 adds
+  `academic_terms`, `archived_courses` and `archived_course_sessions`. Both
+  migrations are additive, no existing table is modified and
+  `fallbackToDestructiveMigration` is not used.
+
 ## [2.20.2] (37) — 2026-10-20 flatten the now/next card (kill the gray halo)
 
 The gray band reported around the now/next card was NOT a border — it was the
