@@ -25,7 +25,7 @@ object TimetableExporter {
         }
 
         val sb = StringBuilder()
-        sb.appendLine("📅 برنامه هفتگی")
+        sb.appendLine("برنامه هفتگی")
         sb.appendLine()
 
         if (studentName.isNotBlank() || major.isNotBlank() || semester.isNotBlank()) {
