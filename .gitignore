@@ -123,3 +123,4 @@ agent/
 .claude/
 skills-lock.json
 skills_*.txt
+docs/UI-REDESIGN-SKILL-PLAN.md
