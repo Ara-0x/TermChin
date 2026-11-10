@@ -113,3 +113,13 @@ release-output/
 
 # Build folders (except what we want to commit)
 *_public_key.*
+
+# Local project backups (zip snapshots of the repo; source of truth is git)
+backups/
+
+# Local AI-agent / skill tooling (machine-specific, not part of the app)
+.agents/
+agent/
+.claude/
+skills-lock.json
+skills_*.txt
