@@ -125,6 +125,16 @@ class HomeDashboardPureTest {
     }
 
     @Test
+    fun `ninety minute class is never rounded up to two hours`() {
+        // 08:00-09:30 at 08:00 → exactly 90 minutes left, not 120.
+        val state = resolveNowNext(upcoming(3, "08:00", "09:30", true), 3, 480)
+
+        assertTrue(state is NowNextState.Ongoing)
+        assertEquals(90, (state as NowNextState.Ongoing).minutesLeft)
+        assertEquals("۱ ساعت و ۳۰ دقیقه تا پایان کلاس", ongoingRemainingFa(90))
+    }
+
+    @Test
     fun `upcoming class today reports minutes to start`() {
         val state = resolveNowNext(upcoming(3, "10:00", "12:00", false), 3, 565)
 
@@ -564,7 +574,7 @@ class HomeDashboardUiTest {
         composeTestRule.onNodeWithText("صبح بخیر، امیر").assertIsDisplayed()
         composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
         composeTestRule.onNodeWithText("نیم‌سال اول • کامپیوتر", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("۱۲ واحد از ۲۰", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("۱۲ از ۲۰ واحد", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -590,7 +600,32 @@ class HomeDashboardUiTest {
         composeTestRule.onNodeWithTag("home_header_date_row").assertIsDisplayed()
         // appDayIdx = 3 is Tuesday (سه‌شنبه) in the Saturday-first academic week.
         composeTestRule.onNodeWithText("سه‌شنبه", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("هفته ۴ (فرد)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("هفته ۴، فرد").assertIsDisplayed()
+    }
+
+    @Test
+    fun headerDropsTheWeekChipOnceTheTermIsEnded() {
+        val now = DashboardNow(epochDay = JalaliDate.todayEpochDay(), appDayIdx = 3, nowMinutes = 600)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                DashboardHeader(
+                    studentName = "امیر",
+                    semesterName = "نیم‌سال اول",
+                    major = "کامپیوتر",
+                    credits = 12,
+                    creditTarget = 20,
+                    weekInfo = ScheduleEngine.AcademicWeek(4, ScheduleEngine.WeekParity.ODD),
+                    now = now,
+                    isTermActive = false
+                )
+            }
+        }
+
+        // The archived week number would be stale: the card keeps the credit
+        // fact and leaves the «ترم فعالی ندارید» explanation to InactiveTermCard.
+        composeTestRule.onAllNodesWithText("هفته ۴، فرد").assertCountEquals(0)
+        composeTestRule.onNodeWithText("۱۲ از ۲۰ واحد", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("home_header_card").assertIsDisplayed()
     }
 
     @Test

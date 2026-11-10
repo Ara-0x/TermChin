@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ir.courseplanner.app.data.local.AppDatabase
 import ir.courseplanner.app.data.repository.CourseRepository
+import ir.courseplanner.app.update.ApkDownloader
+import ir.courseplanner.app.update.ApkInspector
 import javax.inject.Singleton
 
 @Module
@@ -31,4 +33,13 @@ object AppModule {
             attendanceDao = database.attendanceDao(),
             academicTermDao = database.academicTermDao()
         )
+
+    /** One downloader: its `.part` bookkeeping lives on disk, not in memory. */
+    @Provides
+    @Singleton
+    fun provideApkDownloader(): ApkDownloader = ApkDownloader()
+
+    @Provides
+    @Singleton
+    fun provideApkInspector(): ApkInspector = ApkInspector()
 }

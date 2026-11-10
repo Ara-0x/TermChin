@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -116,7 +115,6 @@ fun ConflictBanner(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .clickable(enabled = hasConflict) { isExpanded = !isExpanded }
             .testTag("conflict_banner"),
         shape = TermChinDesign.CardShape,

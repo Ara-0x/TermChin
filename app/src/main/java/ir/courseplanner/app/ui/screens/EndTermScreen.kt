@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -152,8 +153,8 @@ private fun EndTermForm(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = TermChinDesign.CardShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -202,9 +203,11 @@ private fun EndTermForm(
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
 
+        // Docked action bar: a hairline separates it from the scroll instead
+        // of a shadow, which would read as a floating card.
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
         Surface(
-            tonalElevation = 3.dp,
-            shadowElevation = 4.dp,
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(
@@ -264,13 +267,13 @@ private fun EndTermCourseCard(
                     modifier = Modifier
                         .size(TermChinDesign.CourseAvatarSize)
                         .clip(TermChinDesign.ControlShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.School,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(TermChinDesign.IconMd)
                     )
                 }
@@ -494,9 +497,11 @@ private fun EndTermReview(
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
 
+        // Docked action bar: a hairline separates it from the scroll instead
+        // of a shadow, which would read as a floating card.
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
         Surface(
-            tonalElevation = 3.dp,
-            shadowElevation = 4.dp,
             color = MaterialTheme.colorScheme.surface
         ) {
             Row(
@@ -543,8 +548,8 @@ private fun SummaryStatsCard(state: EndTermUiState) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = TermChinDesign.CardShape,
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     ) {
         Column(
             modifier = Modifier
@@ -560,7 +565,7 @@ private fun SummaryStatsCard(state: EndTermUiState) {
                 Icon(
                     Icons.Default.Flag,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(TermChinDesign.IconMd)
                 )
                 TermStat(label = "درس", value = state.courses.size)
@@ -592,7 +597,7 @@ private fun TermStat(label: String, value: Int) {
         Text(
             text = JalaliDate.toFaDigits(value),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
@@ -729,17 +734,22 @@ internal fun TermPageHeader(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
-    backDescription: String
+    backDescription: String,
+    modifier: Modifier = Modifier,
+    backTestTag: String? = null,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
             onClick = onBack,
-            modifier = Modifier.size(TermChinDesign.MinTouchHeight)
+            modifier = Modifier
+                .size(TermChinDesign.MinTouchHeight)
+                .then(if (backTestTag != null) Modifier.testTag(backTestTag) else Modifier)
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backDescription)
         }
@@ -756,6 +766,7 @@ internal fun TermPageHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        trailing?.invoke()
     }
 }
 

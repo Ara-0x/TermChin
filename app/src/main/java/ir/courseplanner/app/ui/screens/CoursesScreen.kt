@@ -14,6 +14,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,7 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +98,7 @@ import ir.courseplanner.app.ui.FILTERABLE_DAYS
 import ir.courseplanner.app.ui.components.AddCourseDialog
 import ir.courseplanner.app.ui.components.AddSectionDialog
 import ir.courseplanner.app.ui.components.EditCourseDialog
+import ir.courseplanner.app.ui.components.PageHeader
 import ir.courseplanner.app.ui.screens.courses.CatalogQuickAddResults
 import ir.courseplanner.app.ui.screens.courses.CourseCard
 import ir.courseplanner.app.ui.screens.courses.FilterLabelRow
@@ -157,120 +158,131 @@ fun CoursesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            // Orientation is carried by the bottom bar + the info bar below the
-            // filters, so no separate hero header is needed here.
-
-            // Search bar (Offline search)
-            Surface(
-                shape = TermChinDesign.CardShape,
-                color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChange(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("course_search_input"),
-                    placeholder = {
-                        Text(
-                            "جست‌وجوی درس، کد، دانشکده یا استاد...",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "جست‌وجوی درس",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "پاک کردن جست‌وجو")
+            // Large-title header carries the count and the sort control, so the
+            // screen needs neither a hero banner nor a separate info bar.
+            PageHeader(
+                title = "دروس من",
+                subtitle = buildString {
+                    append("${JalaliDate.toFaDigits(filteredCourses.size)} درس")
+                    val credits = filteredCourses.sumOf { it.course.credits }
+                    if (credits > 0) {
+                        append(" • ${JalaliDate.toFaDigits(credits)} واحد")
+                    }
+                    if (selectedCount > 0) {
+                        append(" • ${JalaliDate.toFaDigits(selectedCount)} در برنامه‌ساز")
+                    }
+                },
+                trailing = {
+                    SortChip(
+                        sortOrder = sortOrder,
+                        onClick = {
+                            val next = when (sortOrder) {
+                                CourseSortOrder.NAME -> CourseSortOrder.CREDITS_DESC
+                                CourseSortOrder.CREDITS_DESC -> CourseSortOrder.CODE
+                                CourseSortOrder.CODE -> CourseSortOrder.NAME
                             }
+                            viewModel.setSortOrder(next)
                         }
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    ),
-                    shape = TermChinDesign.CardShape
-                )
-            }
+                    )
+                },
+                modifier = Modifier.padding(top = 8.dp)
+            )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Academic-record shortcut: passed courses are a separate page,
-            // never mixed into «دروس من» or the generator.
-            Surface(
+            // Search field sits directly on the page: wrapping it in another
+            // bordered surface drew two rectangles around one input.
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.onSearchQueryChange(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.openPassedCourses() }
-                    .testTag("open_passed_courses"),
-                shape = TermChinDesign.CardShape,
-                color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(TermChinDesign.MicroShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "دروس پاس‌شده",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (passedCourses.isEmpty()) {
-                                "سابقهٔ دروس گذرانده‌شده را ثبت کنید"
-                            } else {
-                                "${JalaliDate.toFaDigits(passedCourses.size)} درس • ${JalaliDate.toFaDigits(passedCourses.sumOf { it.credits })} واحد"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    .testTag("course_search_input"),
+                placeholder = {
+                    Text(
+                        "جست‌وجوی درس، کد، دانشکده یا استاد...",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                },
+                leadingIcon = {
                     Icon(
-                        Icons.Default.ChevronLeft,
-                        contentDescription = "باز کردن دروس پاس‌شده",
+                        Icons.Default.Search,
+                        contentDescription = "جست‌وجوی درس",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "پاک کردن جست‌وجو")
+                        }
+                    }
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                ),
+                shape = TermChinDesign.ControlShape
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Academic-record shortcut: passed courses are a separate page,
+            // never mixed into «دروس من» or the generator. A quiet inline row
+            // keeps it reachable without competing with the course list.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(TermChinDesign.RowShape)
+                    .clickable { viewModel.openPassedCourses() }
+                    .testTag("open_passed_courses")
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(TermChinDesign.MicroShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.School,
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "دروس پاس‌شده",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (passedCourses.isEmpty()) {
+                            "سابقهٔ دروس گذرانده‌شده را ثبت کنید"
+                        } else {
+                            "${JalaliDate.toFaDigits(passedCourses.size)} درس • ${JalaliDate.toFaDigits(passedCourses.sumOf { it.credits })} واحد"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronLeft,
+                    contentDescription = "باز کردن دروس پاس‌شده",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Quick-add by course code: matches inside the hidden portal catalog
             // (courses not yet in "my courses"). The cards are rendered inside the
@@ -340,7 +352,7 @@ fun CoursesScreen(
                         Icon(
                             Icons.Default.FilterList,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
@@ -379,7 +391,7 @@ fun CoursesScreen(
                         Text(
                             text = activeFilterSummary,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(start = 26.dp)
@@ -451,8 +463,8 @@ fun CoursesScreen(
                                 },
                                 shape = TermChinDesign.ControlShape,
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             )
                         }
@@ -552,77 +564,11 @@ fun CoursesScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Sort control only: the course list is always «دروس من», so the
-            // former status tab row (which toggled between the user's courses
-            // and the whole catalog) was removed — it was pure chrome.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = TermChinDesign.ControlShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.clickable {
-                        val next = when (sortOrder) {
-                            CourseSortOrder.NAME -> CourseSortOrder.CREDITS_DESC
-                            CourseSortOrder.CREDITS_DESC -> CourseSortOrder.CODE
-                            CourseSortOrder.CODE -> CourseSortOrder.NAME
-                        }
-                        viewModel.setSortOrder(next)
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                         Icon(
-                             Icons.AutoMirrored.Filled.Sort,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = sortOrder.titleFa,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Info Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${filteredCourses.size} درس ثبت شده",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Surface(
-                    shape = TermChinDesign.ChipShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                ) {
-                    Text(
-                        text = "$selectedCount درس در برنامه‌ساز",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
+            // The old sort chip row and info bar lived here. Both were merged
+            // into the header (sort control + counts), leaving the list to start
+            // right under the filter panel.
 
             // Whenever sorting or any filter/search changes, the result set is
             // rebuilt — jump back to the top so the user never has to scroll
@@ -779,14 +725,17 @@ fun CoursesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
                 ) {
-                    item(key = "catalog_quick_add") {
-                        CatalogQuickAddResults(
-                            catalogMatches = catalogMatches,
-                            sectionsByCourse = sectionsByCourse,
-                            onAdd = { viewModel.addCatalogCourseToMine(it) }
-                        )
+                    if (catalogMatches.isNotEmpty()) {
+                        item(key = "catalog_quick_add") {
+                            CatalogQuickAddResults(
+                                catalogMatches = catalogMatches,
+                                sectionsByCourse = sectionsByCourse,
+                                onAdd = { viewModel.addCatalogCourseToMine(it) }
+                            )
+                        }
                     }
                     items(filteredCourses, key = { it.course.id }) { cws ->
                         CourseCard(
@@ -951,5 +900,46 @@ fun CoursesScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * Sort control for the course list: one tap cycles name → most credits → code.
+ * It lives in the header rather than its own toolbar row, so the list starts
+ * immediately under the filter panel.
+ */
+@Composable
+private fun SortChip(
+    sortOrder: CourseSortOrder,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = TermChinDesign.ControlShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        ),
+        modifier = Modifier.testTag("course_sort_control")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.Sort,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = sortOrder.titleFa,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
     }
 }

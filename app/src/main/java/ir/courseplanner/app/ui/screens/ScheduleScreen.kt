@@ -7,9 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +46,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,30 +60,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import ir.courseplanner.app.data.model.AttendanceRecord
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.components.AttendanceSheet
-import ir.courseplanner.app.ui.components.AttendanceSummaryCard
 import ir.courseplanner.app.ui.components.TimetableItem
 import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.PageHeader
 import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.BookmarkAmberDark
 import ir.courseplanner.app.ui.theme.BookmarkAmberLight
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.ui.theme.isDarkTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ScheduleScreen(
     viewModel: CoursePlannerViewModel,
@@ -90,9 +94,7 @@ fun ScheduleScreen(
     val optimizationPref by viewModel.optimizationPreference.collectAsStateWithLifecycle()
     val coursesWithSections by viewModel.coursesWithSections.collectAsStateWithLifecycle()
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
-    val enrolledSections by viewModel.enrolledSections.collectAsStateWithLifecycle()
     val attendanceRecords by viewModel.attendanceRecords.collectAsStateWithLifecycle()
-    val attendanceByCourse by viewModel.attendanceByCourse.collectAsStateWithLifecycle()
     var attendanceTarget by remember { mutableStateOf<TimetableItem?>(null) }
     val selectedCourses = coursesWithSections.filter { it.course.isSelectedForGeneration }
 
@@ -102,58 +104,17 @@ fun ScheduleScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Surface(
-            shape = TermChinDesign.CardShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "برنامه‌ساز هوشمند و بهینه‌ساز",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Text(
-                        text = "تولید ترکیب‌های بدون تداخل، حذف گپ‌های خالی و چینش بهینه کلاسی",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        if (enrolledSections.isNotEmpty()) {
-            AttendanceSummaryCard(
-                enrolledSections = enrolledSections,
-                statsByCourse = attendanceByCourse,
-                absenceLimit = preferences.absenceLimit
-            )
-        }
+        // Header: large title, plain on the page like every other top-level
+        // screen. The old tinted hero banner repeated what the bottom tab and
+        // the section headings already said.
+        PageHeader(
+            title = "برنامه‌ساز",
+            subtitle = "ترکیب بدون تداخل، حذف گپ‌های خالی و چینش بهینهٔ کلاس‌ها",
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
         // Optimization Preference Selector — one row per strategy, the selected
         // row highlighted and explained in place, so the choice reads as a
@@ -162,7 +123,6 @@ fun ScheduleScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -173,7 +133,7 @@ fun ScheduleScreen(
                     Icon(
                         Icons.Default.Tune,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -205,35 +165,26 @@ fun ScheduleScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(TermChinDesign.RowShape)
-                            .clickable { viewModel.setOptimizationPreference(pref) }
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { viewModel.setOptimizationPreference(pref) }
+                            )
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.outlineVariant
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            // A real radio button, not a custom check dot: the
+                            // control announces itself and reads as "pick one".
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = pref.titleFa,
@@ -259,7 +210,6 @@ fun ScheduleScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -269,18 +219,18 @@ fun ScheduleScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "دروس هدف برای برنامه‌ساز:",
+                        text = "دروس هدف برای برنامه‌ساز",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Surface(
                         shape = TermChinDesign.ChipShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                     ) {
                         Text(
-                            text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.size)} درس (${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.sumOf { it.course.credits })} واحد)",
+                            text = "${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.size)} درس • ${ir.courseplanner.app.util.JalaliDate.toFaDigits(selectedCourses.sumOf { it.course.credits })} واحد",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
@@ -290,7 +240,7 @@ fun ScheduleScreen(
 
                 if (selectedCourses.isEmpty()) {
                     Text(
-                        text = "هنوز درسی برای ساخت برنامه انتخاب نشده است. از تب «دروس»، تیک «تولید خودکار» را برای درس‌های مورد نظرتان فعال کنید.",
+                        text = "هنوز درسی برای ساخت برنامه انتخاب نشده است. از تب «دروس»، کلید «در برنامه‌ساز» را برای درس‌های مورد نظرتان روشن کنید.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -323,7 +273,7 @@ fun ScheduleScreen(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false),
+                                        modifier = Modifier.weight(1f),
                                         softWrap = false
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -406,9 +356,7 @@ fun ScheduleScreen(
                 }
 
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
                     border = androidx.compose.foundation.BorderStroke(
@@ -557,12 +505,12 @@ fun ScheduleScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Smart Optimization Badges
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        // Smart Optimization Badges — wrapped, not scrolled, so a
+                        // clipped tag never reads as a hidden option.
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             currentScored.tags.forEach { tag ->
                                 Box(

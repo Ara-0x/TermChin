@@ -166,6 +166,18 @@ class PooyaHtmlParserTest {
     }
 
     @Test
+    fun `ninety minute session keeps its real end time`() {
+        val sessions = PooyaHtmlParser.parseSessions(
+            "جلسه اول روز: شنبه ساعت 8(هر هفته به مدت 90 دقیقه در کلاس 1)"
+        )
+
+        assertEquals(1, sessions.size)
+        assertEquals("08:00", sessions[0].startTime)
+        assertEquals("09:30", sessions[0].endTime)
+        assertEquals(90, sessions[0].endMinutes - sessions[0].startMinutes)
+    }
+
+    @Test
     fun `exam duration produces a real end time`() {
         val html = """
 <html><body><table border="1"><tbody>

@@ -121,7 +121,10 @@ fun TermChinBottomBar(
                 val indicatorX by animateDpAsState(
                     targetValue = itemWidth * selectedIndex,
                     animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        // No overshoot: a tab indicator that bounces past its
+                        // slot reads as a toy. A firm ease-out settles in the
+                        // same time but lands exactly on the slot.
+                        dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow
                     ),
                     label = "navIndicatorX"
@@ -167,7 +170,7 @@ private fun NavItem(
     val iconScale by animateFloatAsState(
         targetValue = if (selected) 1f else 0.92f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
         label = "navIconScale"

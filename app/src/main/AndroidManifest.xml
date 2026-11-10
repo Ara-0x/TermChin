@@ -2,13 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      The app's ONLY network capability: one unauthenticated HTTPS GET to
-      api.github.com on a cold start, to ask whether a newer TermChin release
-      exists (see update/GitHubReleaseParser.kt). No other host, no analytics, no
-      user data leaves the device — the app is otherwise fully offline. The APK is
-      gated in CI: INTERNET is allowed, any OTHER permission is not.
+      Two permissions, both tied to the single feature that uses the network:
+      updating the app.
+
+      INTERNET — one unauthenticated HTTPS GET to api.github.com on a cold start
+      to ask whether a newer TermChin release exists, plus the APK download the
+      user explicitly starts from that prompt (see update/GitHubReleaseParser.kt
+      and update/ApkDownloader.kt). No other host, no analytics, no user data.
+      REQUEST_INSTALL_PACKAGES — lets the app hand the downloaded, checksum-
+      verified APK to Android's own package installer. The app never installs
+      anything silently: the system installer shows its own confirmation UI, and
+      on Android 8+ the user must first enable "install unknown apps" for
+      TermChin. Nothing else is added; the APK is gated in CI against an explicit
+      allow-list (see .github/workflows/build-apk.yml).
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".CoursePlannerApplication"
@@ -29,6 +38,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Exposes exactly one cache folder — cacheDir/updates/, where the update
+          download is stored — as a temporary, read-only content:// URI for the
+          system installer. It is not exported, grants only per-URI read access,
+          and points at app-private storage, so no user file is reachable.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
     </application>
 
 </manifest>

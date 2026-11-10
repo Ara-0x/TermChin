@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.School
@@ -125,10 +126,21 @@ fun PassedCoursesScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("جست‌وجوی درس پاس‌شده...", fontSize = 13.sp) },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "پاک کردن جست‌وجو")
+                            }
+                        }
                     },
                     singleLine = true,
-                    shape = TermChinDesign.CardShape
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = TermChinDesign.ControlShape
                 )
             }
 
@@ -197,36 +209,18 @@ private fun PassedCoursesHeader(
     onBack: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "دروس پاس‌شده",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "سابقهٔ دروس گذرانده‌شده؛ از «دروس من» جدا است.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        TermPageHeader(
+            title = "دروس پاس‌شده",
+            subtitle = "سابقهٔ دروس گذرانده‌شده؛ از «دروس من» جدا است.",
+            onBack = onBack,
+            backDescription = "بازگشت"
+        )
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = TermChinDesign.CardShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         ) {
             Row(
                 modifier = Modifier
@@ -238,7 +232,7 @@ private fun PassedCoursesHeader(
                 Icon(
                     Icons.Default.School,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(TermChinDesign.IconMd)
                 )
                 StatText(label = "درس", value = count)
@@ -260,7 +254,7 @@ private fun StatText(label: String, value: Int) {
         Text(
             text = JalaliDate.toFaDigits(value),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
@@ -296,13 +290,13 @@ private fun PassedCourseCard(
                 modifier = Modifier
                     .size(TermChinDesign.CourseAvatarSize)
                     .clip(TermChinDesign.ControlShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(TermChinDesign.IconMd)
                 )
             }
@@ -336,7 +330,7 @@ private fun PassedCourseCard(
                     Text(
                         text = JalaliDate.toFaDigits(it),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

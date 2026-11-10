@@ -64,6 +64,7 @@ import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.ManualSessionInput
 import ir.courseplanner.app.ui.components.AddCourseDialog
+import ir.courseplanner.app.util.JalaliDate
 
 /**
  * Smart course discovery ("افزودن درس"): header, local search, ranked
@@ -178,45 +179,27 @@ internal fun AddCourseDiscoveryContent(
     modifier: Modifier = Modifier
 ) {
     // Header: standard back + title + explainer + count.
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier.testTag("add_course_back_button")
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "بازگشت به دروس من",
-                tint = MaterialTheme.colorScheme.primary
-            )
+    TermPageHeader(
+        title = "افزودن درس",
+        subtitle = "پیشنهادهای متناسب با برنامه فعلی شما",
+        onBack = onBack,
+        backDescription = "بازگشت به دروس من",
+        backTestTag = "add_course_back_button",
+        trailing = {
+            Surface(
+                shape = TermChinDesign.PillShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "${JalaliDate.toFaDigits(addableCount)} درس قابل افزودن",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "افزودن درس",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "پیشنهادهای متناسب با برنامه فعلی شما",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Surface(
-            shape = TermChinDesign.PillShape,
-            color = MaterialTheme.colorScheme.primary,
-            shadowElevation = TermChinDesign.CardElevation
-        ) {
-            Text(
-                text = "$addableCount درس قابل افزودن",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
-    }
+    )
 
     Spacer(modifier = Modifier.height(4.dp))
 
@@ -238,7 +221,7 @@ internal fun AddCourseDiscoveryContent(
             Icon(
                 Icons.Default.Search,
                 contentDescription = "جست‌وجوی درس",
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         trailingIcon = {
@@ -266,7 +249,7 @@ internal fun AddCourseDiscoveryContent(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         ),
-        shape = TermChinDesign.CardShape
+        shape = TermChinDesign.ControlShape
     )
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -295,7 +278,6 @@ internal fun AddCourseDiscoveryContent(
                 items(topSuggestions, key = { "sug_${it.course.id}" }) { suggestion ->
                     SuggestionCard(
                         suggestion = suggestion,
-                        highlighted = true,
                         onAdd = { onAdd(suggestion.course.id) },
                         onShowGroups = { onShowGroups(suggestion) }
                     )
@@ -317,11 +299,9 @@ internal fun AddCourseDiscoveryContent(
                 // Single flat list (search results, or everything is already a
                 // top suggestion): every visible course exactly once.
                 val flat = if (query.isBlank() && topSuggestions.isNotEmpty()) topSuggestions else visible
-                val topIds = topSuggestions.map { it.course.id }.toSet()
                 items(flat, key = { "all_${it.course.id}" }) { suggestion ->
                     SuggestionCard(
                         suggestion = suggestion,
-                        highlighted = suggestion.course.id in topIds,
                         onAdd = { onAdd(suggestion.course.id) },
                         onShowGroups = { onShowGroups(suggestion) }
                     )
@@ -343,7 +323,7 @@ private fun SectionHeader(title: String, subtitle: String) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = subtitle,
@@ -363,30 +343,24 @@ private fun SectionHeader(title: String, subtitle: String) {
 @Composable
 private fun SuggestionCard(
     suggestion: CourseSuggestionRanker.CourseSuggestion,
-    highlighted: Boolean = false,
     onAdd: () -> Unit,
     onShowGroups: () -> Unit
 ) {
     val course = suggestion.course
     val best = suggestion.bestGroup
     val compatible = suggestion.status == SuggestionStatus.COMPATIBLE
-    // Top suggestions share one tonal wash (same accent, no extra badges or
-    // shadows) so they read as a group without visual noise.
-    val tonalWash = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
+    // Neutral card, like every other row in the app: compatibility is stated
+    // by the chip below, not by tinting the whole surface.
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("discovery_card_${course.code}"),
         shape = TermChinDesign.CardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = if (highlighted) tonalWash
-            else MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             1.dp,
-            if (compatible) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
         )
     ) {
         Column(
@@ -410,7 +384,7 @@ private fun SuggestionCard(
             ) {
                 Text(
                     text = buildString {
-                        append("کد: ${course.code}  •  ${course.credits} واحد")
+                        append("کد: ${JalaliDate.toFaDigits(course.code)}  •  ${JalaliDate.toFaDigits(course.credits)} واحد")
                         if (course.department.isNotBlank()) append("  •  ${course.department}")
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -424,8 +398,8 @@ private fun SuggestionCard(
             }
 
             Text(
-                text = "${suggestion.groups.size} گروه در کاتالوگ" +
-                    (if (best != null) "  •  بهترین گروه: ${best.section.section.sectionCode}" else ""),
+                text = "${JalaliDate.toFaDigits(suggestion.groups.size)} گروه در کاتالوگ" +
+                    (if (best != null) "  •  بهترین گروه: ${JalaliDate.toFaDigits(best.section.section.sectionCode)}" else ""),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

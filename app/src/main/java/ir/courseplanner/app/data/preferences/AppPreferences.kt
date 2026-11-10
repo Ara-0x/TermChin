@@ -2,7 +2,9 @@ package ir.courseplanner.app.data.preferences
 
 import android.content.Context
 import androidx.datastore.core.DataMigration
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.SharedPreferencesMigration
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -10,7 +12,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -71,9 +73,11 @@ enum class AppColorTheme(
 }
 
 enum class ThemeMode(val id: String, val titleFa: String) {
-    SYSTEM("system", "پیروی از سیستم"),
-    LIGHT("light", "همیشه روشن"),
-    DARK("dark", "همیشه تاریک");
+    // Short labels: the three chips share one row, and a long label used to
+    // wrap onto a second line and make the selected chip taller than its peers.
+    SYSTEM("system", "خودکار"),
+    LIGHT("light", "روشن"),
+    DARK("dark", "تاریک");
 
     companion object {
         fun fromId(id: String?): ThemeMode {
@@ -126,20 +130,39 @@ data class UserPreferences(
 
 private const val DATASTORE_NAME = "planner_user_prefs"
 
-private val Context.plannerDataStore by preferencesDataStore(
-    name = DATASTORE_NAME,
-    produceMigrations = { context ->
-        // One-time upgrade path: existing installs keep their SharedPreferences values.
-        listOf<DataMigration<Preferences>>(SharedPreferencesMigration(context, DATASTORE_NAME))
+/**
+ * One DataStore per application context.
+ *
+ * This used to be the `preferencesDataStore` delegate, which caches a single
+ * DataStore for the whole JVM. That is fine in the app (one application, one
+ * manager) but wrong under Robolectric: every test method gets a fresh
+ * Application with a fresh data directory while the delegate kept returning a
+ * DataStore bound to the first method's now-stale directory — writes then hung
+ * forever. Keying by context keeps the one-instance-per-file promise for a real
+ * app and gives every test a DataStore it actually owns.
+ */
+private val dataStoreCache = java.util.WeakHashMap<Context, DataStore<Preferences>>()
+
+private fun Context.plannerDataStore(): DataStore<Preferences> = synchronized(dataStoreCache) {
+    val key = applicationContext ?: this
+    dataStoreCache.getOrPut(key) {
+        PreferenceDataStoreFactory.create(
+            migrations = listOf<DataMigration<Preferences>>(
+                // One-time upgrade path: existing installs keep their SharedPreferences values.
+                SharedPreferencesMigration(key, DATASTORE_NAME)
+            ),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { key.preferencesDataStoreFile(DATASTORE_NAME) }
+        )
     }
-)
+}
 
 @Singleton
 class PreferencesManager @Inject constructor(
     @ApplicationContext context: Context
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val dataStore = context.plannerDataStore
+    private val dataStore = context.plannerDataStore()
 
     val preferences: StateFlow<UserPreferences> = dataStore.data
         .catch { e ->

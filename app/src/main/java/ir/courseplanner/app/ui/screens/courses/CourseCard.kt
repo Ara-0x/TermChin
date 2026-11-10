@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
@@ -58,8 +60,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -71,6 +73,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -84,7 +87,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -134,17 +136,10 @@ internal fun CourseCard(
 ) {
     val course = courseWithSections.course
     val sectionsWithDetails = sections
-    // A course that already owns an enrolled group is "active" in the student's
-    // week. A leading accent bar (same vocabulary as the focused timeline row on
-    // Home) makes those courses scannable in one pass down the list.
-    val hasEnrolled = remember(sectionsWithDetails, enrolledKey) {
-        sectionsWithDetails.any { it.section.isEnrolled }
-    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .testTag("course_card_${course.code}"),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
@@ -155,48 +150,42 @@ internal fun CourseCard(
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
         ) {
-            // Leading accent: primary for enrolled courses, a quiet hairline
-            // otherwise, so every card keeps the same left/right rhythm.
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(TermChinDesign.FocusBarWidth)
-                    .background(
-                        if (hasEnrolled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
-                    )
-            )
+            // No leading accent bar: an enrolled group is already stated in the
+            // group row below, so a coloured edge only painted every card blue.
             Column(modifier = Modifier
                 .weight(1f)
-                .padding(start = 12.dp, end = 14.dp, top = 14.dp, bottom = 14.dp)
+                .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp)
             ) {
             // Course Header
-            // Layout contract: the course name owns the full first line and
-            // may wrap to a second one; chips (units, documents) live on a
-            // dedicated second Row, and code/department on a third. No name
-            // is ever cut by a same-row chip — the ... suffix appears only
-            // past two full lines. Structure of this block:
-            //   Column
-            //   ├─ nameRow        (name Text only)
-            //   ├─ metaRow        (credits chip + documents chip + spacer + actions)
-            //   └─ codeRow        (کد + دانشکده)
+            // Layout contract: the name owns the first line (up to two lines),
+            // the overflow menu sits at the line end, facts (units/passed +
+            // documents shortcut) occupy the second line, code/department the
+            // third, and the generator opt-in is a labelled switch below them.
+            // No chip ever competes with the name for width.
             Column(modifier = Modifier.fillMaxWidth()) {
                 // 1) Name: full-width, wraps to a second line.
-                Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("course_card_name_${course.code}")
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = course.name,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("course_card_name_${course.code}")
+                    )
+                    CourseActionsMenu(
+                        onEdit = onEditCourseClick,
+                        onDelete = onDeleteCourseClick
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // 2) Chips row: the action cluster keeps a fixed slot at the
-                // line end; chips take the rest and wrap to a second line.
+                // 2) Facts are neutral, actions carry the accent: units and
+                // "already passed" are metadata, the documents chip is a
+                // shortcut. Tinting all three made a tag soup.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
@@ -209,13 +198,13 @@ internal fun CourseCard(
                         Box(
                             modifier = Modifier
                                 .clip(TermChinDesign.MicroShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                                 .padding(horizontal = 7.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = "${JalaliDate.toFaDigits(course.credits)} واحد",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 softWrap = false
@@ -229,13 +218,13 @@ internal fun CourseCard(
                             Box(
                                 modifier = Modifier
                                     .clip(TermChinDesign.MicroShape)
-                                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "قبلاً پاس شده",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     softWrap = false
@@ -246,7 +235,7 @@ internal fun CourseCard(
                         // Documents & Pamphlets shortcut chip
                         Surface(
                             shape = TermChinDesign.MicroShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier.clickable { onOpenDocuments() }
                         ) {
                             Row(
@@ -256,14 +245,14 @@ internal fun CourseCard(
                                 Icon(
                                     imageVector = Icons.Default.Description,
                                     contentDescription = "اسناد درس",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = if (docCount > 0) "${JalaliDate.toFaDigits(docCount)} جزوه" else "+ جزوه",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     softWrap = false
@@ -272,62 +261,6 @@ internal fun CourseCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Top Actions: Checkbox for Schedule Generator + Delete Course
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                    Surface(
-                        shape = TermChinDesign.ChipShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 8.dp, end = 2.dp, top = 2.dp, bottom = 2.dp)
-                        ) {
-                            Text(
-                                text = "برنامه‌ساز",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                softWrap = false
-                            )
-                            Checkbox(
-                                checked = course.isSelectedForGeneration,
-                                onCheckedChange = onToggleSelectedForGeneration,
-                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-                                modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                            )
-                        }
-                    }
-
-                    IconButton(
-                        onClick = onEditCourseClick,
-                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "ویرایش درس",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = onDeleteCourseClick,
-                        modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                    ) {
-                        Icon(
-                            Icons.Default.DeleteOutline,
-                            contentDescription = "حذف درس",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    }
                 }
 
                 // 3) Code row: wraps instead of eating name space.
@@ -352,6 +285,35 @@ internal fun CourseCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // The generator opt-in used to be a checkbox squeezed into a
+                // chip between the chips and the edit/delete icons — it read as
+                // one more tag. A labelled switch states the setting plainly.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "در برنامه‌ساز",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = course.isSelectedForGeneration,
+                        onCheckedChange = onToggleSelectedForGeneration,
+                        modifier = Modifier.testTag("course_generator_switch_${course.code}")
+                    )
                 }
             }
 
@@ -771,6 +733,58 @@ internal fun SectionItem(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Overflow for the course's two secondary actions. A row of same-weight icons
+ * made «ویرایش» and «حذف» compete with the course itself; one glyph plus a
+ * menu keeps the card calm and gives deletion an explicit label.
+ */
+@Composable
+private fun CourseActionsMenu(
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .size(TermChinDesign.MinTouchHeight)
+                .testTag("course_menu_button")
+        ) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "گزینه‌های درس",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("ویرایش درس") },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onEdit()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("حذف درس", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                }
+            )
         }
     }
 }

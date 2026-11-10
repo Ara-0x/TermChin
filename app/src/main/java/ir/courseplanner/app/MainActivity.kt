@@ -8,12 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -30,6 +28,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
@@ -43,6 +42,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import ir.courseplanner.app.data.preferences.ThemeMode
@@ -52,6 +54,7 @@ import ir.courseplanner.app.ui.components.StartNewTermDialog
 import ir.courseplanner.app.ui.components.UpdateAvailableDialog
 import ir.courseplanner.app.ui.screens.AcademicRecordsScreen
 import ir.courseplanner.app.ui.screens.AddCourseScreen
+import ir.courseplanner.app.ui.screens.AttendanceScreen
 import ir.courseplanner.app.ui.screens.CoursesScreen
 import ir.courseplanner.app.ui.screens.DocumentsScreen
 import ir.courseplanner.app.ui.screens.EndTermScreen
@@ -60,8 +63,16 @@ import ir.courseplanner.app.ui.screens.PassedCoursesScreen
 import ir.courseplanner.app.ui.screens.ScheduleScreen
 import ir.courseplanner.app.ui.screens.SettingsScreen
 import ir.courseplanner.app.ui.theme.MyApplicationTheme
+import ir.courseplanner.app.update.UpdateDownloadState
+import ir.courseplanner.app.update.UpdateInstaller
 import ir.courseplanner.app.update.downloadInBrowser
 import kotlinx.coroutines.launch
+
+/**
+ * One motion curve for the whole shell: a strong ease-out that starts quickly
+ * and settles calmly. Built-in curves are too weak for a screen transition.
+ */
+private val ScreenEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -156,24 +167,70 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         viewModel.checkForUpdateOnce()
     }
 
-    // The prompt hands the download to the browser and does nothing else: the app
-    // neither downloads nor installs the APK itself.
+    // In-app update flow: the ViewModel owns the transfer (so it survives
+    // recomposition), while the activity owns the two system hand-offs — the
+    // "install unknown apps" toggle and the package installer.
     val updateContext = LocalContext.current
+    val updateDownload by viewModel.updateDownload.collectAsStateWithLifecycle()
+    var canInstallUpdates by remember { mutableStateOf(UpdateInstaller.canInstall(updateContext)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        // The permission is changed in Settings, outside this process: re-read it
+        // whenever the app comes back, so the dialog switches from "اجازهٔ نصب"
+        // to "نصب بهروزرسانی" without a restart.
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canInstallUpdates = UpdateInstaller.canInstall(updateContext)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     availableUpdate?.let { update ->
         UpdateAvailableDialog(
             update = update,
             currentVersionName = BuildConfig.VERSION_NAME,
+            downloadState = if (update.hasApkAsset) updateDownload else UpdateDownloadState.Idle,
+            installPermissionGranted = canInstallUpdates,
             onDownload = {
-                viewModel.onUpdateDownloadRequested()
-                val opened = downloadInBrowser(updateContext, update.downloadUrl)
-                if (!opened) {
+                if (update.hasApkAsset) {
+                    viewModel.startUpdateDownload()
+                } else {
+                    // No APK asset in this release: the honest fallback is the
+                    // release page in the browser.
+                    val opened = downloadInBrowser(updateContext, update.downloadUrl)
+                    if (opened) {
+                        viewModel.dismissUpdatePrompt()
+                    } else {
+                        viewModel.showUserFacingMessage(
+                            "مرورگری برای باز کردن صفحهٔ انتشار پیدا نشد. آدرس Releases را در گیت‌هاب باز کنید.",
+                            isError = true
+                        )
+                    }
+                }
+            },
+            onCancelDownload = viewModel::cancelUpdateDownload,
+            onInstall = {
+                val apk = (updateDownload as? UpdateDownloadState.Ready)?.apk
+                if (apk == null) {
+                    return@UpdateAvailableDialog
+                }
+                if (!UpdateInstaller.canInstall(updateContext)) {
+                    canInstallUpdates = false
+                    UpdateInstaller.openInstallPermissionSettings(updateContext)
+                } else if (UpdateInstaller.install(updateContext, apk)) {
+                    viewModel.onUpdateInstallerLaunched()
+                } else {
                     viewModel.showUserFacingMessage(
-                        "مرورگری برای باز کردن لینک دانلود پیدا نشد. لینک را از صفحهٔ Releases در گیت‌هاب باز کنید.",
+                        "نصب‌کنندهٔ اندروید باز نشد. دوباره تلاش کنید.",
                         isError = true
                     )
                 }
             },
-            onLater = { viewModel.dismissUpdatePrompt() }
+            onGrantInstallPermission = {
+                UpdateInstaller.openInstallPermissionSettings(updateContext)
+            },
+            onLater = viewModel::dismissUpdatePrompt
         )
     }
 
@@ -219,7 +276,8 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
             if (currentDestination != AppDestination.ADD_COURSE &&
                 currentDestination != AppDestination.PASSED_COURSES &&
                 currentDestination != AppDestination.END_TERM &&
-                currentDestination != AppDestination.ACADEMIC_RECORDS
+                currentDestination != AppDestination.ACADEMIC_RECORDS &&
+                currentDestination != AppDestination.ATTENDANCE
             ) {
                 TermChinBottomBar(
                     current = currentDestination,
@@ -235,26 +293,33 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
         AnimatedContent(
             targetState = currentDestination,
             transitionSpec = {
-                // Modern shared-axis feel: a short directional slide combined
-                // with a subtle depth scale and a cross-fade. RTL-aware — forward
-                // motion slides right-to-left so it matches the app's direction.
-                val forward = targetState.ordinal > initialState.ordinal
-                val direction = if (forward) -1 else 1
-                val enter = slideInHorizontally(
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                    initialOffsetX = { fullWidth -> direction * fullWidth / 6 }
-                ) + scaleIn(
-                    initialScale = 0.96f,
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                ) + fadeIn(animationSpec = tween(durationMillis = 260))
-                val exit = slideOutHorizontally(
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                    targetOffsetX = { fullWidth -> -direction * fullWidth / 10 }
-                ) + scaleOut(
-                    targetScale = 0.98f,
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                ) + fadeOut(animationSpec = tween(durationMillis = 200))
-                enter togetherWith exit
+                // Tabs are peers: switching between them cross-fades, never
+                // slides (a slide implies a spatial hierarchy the tab bar does
+                // not have). Push-style sub-pages keep a short directional
+                // slide so "deeper" and "back" stay legible.
+                val topLevel = setOf(
+                    AppDestination.HOME,
+                    AppDestination.COURSES,
+                    AppDestination.SCHEDULE,
+                    AppDestination.DOCUMENTS,
+                    AppDestination.SETTINGS
+                )
+                if (initialState in topLevel && targetState in topLevel) {
+                    fadeIn(tween(180, easing = ScreenEasing)) togetherWith
+                        fadeOut(tween(140, easing = ScreenEasing))
+                } else {
+                    val forward = targetState.ordinal > initialState.ordinal
+                    val direction = if (forward) -1 else 1
+                    val enter = slideInHorizontally(
+                        animationSpec = tween(durationMillis = 260, easing = ScreenEasing),
+                        initialOffsetX = { fullWidth -> direction * fullWidth / 8 }
+                    ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = ScreenEasing))
+                    val exit = slideOutHorizontally(
+                        animationSpec = tween(durationMillis = 200, easing = ScreenEasing),
+                        targetOffsetX = { fullWidth -> -direction * fullWidth / 12 }
+                    ) + fadeOut(animationSpec = tween(durationMillis = 140, easing = ScreenEasing))
+                    enter togetherWith exit
+                }
             },
             label = "ScreenTransition"
         ) { destination ->
@@ -270,6 +335,7 @@ fun CoursePlannerApp(viewModel: CoursePlannerViewModel) {
                 AppDestination.PASSED_COURSES -> PassedCoursesScreen(viewModel = viewModel, modifier = screenModifier)
                 AppDestination.END_TERM -> EndTermScreen(viewModel = viewModel, modifier = screenModifier)
                 AppDestination.ACADEMIC_RECORDS -> AcademicRecordsScreen(viewModel = viewModel, modifier = screenModifier)
+                AppDestination.ATTENDANCE -> AttendanceScreen(viewModel = viewModel, modifier = screenModifier)
             }
         }
     }

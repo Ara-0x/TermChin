@@ -3,6 +3,7 @@ package ir.courseplanner.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,19 +36,20 @@ import androidx.compose.ui.unit.sp
 import ir.courseplanner.app.data.model.AttendanceStats
 import ir.courseplanner.app.data.model.SectionWithDetails
 import ir.courseplanner.app.ui.theme.TermChinDesign
+import ir.courseplanner.app.ui.theme.pressScale
 import ir.courseplanner.app.util.JalaliDate
 
 /**
- * Compact per-course attendance summary. A row turns red as soon as the
- * student reaches the configured absence limit, so the warning exists before
- * the next (possibly disastrous) absence.
+ * Compact per-course absence summary. Presence is deliberately not shown:
+ * only the number that can hurt the student (absences vs. the configured
+ * limit). A row turns red as soon as the limit is reached.
  */
 @Composable
 fun AttendanceSummaryCard(
     enrolledSections: List<SectionWithDetails>,
     statsByCourse: Map<Long, AttendanceStats>,
     absenceLimit: Int,
-    onOpenSchedule: (() -> Unit)? = null,
+    onOpenAttendance: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val courses = enrolledSections
@@ -54,9 +57,23 @@ fun AttendanceSummaryCard(
         .sortedBy { it.course.name }
     if (courses.isEmpty()) return
 
+    val pressInteraction = remember { MutableInteractionSource() }
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (onOpenAttendance != null) {
+                    Modifier
+                        .clickable(
+                            interactionSource = pressInteraction,
+                            indication = null,
+                            onClick = onOpenAttendance
+                        )
+                        .pressScale(pressInteraction)
+                } else {
+                    Modifier
+                }
+            )
             .testTag("attendance_summary_card"),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
@@ -68,16 +85,7 @@ fun AttendanceSummaryCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(TermChinDesign.MicroShape)
-                    .then(
-                        if (onOpenSchedule != null) {
-                            Modifier.clickable(onClick = onOpenSchedule)
-                        } else {
-                            Modifier
-                        }
-                    )
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
                     Icons.Default.EventAvailable,
@@ -96,10 +104,10 @@ fun AttendanceSummaryCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (onOpenSchedule != null) {
+                if (onOpenAttendance != null) {
                     Icon(
                         Icons.Default.ChevronLeft,
-                        contentDescription = "باز کردن برنامه",
+                        contentDescription = "باز کردن حضور و غیاب",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .padding(start = 4.dp)
@@ -110,15 +118,19 @@ fun AttendanceSummaryCard(
 
             courses.forEach { section ->
                 val stats = statsByCourse[section.course.id] ?: AttendanceStats()
-                CourseAttendanceRow(
+                CourseAbsenceRow(
                     name = section.courseName,
-                    stats = stats,
+                    absenceCount = stats.absenceCount,
                     absenceLimit = absenceLimit
                 )
             }
 
             Text(
-                text = "برای ثبت، روی جلسهٔ کلاس در خانه یا جدول هفتگی بزنید.",
+                text = if (onOpenAttendance != null) {
+                    "برای دیدن و ویرایش غیبت‌ها بزنید."
+                } else {
+                    "برای ثبت، روی جلسهٔ کلاس در خانه یا جدول هفتگی بزنید."
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -132,14 +144,14 @@ fun AttendanceSummaryCard(
 }
 
 @Composable
-private fun CourseAttendanceRow(
+private fun CourseAbsenceRow(
     name: String,
-    stats: AttendanceStats,
+    absenceCount: Int,
     absenceLimit: Int
 ) {
     // A zero limit should only warn once an absence actually exists; comparing
     // 0 >= 0 would otherwise flag every course from the first day.
-    val atLimit = stats.absenceCount > 0 && stats.absenceCount >= absenceLimit
+    val atLimit = absenceCount > 0 && absenceCount >= absenceLimit
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -153,10 +165,10 @@ private fun CourseAttendanceRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        StatPill("حاضر", stats.present, MaterialTheme.colorScheme.primary)
-        StatPill("غایب", stats.absent, if (atLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-        if (stats.late > 0) StatPill("تأخیر", stats.late, MaterialTheme.colorScheme.tertiary)
-        if (stats.excused > 0) StatPill("موجه", stats.excused, MaterialTheme.colorScheme.secondary)
+        AbsencePill(
+            value = absenceCount,
+            color = if (atLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+        )
         if (atLimit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -168,7 +180,7 @@ private fun CourseAttendanceRow(
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
                     text = if (absenceLimit > 0) {
-                        "${JalaliDate.toFaDigits(stats.absenceCount)} از ${JalaliDate.toFaDigits(absenceLimit)}"
+                        "${JalaliDate.toFaDigits(absenceCount)} از ${JalaliDate.toFaDigits(absenceLimit)}"
                     } else {
                         "غیبت ثبت شده"
                     },
@@ -182,7 +194,7 @@ private fun CourseAttendanceRow(
 }
 
 @Composable
-private fun StatPill(label: String, value: Int, color: androidx.compose.ui.graphics.Color) {
+private fun AbsencePill(value: Int, color: androidx.compose.ui.graphics.Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -191,7 +203,7 @@ private fun StatPill(label: String, value: Int, color: androidx.compose.ui.graph
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
-            text = label,
+            text = "غیبت",
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
             color = color,
             maxLines = 1

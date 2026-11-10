@@ -57,6 +57,7 @@ import ir.courseplanner.app.data.model.WeekType
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.engine.ScheduleEngine.UpcomingSession
 import ir.courseplanner.app.ui.theme.TermChinDesign
+import ir.courseplanner.app.ui.theme.tinted
 import ir.courseplanner.app.util.JalaliDate
 import java.util.Calendar
 import java.util.TimeZone
@@ -321,7 +322,10 @@ internal fun NowNextCard(
         // alpha of saturated primary around this card reads as a harsh,
         // unprofessional stripe on light themes.
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
+            containerColor = MaterialTheme.colorScheme.tinted(
+                MaterialTheme.colorScheme.primaryContainer,
+                0.30f
+            )
         ),
         // Flat: any elevation painted a gray halo RING around the card on light
         // themes (the tinted fill is the emphasis, not a shadow).
@@ -433,13 +437,17 @@ internal fun NowNextCard(
  */
 @Composable
 private fun UpcomingDayCard(item: UpcomingSession) {
-    val accent = MaterialTheme.colorScheme.secondary
-    val onAccent = MaterialTheme.colorScheme.onSecondary
+    // Same accent as today's block; the filled weekday badge and the explicit
+    // «کلاس بعدی» label carry the "not today" meaning without a second hue.
+    val accent = MaterialTheme.colorScheme.primary
+    val onAccent = MaterialTheme.colorScheme.onPrimary
     val dayName = ClassSession.getDayName(item.dayOfWeek)
     Surface(
         shape = TermChinDesign.RowShape,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+        color = MaterialTheme.colorScheme.tinted(
+            MaterialTheme.colorScheme.primaryContainer,
+            0.35f
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .semantics {
@@ -521,14 +529,24 @@ private fun SessionProgress(nowMinutes: Int, session: ClassSession) {
         animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
         label = "sessionProgress"
     )
-    LinearProgressIndicator(
-        progress = { animated },
+    // Hand-drawn track instead of LinearProgressIndicator: Material 3's
+    // indicator paints a stop dot and a secondary-coloured track, which put a
+    // second accent (and a stray dot) inside a one-accent card.
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(6.dp)
-            .clip(TermChinDesign.MicroShape),
-        strokeCap = StrokeCap.Round
-    )
+            .height(5.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.tinted(MaterialTheme.colorScheme.primary, 0.14f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(animated)
+                .height(5.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+    }
 }
 
 /**
@@ -570,18 +588,18 @@ private fun FocusedClassRow(
     isOngoing: Boolean = false,
     nowMinutes: Int?
 ) {
-    // An ongoing class gets a warmer accent than a merely-upcoming one, so
-    // "happening now" is distinguishable from "next" before reading a word.
-    val accent = if (isOngoing) MaterialTheme.colorScheme.tertiary
-                 else MaterialTheme.colorScheme.primary
-    val accentContainer = if (isOngoing) MaterialTheme.colorScheme.tertiaryContainer
-                          else MaterialTheme.colorScheme.primaryContainer
-    val onAccentContainer = if (isOngoing) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onPrimaryContainer
+    // One accent, two weights: "now" is a filled primary pill, "next" the same
+    // hue at low alpha. Mixing in a second hue made a single row carry three
+    // competing accents (rail, pill, progress) and read as decoration.
+    val accent = MaterialTheme.colorScheme.primary
+    val accentContainer = MaterialTheme.colorScheme.primaryContainer
+    val onAccentContainer = MaterialTheme.colorScheme.onPrimaryContainer
     Surface(
         shape = TermChinDesign.RowShape,
-        color = accentContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+        // Opaque surface inside the tinted card: a crisp "card in card" step,
+        // and unlike a translucent tint it cannot composite against whatever
+        // sits behind the page.
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = item.section.courseName + ". " + status }
@@ -643,9 +661,10 @@ private fun FocusedClassRow(
  */
 @Composable
 private fun StatusPill(label: String, ongoing: Boolean) {
-    val accent = if (ongoing) MaterialTheme.colorScheme.tertiary
-                 else MaterialTheme.colorScheme.primary
-    Surface(shape = TermChinDesign.PillShape, color = accent.copy(alpha = 0.14f)) {
+    val accent = MaterialTheme.colorScheme.primary
+    val background = if (ongoing) accent else MaterialTheme.colorScheme.tinted(accent, 0.12f)
+    val content = if (ongoing) MaterialTheme.colorScheme.onPrimary else accent
+    Surface(shape = TermChinDesign.PillShape, color = background) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -654,13 +673,13 @@ private fun StatusPill(label: String, ongoing: Boolean) {
                 modifier = Modifier
                     .size(6.dp)
                     .clip(CircleShape)
-                    .background(accent)
+                    .background(content)
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = accent,
+                color = content,
                 maxLines = 1
             )
         }
@@ -677,7 +696,10 @@ private fun CountdownBadge(
     containerColor: Color,
     contentColor: Color
 ) {
-    Surface(shape = TermChinDesign.PillShape, color = containerColor.copy(alpha = 0.55f)) {
+    Surface(
+        shape = TermChinDesign.PillShape,
+        color = MaterialTheme.colorScheme.tinted(containerColor, 0.55f)
+    ) {
         Row(
             modifier = Modifier
                 .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -905,7 +927,7 @@ private fun OverviewStat(
     Surface(
         modifier = modifier,
         shape = TermChinDesign.RowShape,
-        color = accent.copy(alpha = 0.12f)
+        color = MaterialTheme.colorScheme.tinted(accent, 0.12f)
     ) {
         Column(
             modifier = Modifier
@@ -950,7 +972,10 @@ internal fun AttentionCard(
             .testTag("home_attention_card"),
         shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+            containerColor = MaterialTheme.colorScheme.tinted(
+                MaterialTheme.colorScheme.errorContainer,
+                0.45f
+            )
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(

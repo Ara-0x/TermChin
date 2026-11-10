@@ -13,9 +13,10 @@ package ir.courseplanner.app.update
  * hijacked mirror must all resolve to null ("no update known") rather than to a
  * crash, a bogus version, or a download link pointing somewhere unexpected.
  *
- * Only three fields are trusted:
+ * Only a few fields are trusted:
  *  - `tag_name`               → the version to compare against
  *  - `assets[].browser_download_url` → the direct APK URL
+ *  - `assets[].digest`        → optional SHA-256 of that exact APK
  *  - `html_url`               → the human-readable release page (fallback)
  */
 object GitHubReleaseParser {
@@ -25,16 +26,18 @@ object GitHubReleaseParser {
         assetName.endsWith(".apk", ignoreCase = true)
 
     /**
-     * Accepts only `https` URLs whose host is GitHub itself (release assets are
-     * served from github.com and redirect to objects.githubusercontent.com).
-     * This is the app's single outbound trust boundary: without it, a spoofed
-     * response could hand the user a download link to any host on the internet.
+     * Accepts only `https` URLs whose host is GitHub itself. Release assets are
+     * served from github.com and redirect to GitHub's CDN
+     * (objects/release-assets.githubusercontent.com). This is the app's single
+     * outbound trust boundary: without it, a spoofed response could hand the
+     * user a download link to any host on the internet.
      */
     private val TRUSTED_HOSTS = setOf(
         "github.com",
         "www.github.com",
         "objects.githubusercontent.com",
-        "github-releases.githubusercontent.com"
+        "github-releases.githubusercontent.com",
+        "release-assets.githubusercontent.com"
     )
 
     fun isTrustedDownloadUrl(url: String): Boolean {
@@ -62,7 +65,8 @@ object GitHubReleaseParser {
         val htmlUrl = root.string("html_url")?.trim().orEmpty()
         val releasePage = if (isTrustedDownloadUrl(htmlUrl)) htmlUrl else ""
 
-        val downloadUrl = findApkAssetUrl(root) ?: releasePage.ifEmpty { return null }
+        val asset = findApkAsset(root)
+        val downloadUrl = asset?.url ?: releasePage.ifEmpty { return null }
 
         // Only a strictly newer version may ever prompt the user.
         if (!latest.isNewerThan(currentVersion)) return null
@@ -70,9 +74,19 @@ object GitHubReleaseParser {
         return AvailableUpdate(
             version = latest,
             downloadUrl = downloadUrl,
-            releasePageUrl = releasePage
+            releasePageUrl = releasePage,
+            // The notes are only ever rendered as plain text; the cap keeps a
+            // hostile/oversized payload from bloating the in-memory release.
+            changelog = root.string("body")?.trim()?.take(MAX_CHANGELOG_CHARS).orEmpty(),
+            sha256 = asset?.sha256
         )
     }
+
+    /** A release body longer than this is truncated; the dialog scrolls anyway. */
+    private const val MAX_CHANGELOG_CHARS = 6_000
+
+    /** The APK chosen for download plus its published checksum, if any. */
+    internal data class ApkAsset(val url: String, val sha256: String?)
 
     /**
      * Picks the APK asset to download. The release publishes two APKs:
@@ -81,15 +95,16 @@ object GitHubReleaseParser {
      * is preferred because it is the stable, human-recognisable file; otherwise
      * the first trustworthy `.apk` is used.
      */
-    internal fun findApkAssetUrl(root: Json.Obj): String? {
+    internal fun findApkAsset(root: Json.Obj): ApkAsset? {
         val assets = root.array("assets") ?: return null
-        var fallback: String? = null
+        var fallback: ApkAsset? = null
         for (item in assets) {
             val asset = item as? Json.Obj ?: continue
             val name = asset.string("name")?.trim() ?: continue
             if (!isApk(name)) continue
             val url = asset.string("browser_download_url")?.trim() ?: continue
             if (!isTrustedDownloadUrl(url)) continue
+            val candidate = ApkAsset(url = url, sha256 = parseDigest(asset.string("digest")))
             // The canonical asset carries no commit SHA after the version:
             // "TermChin-v2.7.3.apk" -> tail "2.7.3"; the cache-busting twin
             // "TermChin-v2.7.3-3951ca2.apk" -> tail "3951ca2".
@@ -97,9 +112,25 @@ object GitHubReleaseParser {
                 .substringAfterLast('-')
                 .trimStart('v', 'V')
             val isVersionedOnly = tail.matches(Regex("^\\d+(\\.\\d+)*$"))
-            if (isVersionedOnly) return url
-            if (fallback == null) fallback = url
+            if (isVersionedOnly) return candidate
+            if (fallback == null) fallback = candidate
         }
         return fallback
     }
+
+    private val SHA256_DIGEST = Regex("^sha256:([0-9a-fA-F]{64})$")
+
+    /**
+     * GitHub reports `asset.digest` as `"sha256:<hex>"`. Anything else (an
+     * unknown algorithm, a malformed value, a missing field) yields null, which
+     * simply skips the checksum comparison rather than blocking the update.
+     */
+    internal fun parseDigest(digest: String?): String? {
+        val hex = digest?.trim()?.let { SHA256_DIGEST.matchEntire(it)?.groupValues?.get(1) }
+            ?: return null
+        return hex.lowercase()
+    }
+
+    /** Kept for callers that only need the URL. */
+    internal fun findApkAssetUrl(root: Json.Obj): String? = findApkAsset(root)?.url
 }

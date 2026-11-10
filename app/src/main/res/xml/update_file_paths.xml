@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The only path FileProvider may serve: the app's private update cache. The
+  system installer receives a one-shot content:// URI for the verified APK.
+-->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

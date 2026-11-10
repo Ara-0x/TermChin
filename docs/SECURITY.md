@@ -123,17 +123,39 @@ releases; it cannot un-publish a key that was already public.
 
 ## Data & Privacy
 
-- **One narrow, documented network request — nothing else.** TermChin asks
-  `https://api.github.com/repos/Ara-0x/TermChin/releases/latest` whether a newer
-  release exists. It is an unauthenticated HTTPS `GET`: no account, no token, no
-  cookie, no analytics SDK, and **no user data** (courses, schedule, documents or
-  preferences are never part of the request). A CI gate re-checks this on the
-  **built APK** (`aapt dump permissions`) and fails if *any* permission other than
-  `android.permission.INTERNET` is present — so the update check cannot silently
-  become a broader network surface. No location, storage, contacts or
-  `REQUEST_INSTALL_PACKAGES` permission exists; TermChin neither downloads nor
-  installs an APK itself (the browser and Android's system installer do that).
-  Every other feature of the app is offline.
+- **Two documented permissions, both narrow.** TermChin declares exactly two
+  capability permissions, and a CI gate re-checks them on the **built APK**
+  (`aapt dump permissions`), failing the build if anything else appears:
+  - `android.permission.INTERNET` — one unauthenticated HTTPS `GET` to
+    `https://api.github.com/repos/Ara-0x/TermChin/releases/latest` to learn
+    whether a newer release exists, plus the optional APK download the user
+    starts from the update prompt. No account, no token, no cookie, no analytics
+    SDK, and **no user data** (courses, schedule, documents or preferences are
+    never part of either request).
+  - `android.permission.REQUEST_INSTALL_PACKAGES` — required only so the app can
+    hand a downloaded, verified APK to **Android's own package installer**. It
+    is not a silent-install capability: the app never invokes a package
+    installer API directly, the system confirmation screen is always shown, and
+    Android additionally requires the user to allow "install unknown apps" for
+    TermChin in Settings before the hand-off can succeed.
+
+  No location, storage, contacts, camera or other device access exists. Every
+  other feature of the app is offline.
+- **The update download is bounded and verified before the installer sees it.**
+  Bytes are fetched only over HTTPS from GitHub-controlled hosts (every redirect
+  is re-validated, so a `302` cannot downgrade the scheme or redirect to a
+  third-party server). The transfer is capped at 200 MB, buffered into the
+  app's private cache as `<name>.part` plus a small metadata file (URL, ETag,
+  total), and resumes with an HTTP `Range`/`If-Range` request after a dropped
+  connection instead of restarting a 15 MB file. The file is only handed to the
+  installer after the ZIP/APK magic, the whole-file **SHA-256** published by the
+  release (when present), the package name and a **strictly newer**
+  `versionCode` all check out; a mismatch deletes the file and shows one clear
+  reason. Cancelling or dismissing the prompt deletes the partial/finished
+  archive. Code: `app/src/main/java/ir/courseplanner/app/update/`.
+- A release that publishes no APK asset falls back to a «صفحهٔ انتشار» button:
+  the app then opens the GitHub release page in the browser and downloads
+  nothing itself.
 - **OS backup is disabled.** The manifest sets `android:allowBackup="false"`,
   and the `dataExtractionRules` / `fullBackupContent` attributes together with
   their `res/xml/backup_rules.xml` and `res/xml/data_extraction_rules.xml`
@@ -167,8 +189,8 @@ apksigner verify --print-certs TermChin-vX.Y.Z.apk | grep 'SHA-256 digest'
 # 2) version must match what the release claims
 aapt dump badging TermChin-vX.Y.Z.apk | grep -E "versionCode|versionName"
 
-# 3) exactly one permission (INTERNET, for the update check) and no OS backup
-aapt dump permissions TermChin-vX.Y.Z.apk | grep -v INTERNET
+# 3) exactly two permissions (INTERNET + install hand-off) and no OS backup
+aapt dump permissions TermChin-vX.Y.Z.apk | grep -vE 'INTERNET|REQUEST_INSTALL_PACKAGES'
 aapt dump xmltree TermChin-vX.Y.Z.apk AndroidManifest.xml | grep allowBackup
 
 # 4) no signing material may ever be tracked in this repository
@@ -176,10 +198,11 @@ git ls-files | grep -Ei '\.(jks|keystore|b64|base64)$|(^|/)debug\.keystore'
 ```
 
 Expected: (1) `0d38aa65…adda0`; (2) a `versionName` matching the release tag;
-(3) the `grep -v INTERNET` command prints **nothing** (no permission other than
-the update check's `INTERNET`) and the `allowBackup` line ends with
+(3) the `grep -vE …` command prints **nothing** (no permission other than
+`INTERNET` and `REQUEST_INSTALL_PACKAGES`) and the `allowBackup` line ends with
 `(type 0x12)0x0`; (4) prints **nothing**. The `sha256:…` digest GitHub
-shows for a release asset must also equal `sha256sum <file>.apk`.
+shows for a release asset must also equal `sha256sum <file>.apk` — the same
+digest the in-app downloader enforces before it offers to install.
 
 ## What must never be committed
 

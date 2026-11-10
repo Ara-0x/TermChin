@@ -20,6 +20,7 @@ class GitHubReleaseParserTest {
 
     private fun releaseJson(
         tag: String = "v2.7.4",
+        body: String? = null,
         assets: String = """
             [
               {"name":"TermChin-v2.7.4-abcdef1.apk","browser_download_url":"https://github.com/Ara-0x/TermChin/releases/download/v2.7.4/TermChin-v2.7.4-abcdef1.apk"},
@@ -31,6 +32,7 @@ class GitHubReleaseParserTest {
           "tag_name": "$tag",
           "name": "TermChin $tag",
           "html_url": "https://github.com/Ara-0x/TermChin/releases/tag/$tag",
+          "body": ${body ?: "null"},
           "assets": $assets
         }
     """.trimIndent()
@@ -43,6 +45,56 @@ class GitHubReleaseParserTest {
             "https://github.com/Ara-0x/TermChin/releases/download/v2.7.4/TermChin-v2.7.4.apk",
             update?.downloadUrl
         )
+    }
+
+    @Test
+    fun `release notes are carried into the update`() {
+        val json = releaseJson(
+            body = "\"### ✨ جدید در این نسخه:\\n- پایان ترم و شروع ترم جدید\\n- سوابق تحصیلی\""
+        )
+        val update = GitHubReleaseParser.parseLatestRelease(json, current)
+        assertEquals(
+            "### ✨ جدید در این نسخه:\n- پایان ترم و شروع ترم جدید\n- سوابق تحصیلی",
+            update?.changelog
+        )
+    }
+
+    @Test
+    fun `a release without notes yields no changelog`() {
+        val update = GitHubReleaseParser.parseLatestRelease(releaseJson(), current)
+        assertTrue(update != null && update.changelog.isEmpty())
+    }
+
+    @Test
+    fun `a published sha256 digest is carried into the update`() {
+        val hex = "ab".repeat(32)
+        val json = releaseJson(assets = """
+            [
+              {"name":"TermChin-v2.7.4.apk","browser_download_url":"https://github.com/Ara-0x/TermChin/releases/download/v2.7.4/TermChin-v2.7.4.apk","digest":"sha256:${hex.uppercase()}"}
+            ]
+        """.trimIndent())
+        assertEquals(hex, GitHubReleaseParser.parseLatestRelease(json, current)?.sha256)
+    }
+
+    @Test
+    fun `a malformed or foreign digest is ignored`() {
+        val digests = listOf(
+            "md5:d41d8cd98f00b204e9800998ecf8427e",
+            "sha256:not-hex",
+            "sha256:${"a".repeat(63)}",
+            "",
+        )
+        for (digest in digests) {
+            val json = releaseJson(assets = """
+                [
+                  {"name":"TermChin-v2.7.4.apk","browser_download_url":"https://github.com/Ara-0x/TermChin/releases/download/v2.7.4/TermChin-v2.7.4.apk","digest":"$digest"}
+                ]
+            """.trimIndent())
+            assertNull(
+                "digest \"$digest\" must not be trusted",
+                GitHubReleaseParser.parseLatestRelease(json, current)?.sha256
+            )
+        }
     }
 
     @Test
@@ -142,6 +194,11 @@ class GitHubReleaseParserTest {
         assertTrue(
             GitHubReleaseParser.isTrustedDownloadUrl(
                 "https://objects.githubusercontent.com/github-production-release-asset/1234"
+            )
+        )
+        assertTrue(
+            GitHubReleaseParser.isTrustedDownloadUrl(
+                "https://release-assets.githubusercontent.com/github-production-release-asset/1234"
             )
         )
         // Downgrades and look-alike hosts must fail.

@@ -201,14 +201,20 @@ jobs:
           fi
           echo "Signature matches the TermChin release key (and is not the retired one)."
 
-      # TermChin's network surface is deliberately tiny: ONE permission
-      # (INTERNET) used for a single unauthenticated HTTPS GET to api.github.com
-      # to learn whether a newer release exists (app/src/main/.../update/).
-      # OS-level backup stays disabled. Both are user-facing promises documented
-      # in README.md and docs/SECURITY.md. Inspect the BUILT APK (merged
-      # manifest) so a regression introduced by any dependency or build flag fails
-      # here, not in review.
-      - name: Network & backup gate (INTERNET only, OS backup disabled)
+      # TermChin's permission surface is deliberately tiny and explicit:
+      #   * INTERNET                — one unauthenticated HTTPS GET to
+      #                               api.github.com, plus the optional
+      #                               in-app APK download the user starts;
+      #   * REQUEST_INSTALL_PACKAGES— lets the user hand the verified APK to
+      #                               Android's own installer. It grants no
+      #                               silent-install power: the system still
+      #                               shows its confirmation dialog, and the
+      #                               user must allow the source in Settings.
+      # OS-level backup stays disabled. All three are user-facing promises
+      # documented in README.md and docs/SECURITY.md. Inspect the BUILT APK
+      # (merged manifest) so a regression introduced by any dependency or build
+      # flag fails here, not in review.
+      - name: Network & backup gate (INTERNET + install hand-off only, OS backup disabled)
         run: |
           APK=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
           if [ -z "$APK" ]; then
@@ -218,11 +224,12 @@ jobs:
           echo "=== permissions declared by the APK ==="
           PERMS=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK")
           echo "$PERMS"
-          # Allow-list, not a deny-list: INTERNET is the ONLY *capability*
-          # permission TermChin may ever request. Anything else (location,
-          # contacts, storage, REQUEST_INSTALL_PACKAGES, ...) is a build failure,
-          # because the app stores everything locally and hands APK downloads to
-          # the browser.
+          # Allow-list, not a deny-list: INTERNET (update check + user-started
+          # download) and REQUEST_INSTALL_PACKAGES (open the system installer for
+          # the verified file) are the ONLY capability permissions TermChin may
+          # ever request. Anything else (location, contacts, storage, camera, ...)
+          # is a build failure, because the app stores everything locally and
+          # never reads the user's files or device state.
           #
           # One exception is structural, not a capability: androidx merges the
           # app's own "<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
@@ -230,7 +237,8 @@ jobs:
           # it protects the app's own broadcasts and grants zero access — so it
           # is expected on the allow-list. The package name is read from the APK
           # itself (both old and new `aapt` formats) rather than hardcoded.
-          ALLOWED="android.permission.INTERNET"
+          ALLOWED_INTERNET="android.permission.INTERNET"
+          ALLOWED_INSTALL="android.permission.REQUEST_INSTALL_PACKAGES"
           APP_ID=$(printf '%s\n' "$PERMS" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
           if [ -z "$APP_ID" ]; then
             APP_ID=$(printf '%s\n' "$PERMS" | sed -n "s/^package: \([^ ]*\).*/\1/p")
@@ -242,16 +250,22 @@ jobs:
           fi
           while read -r PERM; do
             [ -n "$PERM" ] || continue
-            if [ "$PERM" != "$ALLOWED" ] && [ "$PERM" != "$SELF_GUARD" ]; then
-              echo "::error::Release APK requests an unexpected permission: $PERM (only $ALLOWED and the app's own $SELF_GUARD are allowed)."
+            if [ "$PERM" != "$ALLOWED_INTERNET" ] \
+              && [ "$PERM" != "$ALLOWED_INSTALL" ] \
+              && [ "$PERM" != "$SELF_GUARD" ]; then
+              echo "::error::Release APK requests an unexpected permission: $PERM (only $ALLOWED_INTERNET, $ALLOWED_INSTALL and the app's own $SELF_GUARD are allowed)."
               exit 1
             fi
           done <<< "$(echo "$PERMS" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p")"
-          if ! echo "$PERMS" | grep -q "$ALLOWED"; then
-            echo "::error::Release APK no longer declares $ALLOWED - the update check could not work."
+          if ! echo "$PERMS" | grep -q "$ALLOWED_INTERNET"; then
+            echo "::error::Release APK no longer declares $ALLOWED_INTERNET - the update check could not work."
             exit 1
           fi
-          echo "Permission surface OK: INTERNET (+ the app's own dynamic-receiver guard) — the update check is the sole network capability."
+          if ! echo "$PERMS" | grep -q "$ALLOWED_INSTALL"; then
+            echo "::error::Release APK no longer declares $ALLOWED_INSTALL - the in-app install hand-off would be blocked."
+            exit 1
+          fi
+          echo "Permission surface OK: INTERNET + REQUEST_INSTALL_PACKAGES (+ the app's own dynamic-receiver guard) — no silent install, no device access."
           echo "=== allowBackup in the merged manifest ==="
           ALLOW_BACKUP_LINE=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep "android:allowBackup" || true)
           echo "${ALLOW_BACKUP_LINE:-<allowBackup attribute absent>}"

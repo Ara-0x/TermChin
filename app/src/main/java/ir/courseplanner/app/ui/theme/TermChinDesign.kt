@@ -15,7 +15,8 @@ import androidx.compose.ui.unit.dp
  * with at least one call site live here.
  */
 object TermChinDesign {
-    /** Outer screen padding (also used by Home screen scroll column). */
+    /** Outer screen padding (also used by Home screen scroll column). Matches the
+     *  prototype `.screen` padding: 20px left/right. */
     val ScreenMargin: Dp = 16.dp
 
     /** Max width of the centered app shell on wide screens (CSS: 520px). */
@@ -75,7 +76,8 @@ object TermChinDesign {
 
     /** Premium weekly date-strip cell geometry. */
     val DateCellWidth: Dp = 56.dp
-    val DateCellHeight: Dp = 72.dp
+    /** Tall enough for day name + day number + count without clipping. */
+    val DateCellHeight: Dp = 76.dp
     /** Class indicator dot under a date cell that has sessions. */
     val DateDotSize: Dp = 5.dp
 

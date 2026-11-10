@@ -10,8 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -51,7 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
@@ -64,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.courseplanner.app.data.model.ClassSession
@@ -98,6 +96,14 @@ fun WeeklyTimetable(
     initialDay: Int = 0,
     /** Day to mark as «today» in the dashboard; omitted in the builder preview. */
     highlightedDay: Int? = null,
+    /**
+     * Epoch day that [highlightedDay] represents, used to print Jalali day
+     * numbers under the weekday names. Home passes the same clock it uses for
+     * the rest of the dashboard so the strip cannot disagree with «today» after
+     * midnight. Callers that do not show «today» (builder preview) keep the
+     * real clock as a harmless default.
+     */
+    todayEpochDay: Long = ir.courseplanner.app.util.JalaliDate.todayEpochDay(),
     showThursday: Boolean = true,
     density: TimetableDensity = TimetableDensity.STANDARD,
     /**
@@ -254,12 +260,36 @@ fun WeeklyTimetable(
         }
 
         if (currentParity != null) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "هفته جاری آموزشی: ${currentParity.titleFa} • کلاس‌های کم‌رنگ این هفته تشکیل نمی‌شوند",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // One compact status line instead of a sentence that wrapped and
+            // left a single orphan word on narrow phones. The parity is the
+            // fact worth reading; the explanation is deliberately quiet.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = TermChinDesign.PillShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = "هفتهٔ ${currentParity.titleFa}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+                Text(
+                    text = "کلاس‌های کم‌رنگ این هفته برگزار نمی‌شوند",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -303,6 +333,7 @@ fun WeeklyTimetable(
                         showThursday = showThursday,
                         density = density,
                         currentParity = currentParity,
+                        highlightedDay = highlightedDay,
                         onItemClick = { inspectItem = it }
                     )
                 } else {
@@ -310,6 +341,7 @@ fun WeeklyTimetable(
                         items = allItems,
                         selectedDay = selectedDay,
                         highlightedDay = highlightedDay,
+                        todayEpochDay = todayEpochDay,
                         showThursday = showThursday,
                         currentParity = currentParity,
                         onDayChange = { selectedDay = it },
@@ -464,6 +496,7 @@ private fun TimetableGridView(
     showThursday: Boolean = true,
     density: TimetableDensity = TimetableDensity.STANDARD,
     currentParity: ScheduleEngine.WeekParity? = null,
+    highlightedDay: Int? = null,
     onItemClick: (TimetableItem) -> Unit
 ) {
     val hasThursdayClasses = items.any { it.session.dayOfWeek == 5 }
@@ -478,57 +511,128 @@ private fun TimetableGridView(
         TimetableDensity.SPACIOUS -> 110.dp
     }
 
+    // One height per 2-hour row, shared by the pinned hour gutter and the
+    // scrolling day columns so the two can never drift apart.
+    val slotHeights = timeSlots.map { (slotStart, slotEnd) ->
+        val slotStartMin = ClassSession.timeToMinutes(slotStart)
+        val slotEndMin = ClassSession.timeToMinutes(slotEnd)
+        val hasMultipleInSlot = days.any { dayIdx ->
+            items.count { item ->
+                item.session.dayOfWeek == dayIdx &&
+                    item.session.startMinutes >= slotStartMin &&
+                    item.session.startMinutes < slotEndMin
+            } > 1
+        }
+        if (hasMultipleInSlot) baseCellHeight + 28.dp else baseCellHeight
+    }
+
+    val timeColumnWidth = 76.dp
+    val dayColumnWidth = 126.dp
+    val headerHeight = 38.dp
+    val rowGap = 3.dp
+
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape),
+            .fillMaxWidth(),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(scrollState)
                 .padding(10.dp)
-                .testTag("weekly_timetable_grid")
         ) {
+            // The hour gutter is pinned: it stays readable while the day
+            // columns scroll, which on a phone is barely two columns wide.
             Column {
-                // Header Row: Days of week
-                Row(modifier = Modifier.padding(bottom = 8.dp)) {
-                    // Time column header
+                Box(
+                    modifier = Modifier
+                        .width(timeColumnWidth)
+                        .height(headerHeight)
+                        .clip(TermChinDesign.ChipShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "ساعت",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                timeSlots.forEachIndexed { index, (slotStart, slotEnd) ->
                     Box(
                         modifier = Modifier
-                            .width(76.dp)
-                            .height(38.dp)
+                            .width(timeColumnWidth)
+                            .height(slotHeights[index] + rowGap * 2)
+                            .padding(vertical = rowGap)
                             .clip(TermChinDesign.ChipShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "ساعت",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotStart),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                softWrap = false
+                            )
+                            Text(
+                                text = "تا",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                softWrap = false
+                            )
+                            Text(
+                                text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotEnd),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                softWrap = false
+                            )
+                        }
                     }
+                }
+            }
 
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(scrollState)
+                    .testTag("weekly_timetable_grid")
+            ) {
+                // Header Row: Days of week
+                Row(modifier = Modifier.padding(bottom = 8.dp)) {
                     days.forEach { dayIdx ->
+                        val isToday = highlightedDay == dayIdx
                         Box(
                             modifier = Modifier
-                                .width(126.dp)
-                                .height(38.dp)
+                                .width(dayColumnWidth)
+                                .height(headerHeight)
                                 .padding(horizontal = 3.dp)
                                 .clip(TermChinDesign.ChipShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                                .background(
+                                    if (isToday) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = ClassSession.getDayName(dayIdx),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Bold
+                                ),
+                                color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -539,69 +643,23 @@ private fun TimetableGridView(
                 }
 
                 // Time Slots Rows
-                timeSlots.forEach { (slotStart, slotEnd) ->
+                timeSlots.forEachIndexed { index, (slotStart, slotEnd) ->
                     val slotStartMin = ClassSession.timeToMinutes(slotStart)
                     val slotEndMin = ClassSession.timeToMinutes(slotEnd)
 
-                    val hasMultipleInSlot = days.any { dayIdx ->
-                        items.count { item ->
-                            item.session.dayOfWeek == dayIdx &&
-                            item.session.startMinutes >= slotStartMin &&
-                            item.session.startMinutes < slotEndMin
-                        } > 1
-                    }
-                    val currentSlotHeight = if (hasMultipleInSlot) baseCellHeight + 28.dp else baseCellHeight
-
-                    Row(modifier = Modifier.padding(vertical = 3.dp)) {
-                        // Time label box
-                        Box(
-                            modifier = Modifier
-                                .width(76.dp)
-                                .height(currentSlotHeight)
-                                .clip(TermChinDesign.ChipShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotStart),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                                Text(
-                                    text = "تا",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                                Text(
-                                    text = ir.courseplanner.app.util.JalaliDate.toFaDigits(slotEnd),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                            }
-                        }
-
+                    Row(modifier = Modifier.padding(vertical = rowGap)) {
                         // Cells for each day
                         days.forEach { dayIdx ->
                             val matchingItems = items.filter { item ->
                                 item.session.dayOfWeek == dayIdx &&
-                                item.session.startMinutes >= slotStartMin &&
-                                item.session.startMinutes < slotEndMin
+                                    item.session.startMinutes >= slotStartMin &&
+                                    item.session.startMinutes < slotEndMin
                             }
 
                             Box(
                                 modifier = Modifier
-                                    .width(126.dp)
-                                    .height(currentSlotHeight)
+                                    .width(dayColumnWidth)
+                                    .height(slotHeights[index])
                                     .padding(horizontal = 3.dp)
                                     .clip(TermChinDesign.ChipShape)
                                     .background(
@@ -712,47 +770,42 @@ private fun WeeklyDateStrip(
     items: List<TimetableItem>,
     selectedDay: Int,
     highlightedDay: Int?,
+    todayEpochDay: Long,
     days: List<Int>,
     onDayChange: (Int) -> Unit
 ) {
-    // Smooth scroll to the selected cell on change; LazyRow keeps RTL order
-    // from the forced app-wide RTL layout direction.
-    val listState = rememberLazyListState()
-    LaunchedEffect(selectedDay, days) {
-        val index = days.indexOf(selectedDay).coerceAtLeast(0)
-        listState.animateScrollToItem(index)
-    }
     // Class counts come from the SAME timetable items the day view renders —
     // no new data source, no duplication.
     val countByDay = remember(items) {
         items.groupingBy { it.session.dayOfWeek }.eachCount()
     }
     val accent = MaterialTheme.colorScheme.primary
-    LazyRow(
-        state = listState,
+    // All six days stay visible. This used to be a LazyRow, which on a 360dp
+    // phone left the last cell cut in half mid-word (and the clip moved with
+    // the selection). The cells now shrink to whatever width the screen gives
+    // them instead of scrolling — the week is a fixed, glanceable row.
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("weekly_timetable_date_strip"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 2.dp)
+            .testTag("weekly_timetable_date_strip")
     ) {
-        items(
-            count = days.size,
-            key = { position -> days[position] }
-        ) { position ->
-            val dayIdx = days[position]
-            val count = countByDay[dayIdx] ?: 0
-            val isSelected = selectedDay == dayIdx
-            val isToday = highlightedDay == dayIdx
-            WeeklyDateCell(
-                dayIdx = dayIdx,
-                count = count,
-                isSelected = isSelected,
-                isToday = isToday,
-                highlightedDay = highlightedDay,
-                accent = accent,
-                onDayChange = onDayChange
-            )
+        val gap = 6.dp
+        val cellWidth = ((maxWidth - gap * (days.size - 1)) / days.size)
+            .coerceAtMost(TermChinDesign.DateCellWidth)
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            days.forEach { dayIdx ->
+                WeeklyDateCell(
+                    dayIdx = dayIdx,
+                    count = countByDay[dayIdx] ?: 0,
+                    isSelected = selectedDay == dayIdx,
+                    isToday = highlightedDay == dayIdx,
+                    highlightedDay = highlightedDay,
+                    todayEpochDay = todayEpochDay,
+                    accent = accent,
+                    width = cellWidth,
+                    onDayChange = onDayChange
+                )
+            }
         }
     }
 }
@@ -764,9 +817,14 @@ private fun WeeklyDateCell(
     isSelected: Boolean,
     isToday: Boolean,
     highlightedDay: Int?,
+    todayEpochDay: Long,
     accent: Color,
+    width: Dp,
     onDayChange: (Int) -> Unit
 ) {
+    // Narrow cells (360dp phones) drop the horizontal padding and use a
+    // slightly smaller day name so «چهارشنبه» still fits without an ellipsis.
+    val compact = width < 52.dp
     // A flat, soft-purple wash plus a heavier border makes the selected day the
     // obvious one whose class list is rendered below. Flat washes only — never
     // a gradient or glow — so every saved theme stays visually quiet.
@@ -785,19 +843,14 @@ private fun WeeklyDateCell(
     // Jalali day-of-month badge for the academic week row, derived from
     // today ± offset through the real Jalali calendar (never invented).
     // Every cell resolves its own offset from the highlighted today index.
-    val jalaliDay = remember(dayIdx, highlightedDay) {
-        jalaliDayBadge(dayIdx = dayIdx, todayIdx = highlightedDay)
+    val jalaliDay = remember(dayIdx, highlightedDay, todayEpochDay) {
+        jalaliDayBadge(dayIdx = dayIdx, todayIdx = highlightedDay, todayEpochDay = todayEpochDay)
     }
     Box(
         modifier = Modifier
-            .width(TermChinDesign.DateCellWidth)
+            .width(width)
             .height(TermChinDesign.DateCellHeight)
-            // A single flat elevation carries the selected cell; no ambient /
-            // spot accent glow, which looked like the card was lit from inside.
-            .shadow(
-                elevation = if (isSelected) TermChinDesign.CardElevation else 0.dp,
-                shape = TermChinDesign.PillShape
-            )
+            // Selection is carried by background + border, not elevation.
             .clip(TermChinDesign.PillShape)
             .background(cellBg)
             .border(if (isSelected) 2.dp else 1.dp, cellBorder, TermChinDesign.PillShape)
@@ -814,7 +867,7 @@ private fun WeeklyDateCell(
                     if (isSelected) append("، انتخاب شده")
                 }
             }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = 6.dp, horizontal = if (compact) 2.dp else 4.dp),
         contentAlignment = Alignment.Center
     ) {
         WeeklyDateCellContent(
@@ -823,14 +876,15 @@ private fun WeeklyDateCell(
             isSelected = isSelected,
             isToday = isToday,
             accent = accent,
-            jalaliDay = jalaliDay
+            jalaliDay = jalaliDay,
+            compact = compact
         )
     }
 }
 
 /**
- * Inner content of one date cell: weekday name, Jalali day number, class
- * indicator dots + Persian count. Kept separate so the cell container stays
+ * Inner content of one date cell: weekday name, Jalali day number and a single
+ * accent dot next to the class count. Kept separate so the cell container stays
  * readable and the content can evolve without touching selection logic.
  */
 @Composable
@@ -840,7 +894,8 @@ private fun WeeklyDateCellContent(
     isSelected: Boolean,
     isToday: Boolean,
     accent: Color,
-    jalaliDay: String
+    jalaliDay: String,
+    compact: Boolean
 ) {
     val cellContent = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
     else MaterialTheme.colorScheme.onSurface
@@ -848,13 +903,14 @@ private fun WeeklyDateCellContent(
     else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(1.dp)
     ) {
         Text(
             text = ClassSession.getDayName(dayIdx),
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = if (isSelected || isToday) FontWeight.Bold
-                else FontWeight.Medium
+                else FontWeight.Medium,
+                fontSize = if (compact) 9.5.sp else 11.sp
             ),
             color = cellContent,
             maxLines = 1,
@@ -872,35 +928,36 @@ private fun WeeklyDateCellContent(
             )
         }
         if (count > 0) {
+            // One dot + the count, on a single line. The previous layout stacked
+            // three dots above the count text, which overflowed the 72dp cell and
+            // clipped the only part that said how many classes there are.
             Row(
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                repeat(minOf(count, 3)) {
-                    Box(
-                        modifier = Modifier
-                            .size(TermChinDesign.DateDotSize)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) accent
-                                else accent.copy(alpha = 0.75f)
-                            )
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .size(TermChinDesign.DateDotSize)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) accent
+                            else accent.copy(alpha = 0.75f)
+                        )
+                )
+                Text(
+                    text = if (count == 1) "۱ کلاس"
+                    else "${ir.courseplanner.app.util.JalaliDate.toFaDigits(count)} کلاس",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 9.sp
+                    ),
+                    color = cellSubtle,
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
-            Text(
-                text = if (count == 1) "۱ کلاس"
-                else "${ir.courseplanner.app.util.JalaliDate.toFaDigits(count)} کلاس",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = cellSubtle,
-                maxLines = 1,
-                softWrap = false
-            )
-        // Free day: nothing is printed under the day number. The previous
-        // placeholder was clipped away inside the 72dp cell anyway, and the
-        // missing dots already communicate "no classes today".
+        // Free day: nothing is printed under the day number. The missing count
+        // already communicates "no classes today".
         }
     }
 }
@@ -911,14 +968,13 @@ private fun WeeklyDateCellContent(
  * Jalali calendar. Blank when today is unknown (builder preview) — never
  * crashes, never invents data.
  */
-private fun jalaliDayBadge(dayIdx: Int, todayIdx: Int?): String {
+private fun jalaliDayBadge(dayIdx: Int, todayIdx: Int?, todayEpochDay: Long): String {
     if (todayIdx == null) return ""
     // The academic week runs Saturday(0)..Thursday(5) with strictly increasing
     // dates, so a cell's day-of-month is simply the Saturday anchor plus its
     // weekday index. The previous ±3 wrap made the strip non-monotonic
     // (…۲۵، ۲۶، ۲۷، ۲۱، ۲۲); anchoring the whole week removes that.
-    val today = ir.courseplanner.app.util.JalaliDate.todayEpochDay()
-    val saturdayEpoch = if (todayIdx <= 5) today - todayIdx else today + 1
+    val saturdayEpoch = if (todayIdx <= 5) todayEpochDay - todayIdx else todayEpochDay + 1
     val resolved = ir.courseplanner.app.util.JalaliDate.fromEpochDay(saturdayEpoch + dayIdx)
         ?: return ""
     return ir.courseplanner.app.util.JalaliDate.toFaDigits(resolved.day)
@@ -929,6 +985,7 @@ private fun TimetableDayView(
     items: List<TimetableItem>,
     selectedDay: Int,
     highlightedDay: Int? = null,
+    todayEpochDay: Long,
     showThursday: Boolean = true,
     currentParity: ScheduleEngine.WeekParity? = null,
     onDayChange: (Int) -> Unit,
@@ -949,8 +1006,13 @@ private fun TimetableDayView(
         // class indicator dots, and smooth animated scrolling.
         WeeklyDateStrip(
             items = items,
-            selectedDay = selectedDay,
+            // Show the day whose list is actually rendered. On a Friday (or
+            // when Thursday is hidden) `selectedDay` falls outside the visible
+            // week, and the strip would otherwise show no selected cell at all
+            // while the list below showed Saturday.
+            selectedDay = effectiveSelectedDay,
             highlightedDay = highlightedDay,
+            todayEpochDay = todayEpochDay,
             days = days,
             onDayChange = onDayChange
         )
@@ -1010,7 +1072,6 @@ private fun TimetableDayView(
                                     if (ScheduleEngine.occursInWeek(item.session, currentParity)) 1f
                                     else 0.45f
                                 )
-                                .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
                                 .clickable { onItemClick(item) },
                             shape = TermChinDesign.CardShape,
                             color = MaterialTheme.colorScheme.surface,

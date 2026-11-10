@@ -69,7 +69,8 @@ class AttendanceSummaryCardTest {
 
         composeTestRule.onNodeWithText("غیبت ثبت شده").assertDoesNotExist()
         composeTestRule.onNodeWithText("۰ از ۰").assertDoesNotExist()
-        composeTestRule.onNodeWithText("حاضر").assertIsDisplayed()
+        composeTestRule.onNodeWithText("حضور و غیاب").assertIsDisplayed()
+        composeTestRule.onNodeWithText("غیبت").assertIsDisplayed()
     }
 
     @Test
@@ -88,23 +89,28 @@ class AttendanceSummaryCardTest {
     }
 
     @Test
-    fun `excused absences get their own pill`() {
+    fun `presence and lateness are never shown as counters`() {
         composeTestRule.setContent {
             MyApplicationTheme {
                 AttendanceSummaryCard(
                     enrolledSections = listOf(section()),
-                    statsByCourse = mapOf(7L to AttendanceStats(absent = 3, excused = 2)),
+                    statsByCourse = mapOf(
+                        7L to AttendanceStats(present = 9, absent = 1, late = 4, excused = 2)
+                    ),
                     absenceLimit = 3
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("موجه").assertIsDisplayed()
-        composeTestRule.onNodeWithText("۳ از ۳").assertIsDisplayed()
+        composeTestRule.onNodeWithText("حاضر").assertDoesNotExist()
+        composeTestRule.onNodeWithText("تأخیر").assertDoesNotExist()
+        composeTestRule.onNodeWithText("موجه").assertDoesNotExist()
+        composeTestRule.onNodeWithText("غیبت").assertIsDisplayed()
+        composeTestRule.onNodeWithText("۱").assertIsDisplayed()
     }
 
     @Test
-    fun `without a schedule action the header is not clickable`() {
+    fun `without a navigation action the card is not clickable`() {
         composeTestRule.setContent {
             MyApplicationTheme {
                 AttendanceSummaryCard(
@@ -116,11 +122,11 @@ class AttendanceSummaryCardTest {
         }
 
         // No dangling chevron promises navigation that will never happen.
-        composeTestRule.onNodeWithContentDescription("باز کردن برنامه").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("باز کردن حضور و غیاب").assertDoesNotExist()
     }
 
     @Test
-    fun `with a schedule action the header navigates`() {
+    fun `the whole card navigates to the attendance page`() {
         var opened = 0
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -128,13 +134,13 @@ class AttendanceSummaryCardTest {
                     enrolledSections = listOf(section()),
                     statsByCourse = emptyMap(),
                     absenceLimit = 3,
-                    onOpenSchedule = { opened++ }
+                    onOpenAttendance = { opened++ }
                 )
             }
         }
 
         composeTestRule.onNodeWithText("حضور و غیاب").performClick()
         assertEquals(1, opened)
-        composeTestRule.onNodeWithContentDescription("باز کردن برنامه").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("باز کردن حضور و غیاب").assertIsDisplayed()
     }
 }

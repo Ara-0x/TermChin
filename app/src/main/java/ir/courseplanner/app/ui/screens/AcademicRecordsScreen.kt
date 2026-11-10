@@ -105,8 +105,8 @@ private fun RecordsSummaryCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = TermChinDesign.CardShape,
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     ) {
         Row(
             modifier = Modifier
@@ -118,7 +118,7 @@ private fun RecordsSummaryCard(
             Icon(
                 Icons.Default.History,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(TermChinDesign.IconMd)
             )
             RecordStat(label = "ترم", value = termCount)
@@ -134,7 +134,7 @@ private fun RecordStat(label: String, value: Int) {
         Text(
             text = JalaliDate.toFaDigits(value),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
@@ -173,13 +173,13 @@ private fun AcademicTermCard(
                     modifier = Modifier
                         .size(TermChinDesign.CourseAvatarSize)
                         .clip(TermChinDesign.ControlShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.School,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(TermChinDesign.IconMd)
                     )
                 }
@@ -211,7 +211,7 @@ private fun AcademicTermCard(
                             append(" واحد گذرانده")
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Icon(

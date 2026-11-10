@@ -11,5 +11,17 @@ package ir.courseplanner.app.update
 data class AvailableUpdate(
     val version: ReleaseVersion,
     val downloadUrl: String,
-    val releasePageUrl: String
-)
+    val releasePageUrl: String,
+    /** Release notes (GitHub release body), already trimmed to a display cap. */
+    val changelog: String = "",
+    /**
+     * Lowercase hex SHA-256 of the APK as published by GitHub (`asset.digest`),
+     * or null when the API response carried no digest. When present the
+     * downloaded bytes are verified against it before the file may be installed.
+     */
+    val sha256: String? = null
+) {
+    /** True when the release published a downloadable APK (not just a page). */
+    val hasApkAsset: Boolean
+        get() = downloadUrl.endsWith(".apk", ignoreCase = true)
+}

@@ -75,7 +75,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -102,11 +101,12 @@ import ir.courseplanner.app.ui.theme.TermChinDesign
 
 /** Tiny section label used inside the collapsible filter panel. */
 @Composable
-internal fun FilterLabelRow(label: String) {
+internal fun FilterLabelRow(label: String, modifier: Modifier = Modifier) {
     Text(
         text = label,
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
     )
 }
 

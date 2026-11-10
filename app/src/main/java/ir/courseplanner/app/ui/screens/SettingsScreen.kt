@@ -9,24 +9,30 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
@@ -41,6 +47,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwitchAccount
@@ -89,12 +96,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,6 +122,8 @@ import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.ui.CoursePlannerViewModel
 import ir.courseplanner.app.ui.components.AdvancedDeleteDialog
+import ir.courseplanner.app.ui.components.PageHeader
+import ir.courseplanner.app.ui.theme.isDarkTheme
 import ir.courseplanner.app.ui.theme.paletteOf
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
@@ -161,7 +172,8 @@ private fun SettingsCategoryTitle(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() }
         )
     }
 }
@@ -170,27 +182,88 @@ private fun SettingsCategoryTitle(
 @Composable
 private fun SettingsGroupHeader(
     title: String,
-    subtitle: String
+    subtitle: String,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
+}
+
+/**
+ * One key/value line of the profile summary. Both sides get explicit weight so
+ * a long name or major wraps on the value side instead of shoving the label
+ * out of the card.
+ */
+@Composable
+private fun SettingsFactRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    valueWeight: FontWeight = FontWeight.Medium
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.42f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = valueWeight),
+            color = valueColor,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(0.58f)
+        )
+    }
+}
+
+/**
+ * Calm filled action used across the data cards. A tonal container keeps the
+ * accent on the label/icon instead of painting a wall of outlined boxes;
+ * [containerColor] is overridden for primary and destructive actions.
+ */
+@Composable
+private fun SettingsSoftButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = 40.dp,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    contentColor: Color = MaterialTheme.colorScheme.primary,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp),
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = height),
+        shape = TermChinDesign.RowShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        contentPadding = contentPadding,
+        content = content
+    )
 }
 
 /** A compact index of the six categories: tap a tile to scroll straight there. */
@@ -200,7 +273,6 @@ private fun SettingsQuickNav(onJump: (Int) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = TermChinDesign.CardElevation,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Column(
@@ -223,8 +295,9 @@ private fun SettingsQuickNav(onJump: (Int) -> Unit) {
                                 .weight(1f)
                                 .clip(TermChinDesign.RowShape)
                                 .clickable { onJump(shortcut.index) }
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                                .padding(vertical = 10.dp),
+                                .testTag("settings_nav_${shortcut.index}")
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .padding(vertical = 9.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -232,11 +305,11 @@ private fun SettingsQuickNav(onJump: (Int) -> Unit) {
                                 shortcut.icon,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                             Text(
                                 text = shortcut.label,
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -323,10 +396,14 @@ private fun String.normalizeDigitsForNumber(): String = map { char ->
     }
 }.joinToString("")
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: CoursePlannerViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Injectable wall clock for deterministic screenshots and tests; the app
+    // always passes the real day, only the capture harness pins it.
+    todayEpochDay: Long = JalaliDate.todayEpochDay()
 ) {
     val context = LocalContext.current
     val allCoursesWithSections by viewModel.coursesWithSections.collectAsStateWithLifecycle()
@@ -431,56 +508,16 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // A short map makes a long settings page feel intentional instead of
-        // like one undifferentiated list of controls.
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = TermChinDesign.CardShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = TermChinDesign.ChipShape,
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "تنظیمات",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Text(
-                        text = "شش دسته برای ظاهر، تقویم، انتخاب واحد، ترم و داده‌های شما",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
+        // Large title, same as every other top-level screen. The old tinted
+        // banner made Settings open with a card that behaved like a header.
+        PageHeader(
+            title = "تنظیمات",
+            subtitle = "ظاهر، تقویم، انتخاب واحد، ترم و داده‌های شما",
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
         // Status / Message Alert Banner
         userMessage?.let { msg ->
@@ -521,10 +558,10 @@ fun SettingsScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_appearance")
                 .onGloballyPositioned { sectionOffsets[0] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -558,7 +595,14 @@ fun SettingsScreen(
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.setThemeMode(mode) },
-                            label = { Text(mode.titleFa, fontSize = 11.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                            label = {
+                                Text(
+                                    mode.titleFa,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
                             leadingIcon = {
                                 Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp))
                             },
@@ -584,7 +628,9 @@ fun SettingsScreen(
                 for (index in paletteThemes.indices step 2) {
                     val second = paletteThemes.getOrNull(index + 1)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_palette_row_$index"),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         PaletteCard(
@@ -613,10 +659,10 @@ fun SettingsScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_timetable")
                 .onGloballyPositioned { sectionOffsets[1] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -689,7 +735,8 @@ fun SettingsScreen(
                                 label = {
                                     Text(
                                         density.titleFa,
-                                        fontSize = 11.5.sp,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
@@ -728,7 +775,7 @@ fun SettingsScreen(
                             ?.let { JalaliDate.fromEpochDay(it) }
                         Text(
                             text = if (savedStart != null) {
-                                "شروع کلاس‌ها: $savedStart • هفته اول " +
+                                "شروع کلاس‌ها: ${JalaliDate.toFaDigits(savedStart.toString())} • هفتهٔ اول " +
                                     if (preferences.firstWeekIsOdd) "فرد" else "زوج"
                             } else {
                                 "تاریخ شروع ترم تنظیم نشده؛ هفته زوج/فرد نامشخص می‌ماند."
@@ -738,13 +785,14 @@ fun SettingsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showSemesterStartDialog = true },
-                        shape = TermChinDesign.ControlShape,
-                        modifier = Modifier
-                            .height(34.dp)
-                            .testTag("semester_start_edit_button")
+                        modifier = Modifier.testTag("semester_start_edit_button"),
+                        height = 34.dp,
+                        contentPadding = PaddingValues(horizontal = 10.dp)
                     ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text("تنظیم", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -758,10 +806,10 @@ fun SettingsScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_selection")
                 .onGloballyPositioned { sectionOffsets[2] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -777,11 +825,13 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // FlowRow, not a horizontal scroller: the three criteria must
+                // all be visible — the old row clipped «فشرده‌ترین روزها» at the
+                // edge, which looked like a rendering bug and hid an option.
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     OptimizationPreference.values().forEach { pref ->
                         val isSelected = optimizationPref == pref
@@ -806,7 +856,7 @@ fun SettingsScreen(
                 Text(
                     text = optimizationPref.descriptionFa,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -815,10 +865,10 @@ fun SettingsScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_profile")
                 .onGloballyPositioned { sectionOffsets[3] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -847,10 +897,10 @@ fun SettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showEditProfileDialog = true },
-                        shape = TermChinDesign.ControlShape,
-                        modifier = Modifier.height(34.dp)
+                        height = 34.dp,
+                        contentPadding = PaddingValues(horizontal = 10.dp)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -868,87 +918,59 @@ fun SettingsScreen(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        val savedStart = preferences.semesterStartEpochDay
+                            ?.let { JalaliDate.fromEpochDay(it) }
+                        val todayEpoch = remember(todayEpochDay) { todayEpochDay }
+                        val currentWeek = remember(
+                            preferences.semesterStartEpochDay,
+                            preferences.firstWeekIsOdd
                         ) {
-                            Text(
-                                text = "نام دانشجو:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = if (preferences.studentName.isNotBlank()) preferences.studentName else "تنظیم نشده (اختیاری)",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (preferences.studentName.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            ScheduleEngine.academicWeek(
+                                todayEpoch,
+                                preferences.semesterStartEpochDay,
+                                preferences.firstWeekIsOdd
                             )
                         }
 
+                        // Key/value rows share one alignment: labels live at the
+                        // right edge, values at the left, and a long value wraps
+                        // instead of pushing its label off the card.
+                        SettingsFactRow(
+                            label = "نام دانشجو:",
+                            value = if (preferences.studentName.isNotBlank()) preferences.studentName else "تنظیم نشده (اختیاری)",
+                            valueColor = if (preferences.studentName.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            valueWeight = FontWeight.Bold
+                        )
+                        SettingsFactRow(
+                            label = "رشته تحصیلی:",
+                            value = if (preferences.major.isNotBlank()) preferences.major else "تنظیم نشده",
+                            valueColor = if (preferences.major.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                        )
+                        SettingsFactRow(
+                            label = "نیم‌سال جاری:",
+                            value = preferences.semesterName
+                        )
+                        SettingsFactRow(
+                            label = "سقف واحد هدف:",
+                            value = "${JalaliDate.toFaDigits(preferences.creditTarget)} واحد",
+                            valueColor = MaterialTheme.colorScheme.primary,
+                            valueWeight = FontWeight.Bold
+                        )
+
+                        // Absence limit: label and stepper share a row, and the
+                        // explanation sits underneath at full width. It used to
+                        // be squeezed into the label column and wrapped to three
+                        // tiny lines next to the buttons.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "رشته تحصیلی:",
+                                text = "حد غیبت مجاز:",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Text(
-                                text = if (preferences.major.isNotBlank()) preferences.major else "تنظیم نشده",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "نیم‌سال جاری:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = preferences.semesterName,
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "سقف واحد هدف:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${preferences.creditTarget} واحد",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "حد غیبت مجاز:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "با رسیدن به این تعداد، هشدار نمایش داده می‌شود.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -959,15 +981,21 @@ fun SettingsScreen(
                                     },
                                     enabled = preferences.absenceLimit > 0,
                                     shape = CircleShape,
-                                    modifier = Modifier.size(38.dp),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                                ) { Text("−", fontSize = 16.sp) }
+                                    modifier = Modifier.size(40.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = "کاهش حد غیبت",
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
                                 Text(
                                     text = JalaliDate.toFaDigits(preferences.absenceLimit),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.widthIn(min = 22.dp),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    modifier = Modifier.widthIn(min = 24.dp),
+                                    textAlign = TextAlign.Center
                                 )
                                 OutlinedButton(
                                     onClick = {
@@ -975,69 +1003,48 @@ fun SettingsScreen(
                                     },
                                     enabled = preferences.absenceLimit < 20,
                                     shape = CircleShape,
-                                    modifier = Modifier.size(38.dp),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                                ) { Text("+", fontSize = 16.sp) }
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "شروع کلاس‌ها:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            val savedStart = preferences.semesterStartEpochDay
-                                ?.let { JalaliDate.fromEpochDay(it) }
-                            Text(
-                                text = if (savedStart != null) {
-                                    val weekday = ClassSession.getDayName(
-                                        JalaliDate.appDayIndexOfEpochDay(
-                                            preferences.semesterStartEpochDay!!
-                                        )
+                                    modifier = Modifier.size(40.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "افزایش حد غیبت",
+                                        modifier = Modifier.size(17.dp)
                                     )
-                                    "$savedStart ($weekday)"
-                                } else "تنظیم نشده",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = if (savedStart != null) MaterialTheme.colorScheme.onSurface
-                                else MaterialTheme.colorScheme.outline
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "هفته جاری آموزشی:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            val todayEpoch = remember { JalaliDate.todayEpochDay() }
-                            val currentWeek = remember(
-                                preferences.semesterStartEpochDay,
-                                preferences.firstWeekIsOdd
-                            ) {
-                                ScheduleEngine.academicWeek(
-                                    todayEpoch,
-                                    preferences.semesterStartEpochDay,
-                                    preferences.firstWeekIsOdd
-                                )
+                                }
                             }
-                            Text(
-                                text = when {
-                                    preferences.semesterStartEpochDay == null -> "تنظیم نشده"
-                                    currentWeek == null -> "ترم هنوز شروع نشده"
-                                    else -> "هفته ${JalaliDate.toFaDigits(currentWeek.number)} (${currentWeek.parity.titleFa})"
-                                },
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (currentWeek != null) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outline
-                            )
                         }
+                        Text(
+                            text = "با رسیدن به این تعداد، هشدار نمایش داده می‌شود.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        val startDateLabel = if (savedStart != null) {
+                            val weekday = ClassSession.getDayName(
+                                JalaliDate.appDayIndexOfEpochDay(
+                                    preferences.semesterStartEpochDay!!
+                                )
+                            )
+                            "$weekday ${JalaliDate.toFaDigits(savedStart.toString())}"
+                        } else "تنظیم نشده"
+                        SettingsFactRow(
+                            label = "شروع کلاس‌ها:",
+                            value = startDateLabel,
+                            valueColor = if (savedStart != null) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.outline
+                        )
+                        SettingsFactRow(
+                            label = "هفته جاری آموزشی:",
+                            value = when {
+                                preferences.semesterStartEpochDay == null -> "تنظیم نشده"
+                                currentWeek == null -> "ترم هنوز شروع نشده"
+                                else -> "هفتهٔ ${JalaliDate.toFaDigits(currentWeek.number)}، ${currentWeek.parity.titleFa}"
+                            },
+                            valueColor = if (currentWeek != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outline,
+                            valueWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -1047,15 +1054,16 @@ fun SettingsScreen(
         // مدیریت داده‌ها — ورود، پشتیبان و پاک‌سازی در یک گروه روشن.
         SettingsGroupHeader(
             title = "مدیریت داده‌ها",
-            subtitle = "ورود، خروجی، اشتراک‌گذاری و پاک‌سازی اطلاعات آفلاین"
+            subtitle = "ورود، خروجی، اشتراک‌گذاری و پاک‌سازی اطلاعات آفلاین",
+            modifier = Modifier.testTag("settings_group_data")
         )
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_import")
                 .onGloballyPositioned { sectionOffsets[4] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1077,13 +1085,12 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { jsonFilePicker.launch("application/json") },
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_json_button"),
-                        shape = TermChinDesign.RowShape,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        height = 40.dp
                     ) {
                         Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1092,17 +1099,16 @@ fun SettingsScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { csvFilePicker.launch("text/*") },
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_csv_button"),
-                        shape = TermChinDesign.RowShape,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        height = 40.dp
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1111,7 +1117,7 @@ fun SettingsScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -1120,29 +1126,27 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showImportJsonDialog = true },
                         modifier = Modifier
                             .weight(1f)
                             .testTag("paste_json_button"),
-                        shape = TermChinDesign.RowShape,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        height = 38.dp
                     ) {
                         Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("چسباندن JSON", fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+                        Text("چسباندن JSON", fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showImportCsvDialog = true },
                         modifier = Modifier
                             .weight(1f)
                             .testTag("paste_csv_button"),
-                        shape = TermChinDesign.RowShape,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        height = 38.dp
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("چسباندن CSV", fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+                        Text("چسباندن CSV", fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
 
@@ -1159,9 +1163,9 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            "۱. صفحه «دروس ارائه‌شده» دانشگاه را باز کنید.",
-                            "۲. صفحه را به‌صورت HTML ذخیره کنید (Save as HTML) یا تک‌فایل (.mht).",
-                            "۳. همین‌جا فایل را انتخاب کنید."
+                            "۱. در مرورگر وارد پرتال دانشگاه شوید و صفحهٔ «دروس ارائه‌شدهٔ ترم» را باز کنید.",
+                            "۲. از منوی سه‌نقطهٔ مرورگر، دکمهٔ دانلود (فلش رو به پایین، بالای منو) را بزنید.",
+                            "۳. همین‌جا «ورود فایل HTML/MHT پرتال» را بزنید و فایل دانلودشده را انتخاب کنید."
                         ).forEach { step ->
                             Text(
                                 text = step,
@@ -1169,24 +1173,31 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Text(
+                            text = "اگر مرورگرتان دکمهٔ دانلود ندارد، صفحه را با «Save as → Webpage, HTML only» " +
+                                "یا «Single File (.mht)» ذخیره کنید.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                OutlinedButton(
+                SettingsSoftButton(
                     onClick = { portalFilePicker.launch("*/*") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
                         .testTag("import_portal_html_button"),
-                    shape = TermChinDesign.RowShape
+                    height = 44.dp,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        if (portalFileName != null) "فایل پرتال: $portalFileName" else "ورود فایل HTML/MHT پرتال (پویا)",
+                        if (portalFileName != null) "فایل پرتال: $portalFileName" else "ورود فایل HTML/MHT پرتال",
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Text(
@@ -1199,10 +1210,11 @@ fun SettingsScreen(
 
         // مدیریت داده‌ها — خروجی و پشتیبان
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_section_export"),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1224,25 +1236,22 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showExportDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp),
-                        shape = TermChinDesign.RowShape
+                        modifier = Modifier.weight(1f),
+                        height = 42.dp
                     ) {
                         Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(17.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("خروجی JSON", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
 
-                    OutlinedButton(
+                    SettingsSoftButton(
                         onClick = { showExportCsvDialog = true },
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
                             .testTag("export_csv_button"),
-                        shape = TermChinDesign.RowShape
+                        height = 42.dp
                     ) {
                         Icon(Icons.Default.TableView, contentDescription = null, modifier = Modifier.size(17.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1254,7 +1263,7 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
+                    SettingsSoftButton(
                         onClick = {
                             TimetableExporter.shareSchedule(
                                 context = context,
@@ -1264,13 +1273,10 @@ fun SettingsScreen(
                                 semester = preferences.semesterName
                             )
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp),
-                        shape = TermChinDesign.RowShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        modifier = Modifier.weight(1f),
+                        height = 42.dp,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(17.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1282,10 +1288,11 @@ fun SettingsScreen(
 
         // مدیریت داده‌ها — پاک‌سازی داده‌ها
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_section_cleanup"),
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1304,12 +1311,10 @@ fun SettingsScreen(
                 )
 
                 // Clear Schedule Only
-                OutlinedButton(
+                SettingsSoftButton(
                     onClick = { viewModel.clearScheduleOnly() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp),
-                    shape = TermChinDesign.RowShape
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 42.dp
                 ) {
                     Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1324,15 +1329,17 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                 // Advanced, explicitly scoped deletion (replaces the old
-                // single "delete everything" button).
-                Button(
+                // single "delete everything" button). Tonal error instead of a
+                // full-bleed red slab: still unmistakably destructive, but the
+                // screen keeps its calm surface until the confirmation dialog.
+                SettingsSoftButton(
                     onClick = { showDeleteAllDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
                         .testTag("delete_all_data_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = TermChinDesign.RowShape
+                    height = 44.dp,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
                 ) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1347,10 +1354,10 @@ fun SettingsScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("settings_section_about")
                 .onGloballyPositioned { sectionOffsets[5] = it.positionInParent().y.toInt() },
             shape = TermChinDesign.CardShape,
             color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         ) {
             Column(
@@ -1376,17 +1383,23 @@ fun SettingsScreen(
                     Column(
                         modifier = Modifier.padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            text = "TermChin | ترم‌چین  •  v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            text = "ترم‌چین",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "بیلد ${BuildConfig.GIT_SHA} • ${BuildConfig.BUILD_TIME}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            text = "نسخهٔ ${JalaliDate.toFaDigits(BuildConfig.VERSION_NAME)} (${JalaliDate.toFaDigits(BuildConfig.VERSION_CODE)})",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "بیلد ${BuildConfig.GIT_SHA} • ${BuildConfig.BUILD_TIME.substringBefore('T')}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -1955,20 +1968,26 @@ private fun PaletteCard(
     modifier: Modifier = Modifier
 ) {
     val palette = paletteOf(theme)
+    // The selected card previews the palette in the *current* mode: a light
+    // pastel container would read as a grey block in dark mode.
+    val activeScheme = if (isDarkTheme()) palette.dark else palette.light
     Surface(
         modifier = modifier
             .clip(TermChinDesign.CardShape)
-            .clickable(onClick = onClick)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
             .testTag("theme_palette_${theme.id}"),
         shape = TermChinDesign.CardShape,
-        color = if (selected) palette.light.primaryContainer.copy(alpha = 0.6f)
+        color = if (selected) activeScheme.primaryContainer.copy(alpha = 0.55f)
         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         border = androidx.compose.foundation.BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) palette.light.primary
+            if (selected) 1.5.dp else 1.dp,
+            if (selected) activeScheme.primary
             else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-        ),
-        shadowElevation = if (selected) TermChinDesign.CardElevation else 0.dp
+        )
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -2036,12 +2055,12 @@ private fun PaletteModePreview(scheme: ColorScheme) {
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
-            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(scheme.secondary))
-            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(scheme.tertiary))
+            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(scheme.primary))
+            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(scheme.secondary))
+            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(scheme.tertiary))
         }
     }
 }

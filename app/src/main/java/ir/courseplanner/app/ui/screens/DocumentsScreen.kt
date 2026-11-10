@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -49,6 +51,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -60,6 +63,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -73,6 +77,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -87,7 +92,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -120,6 +124,8 @@ import ir.courseplanner.app.data.model.DocumentCategory
 import ir.courseplanner.app.data.model.DocumentWithCourse
 import ir.courseplanner.app.ui.AppDestination
 import ir.courseplanner.app.ui.CoursePlannerViewModel
+import ir.courseplanner.app.ui.components.PageHeader
+import ir.courseplanner.app.ui.screens.courses.FilterLabelRow
 import ir.courseplanner.app.ui.theme.TermChinDesign
 import ir.courseplanner.app.util.JalaliDate
 import java.util.Calendar
@@ -185,151 +191,143 @@ fun DocumentsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Screen Header — plain content, no tonal elevation band: same
-            // language as Courses / Settings, so scrolling feels identical.
+            // Header — large title plus the one state toggle this screen needs.
+            // No tonal band: the same large-title pattern as Courses/Settings.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "جزوات و اسناد دروس",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.semantics { heading() }
-                            )
-                            Text(
-                                text = "مدیریت فایل‌ها، خلاصه دروس و نمونه‌سوالات",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                PageHeader(
+                    title = "جزوات و اسناد",
+                    subtitle = buildString {
+                        append("${JalaliDate.toFaDigits(filteredDocs.size)} سند")
+                        val docCourseCount = filteredDocs.map { it.course.id }.distinct().size
+                        if (docCourseCount > 0) {
+                            append(" • ${JalaliDate.toFaDigits(docCourseCount)} درس")
                         }
-
-                        // Bookmark Filter Toggle
-                        FilterChip(
+                    },
+                    trailing = {
+                        BookmarkFilterChip(
                             selected = onlyBookmarked,
-                            onClick = { viewModel.toggleOnlyBookmarkedDocs() },
-                            label = { Text("نشان‌شده‌ها", style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = if (onlyBookmarked) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                    contentDescription = null,
-                                    tint = if (onlyBookmarked) (if (isDarkTheme()) BookmarkAmberDark else BookmarkAmberLight) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                            onClick = { viewModel.toggleOnlyBookmarkedDocs() }
                         )
                     }
+                )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                    // Search Field
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.onDocSearchQueryChange(it) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("doc_search_field"),
-                        placeholder = { Text("جستجو در عنوان، یادداشت، نام فایل یا درس...", style = MaterialTheme.typography.bodySmall) },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.onDocSearchQueryChange("") }) {
-                                    Icon(Icons.Filled.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                // Search Field
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.onDocSearchQueryChange(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("doc_search_field"),
+                    placeholder = {
+                        Text(
+                            "جستجو در عنوان، یادداشت، نام فایل یا درس...",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onDocSearchQueryChange("") }) {
+                                Icon(Icons.Filled.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                        },
-                        singleLine = true,
-                        shape = TermChinDesign.CardShape
+                        }
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = TermChinDesign.ControlShape
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Filters: two full-bleed chip rows under small labels, the native
+            // pattern for horizontal filters. A card clipped the scrolling
+            // chips at its rounded corner, so they now run to the screen edge.
+            if (courses.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterLabelRow(
+                        label = "درس",
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Filters: one outlined card, exactly like the Courses screen's
-                // filter panel, instead of a full-bleed tinted band.
-                if (courses.isNotEmpty()) {
-                    Surface(
-                        shape = TermChinDesign.CardShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Course Chips Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChip(
-                                    selected = selectedCourseId == null,
-                                    onClick = { viewModel.onDocCourseFilterSelected(null) },
-                                    shape = TermChinDesign.ControlShape,
-                                    label = { Text("همه دروس (${allDocs.size})", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
-                                )
-
-                                courses.forEach { course ->
-                                    val docCountForCourse = allDocs.count { it.course.id == course.id }
-                                    FilterChip(
-                                        selected = selectedCourseId == course.id,
-                                        onClick = { viewModel.onDocCourseFilterSelected(course.id) },
-                                        shape = TermChinDesign.ControlShape,
-                                        label = {
-                                            Text("${course.name} ($docCountForCourse)", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
-                                        }
-                                    )
+                        item {
+                            FilterChip(
+                                selected = selectedCourseId == null,
+                                onClick = { viewModel.onDocCourseFilterSelected(null) },
+                                shape = TermChinDesign.ControlShape,
+                                colors = docFilterChipColors(),
+                                label = { Text("همه دروس (${allDocs.size})", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
+                            )
+                        }
+                        items(courses, key = { it.id }) { course ->
+                            val docCountForCourse = allDocs.count { it.course.id == course.id }
+                            FilterChip(
+                                selected = selectedCourseId == course.id,
+                                onClick = { viewModel.onDocCourseFilterSelected(course.id) },
+                                shape = TermChinDesign.ControlShape,
+                                colors = docFilterChipColors(),
+                                label = {
+                                    Text("${course.name} ($docCountForCourse)", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
                                 }
-                            }
+                            )
+                        }
+                    }
 
-                            // Category Chips Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChip(
-                                    selected = selectedCategory == null,
-                                    onClick = { viewModel.onDocCategoryFilterSelected(null) },
-                                    shape = TermChinDesign.ControlShape,
-                                    label = { Text("همه دسته‌ها", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
-                                )
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                                DocumentCategory.values().forEach { cat ->
-                                    FilterChip(
-                                        selected = selectedCategory == cat,
-                                        onClick = { viewModel.onDocCategoryFilterSelected(cat) },
-                                        shape = TermChinDesign.ControlShape,
-                                        label = { Text(cat.titleFa, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
-                                    )
-                                }
-                            }
+                    FilterLabelRow(
+                        label = "دسته",
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedCategory == null,
+                                onClick = { viewModel.onDocCategoryFilterSelected(null) },
+                                shape = TermChinDesign.ControlShape,
+                                colors = docFilterChipColors(),
+                                label = { Text("همه دسته‌ها", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
+                            )
+                        }
+                        items(DocumentCategory.values().toList(), key = { it.name }) { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat,
+                                onClick = { viewModel.onDocCategoryFilterSelected(cat) },
+                                shape = TermChinDesign.ControlShape,
+                                colors = docFilterChipColors(),
+                                label = { Text(cat.titleFa, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
+                            )
                         }
                     }
                 }
+            }
 
             // Main Content Area
             if (courses.isEmpty()) {
@@ -387,8 +385,9 @@ fun DocumentsScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
                 ) {
                     items(
                         items = filteredDocs,
@@ -414,10 +413,6 @@ fun DocumentsScreen(
                                 copyToClipboard(context, notes)
                             }
                         )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(72.dp))
                     }
                 }
             }
@@ -509,14 +504,18 @@ private fun DocumentItemCard(
 ) {
     val doc = item.document
     val course = item.course
+    // The category keeps its color, but as a 7dp dot in the meta line instead
+    // of a full pastel chip — the title stays the loudest thing on the card.
+    val (_, categoryAccent) = getCategoryColors(doc.category)
     var expandedNotes by remember { mutableStateOf(false) }
+    var actionsExpanded by remember { mutableStateOf(false) }
 
-    // Same card language as the Courses screen (Surface + soft shadow +
-    // hairline border + shared card shape) so all tabs look like one app.
+    // Same card language as the Courses screen (Surface + hairline border +
+    // shared card shape). No shadow: elevation is reserved for things that
+    // float (FAB), not for list rows.
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(TermChinDesign.CardElevation, TermChinDesign.CardShape)
             .testTag("doc_card_${doc.id}"),
         shape = TermChinDesign.CardShape,
         color = MaterialTheme.colorScheme.surface,
@@ -525,87 +524,122 @@ private fun DocumentItemCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 14.dp)
         ) {
-            // Top Row: Course badge, Category badge & Bookmark toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(
                     modifier = Modifier
                         .weight(1f)
-                        .semantics(mergeDescendants = true) {}
+                        .padding(top = 3.dp, end = 4.dp)
                 ) {
-                    // Course Badge
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = TermChinDesign.ChipShape,
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
+                    // Title first: the document's name is what the user scans.
+                    Text(
+                        text = doc.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(categoryAccent)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${course.name} (${course.code})",
+                            text = "${doc.category.titleFa} • ${course.name}",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    // Category Badge
-                    val (catBg, catFg) = getCategoryColors(doc.category)
-                    Surface(
-                        color = catBg,
-                        shape = TermChinDesign.ChipShape
-                    ) {
-                        Text(
-                            text = doc.category.titleFa,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = catFg,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                    Text(
+                        text = formatTimestamp(doc.createdAt),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        modifier = Modifier.padding(top = 3.dp)
+                    )
                 }
 
-                // Bookmark Star Button
+                // Bookmark is a state, so it stays a direct toggle; the three
+                // secondary actions collapse into one menu so deletion never
+                // outshouts the document itself.
                 IconButton(
                     onClick = onToggleBookmark,
-                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
+                    modifier = Modifier
+                        .size(TermChinDesign.MinTouchHeight)
+                        .testTag("doc_bookmark_${doc.id}")
                 ) {
                     Icon(
                         imageVector = if (doc.isBookmarked) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                        contentDescription = "نشان کردن",
-                        tint = if (doc.isBookmarked) (if (isDarkTheme()) BookmarkAmberDark else BookmarkAmberLight) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        contentDescription = if (doc.isBookmarked) "برداشتن نشان" else "نشان کردن",
+                        tint = if (doc.isBookmarked) {
+                            if (isDarkTheme()) BookmarkAmberDark else BookmarkAmberLight
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(20.dp)
                     )
                 }
+
+                Box {
+                    IconButton(
+                        onClick = { actionsExpanded = true },
+                        modifier = Modifier
+                            .size(TermChinDesign.MinTouchHeight)
+                            .testTag("doc_menu_${doc.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = "گزینه‌های سند",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = actionsExpanded,
+                        onDismissRequest = { actionsExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("اشتراک‌گذاری") },
+                            leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                            onClick = {
+                                actionsExpanded = false
+                                onShare()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("ویرایش") },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                            onClick = {
+                                actionsExpanded = false
+                                onEdit()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("حذف", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                actionsExpanded = false
+                                onDelete()
+                            }
+                        )
+                    }
+                }
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Title
-            Text(
-                text = doc.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            // Date
-            Text(
-                text = formatTimestamp(doc.createdAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 2.dp)
-            )
 
             // Notes / Text Content if available
             if (doc.contentNotes.isNotBlank()) {
@@ -613,7 +647,9 @@ private fun DocumentItemCard(
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                     shape = TermChinDesign.ControlShape,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 10.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(
@@ -665,127 +701,118 @@ private fun DocumentItemCard(
                 }
             }
 
-            // Attached File Box
+            // Attached file: a quieter row than a bordered inner card.
             if (!doc.fileUri.isNullOrBlank() || !doc.fileName.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                    shape = TermChinDesign.RowShape,
-                    border = CardDefaults.outlinedCardBorder(),
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 10.dp)
+                        .clip(TermChinDesign.RowShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                        .padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Filled.AttachFile,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = doc.fileName ?: "فایل پیوست",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                                if (doc.fileSizeBytes > 0) {
-                                    Text(
-                                        text = formatFileSize(doc.fileSizeBytes),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                            }
-                        }
-
-                        if (!doc.fileUri.isNullOrBlank()) {
-                            IconButton(
-                                onClick = { onOpenUri(doc.fileUri) },
-                                modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                            ) {
-                                Icon(
-                                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                    contentDescription = "مشاهده فایل",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                    Icon(
+                        imageVector = Icons.Filled.AttachFile,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = doc.fileName ?: "فایل پیوست",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                        if (doc.fileSizeBytes > 0) {
+                            Text(
+                                text = formatFileSize(doc.fileSizeBytes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Bottom Actions: Share, Edit, Delete
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onShare,
-                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = "اشتراک‌گذاری",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onEdit,
-                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "ویرایش",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(TermChinDesign.MinTouchHeight)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "حذف",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (!doc.fileUri.isNullOrBlank()) {
+                        IconButton(
+                            onClick = { onOpenUri(doc.fileUri) },
+                            modifier = Modifier.size(TermChinDesign.MinTouchHeight)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                contentDescription = "مشاهده فایل",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * Bookmark filter. The star behaves like a bookmark everywhere else in the app
+ * (amber when on); the container stays neutral so the header keeps exactly one
+ * accent at a time.
+ */
+@Composable
+private fun BookmarkFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = TermChinDesign.ControlShape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+        },
+        modifier = Modifier.testTag("doc_bookmark_filter")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (selected) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = null,
+                tint = if (selected) {
+                    if (isDarkTheme()) BookmarkAmberDark else BookmarkAmberLight
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "نشان‌شده‌ها",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/** One chip palette for both filter rows: the screen's primary accent. */
+@Composable
+private fun docFilterChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable

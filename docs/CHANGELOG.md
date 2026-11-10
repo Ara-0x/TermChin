@@ -4,6 +4,106 @@ Notable changes to TermChin (Course Planner), newest first.
 Versions are written as `versionName (versionCode)` exactly as they appear in
 `app/build.gradle.kts` — the single source of truth also checked by CI.
 
+## [2.22.0] (39) — 2026-11-10 in-app update download & home/settings polish
+
+The update prompt is now an actual update. «دانلود» no longer bounces the user to
+a browser tab: the APK streams into the app's private cache with a live progress
+bar, is verified before anything else happens, and is then handed to Android's
+own package installer. One accent, four honest states (idle, downloading, ready,
+failed) and one clear reason per failure — no raw exceptions, no silent retries.
+
+The transfer is built to survive real mobile networks: HTTPS-only GitHub hosts
+with every redirect re-validated, a 200 MB cap, a resumable `.part` file with
+`Range`/`If-Range`, whole-file SHA-256 (using the digest GitHub publishes for the
+release asset when present), an APK/ZIP magic check, and a package-name +
+strictly-newer `versionCode` check through `PackageManager`. Cancelling or
+dismissing the prompt deletes the partial/finished archive. Android still shows
+its own install confirmation; the app never installs anything silently.
+
+Baseline: **52 suites / 375 tests, 0 failures**.
+
+### Added
+
+- **In-app download.** `update/ApkDownloader.kt` streams to
+  `cacheDir/updates/<name>.apk`, writes `<name>.part` plus URL/ETag/total
+  metadata, resumes after a dropped connection, throttles progress samples and
+  cancels cleanly. `UpdateDownloadState` (owned by the ViewModel) keeps the
+  transfer alive across recomposition and rotation.
+- **Verification before install.** `update/ApkVerifier.kt` rejects a non-archive,
+  a foreign package or an equal/older `versionCode`; `ApkInspector` keeps that
+  check testable offline.
+- **Installer hand-off.** `update/UpdateInstaller.kt` exposes exactly one cached
+  folder through a non-exported `FileProvider` and opens the system installer
+  with a read-only `content://` URI. `REQUEST_INSTALL_PACKAGES` is the only new
+  permission; the "install unknown apps" toggle is opened directly for this app
+  and re-read on `ON_RESUME`.
+- **Dialog states.** Idle → Downloading (percent + MB caption) → Ready (install,
+  or grant-permission first) → Failed (one actionable sentence + retry). The
+  release-notes well and the version comparison from the previous prompt are
+  kept, and the card scrolls instead of clipping on short screens.
+- **Six screenshot captures** for the dialog states plus transport/verifier/state
+  tests that run without a network or a device, including a seven-test ViewModel
+  flow (prompt → download → verify → ready/failed/cancel/dismiss) and the
+  once-per-version prompt wiring against a real DataStore.
+
+### Changed
+
+- **`REQUEST_INSTALL_PACKAGES` is now allowed by CI**, alongside `INTERNET`, in
+  the built-APK permission gate; anything else still fails the build. The gate
+  also fails if either allowed permission disappears.
+- **Browser fallback kept**, but only for a release that publishes no APK asset:
+  the primary button then becomes «مشاهدهٔ صفحهٔ انتشار».
+- **Docs.** `docs/SECURITY.md` and the README describe both permissions, the
+  download bounds and the verification order instead of claiming the app never
+  downloads an APK.
+
+### Fixed
+
+- **Home weekly calendar.** The date strip no longer scrolls sideways: all six
+  days shrink to fit, so «چهارشنبه» is never cut in half and the highlighted
+  cell is always the day whose classes are listed below it (on Fridays, or with
+  Thursday hidden, the strip used to show no selected cell at all while the list
+  showed Saturday). Each cell now prints its class count next to a single accent
+  dot instead of three dots that pushed the count out of the 72dp cell, and the
+  strip reads «today» from the dashboard's own clock so the Jalali day numbers
+  cannot disagree with the rest of the page after midnight.
+- **Parity note and week grid.** The wrapped green sentence became a compact
+  «هفتهٔ فرد/زوج» pill with a quiet explanation on one line; the whole-week grid
+  now pins its hour column (times stay readable while the day columns scroll)
+  and marks today's column with the primary wash. Seven section captures (day,
+  whole week, rest day, dark, wide) plus two scrolled-home captures cover the
+  section; the captures pin the clock so their Jalali day numbers are stable.
+- **Home greeting card.** The date line now always includes the Jalali day and
+  month instead of collapsing to the weekday name: the old fixture fed an
+  out-of-range epoch day, so the capture was the only place the bug showed.
+  The week/credit chips are laid out with `FlowRow` and wrap instead of being
+  squeezed at 200% text, the academic week reads «هفتهٔ ۷، فرد» (no directional
+  parentheses), and after «ثبت پایان ترم» the stale week chip is removed while
+  the credit fact stays — `InactiveTermCard` owns the explanation. Dark-mode
+  chips now blend toward white (Material's elevation convention) so they stay a
+  layer *above* the tinted card instead of reading as near-black cut-outs, and
+  the greeting is marked as a heading for TalkBack. Five pinned-clock captures
+  (light, dark, no profile, term ended, 200%-text on a 320dp window) cover the
+  card, and a semantics test locks the term-ended chip behaviour.
+- **Settings, section by section.** A new pinned-clock harness captures the whole
+  screen in 13 images (top, timetable, selection, profile, data, export,
+  cleanup, about; dark where contrast matters), reaching each category
+  through the real quick-nav tiles. The review exposed a two-line selected theme
+  chip («پیروی از سیستم»), so the modes now read «خودکار / روشن / تاریک» on one
+  row; the optimization criteria were a horizontal scroller that clipped
+  «فشرده‌ترین روزها» and hid «شروع دیرتر» entirely, and are now a wrapping
+  `FlowRow`. The profile summary uses weighted key/value rows so a long name
+  wraps instead of pushing its label out, prints the credit target and
+  semester-start date in Persian digits, reads «هفتهٔ ۷، فرد» without directional
+  parentheses, and gives the absence-limit explanation a full-width line under
+  the stepper instead of squeezing it to three tiny lines. The data cards'
+  walls of outlined buttons became one tonal language (soft neutral for
+  JSON/CSV, `primaryContainer` for portal import and schedule sharing,
+  `errorContainer` for advanced deletion), section icons and quick-nav glyphs
+  carry the single accent, group subtitles use body text instead of 11sp, the
+  build footer is one centred version block, and palette cards expose radio
+  semantics. All 13 captures re-record byte-identically.
+
 ## [2.21.0] (38) — 2026-11-03 end-of-term archive, academic records, attendance
 
 The term now has a full lifecycle. A finished term is archived in ONE database

@@ -3,6 +3,7 @@ package ir.courseplanner.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import ir.courseplanner.app.BuildConfig
 import ir.courseplanner.app.data.importer.CourseImporter
 import ir.courseplanner.app.data.importer.ImportItem
 import ir.courseplanner.app.data.importer.ImportResult
@@ -38,11 +39,19 @@ import ir.courseplanner.app.engine.OptimizationPreference
 import ir.courseplanner.app.engine.ScheduleEngine
 import ir.courseplanner.app.engine.ScheduleMetrics
 import ir.courseplanner.app.engine.ScoredSchedule
+import ir.courseplanner.app.update.ApkDownloader
+import ir.courseplanner.app.update.ApkInspector
+import ir.courseplanner.app.update.ApkVerifier
 import ir.courseplanner.app.update.AvailableUpdate
+import ir.courseplanner.app.update.DownloadException
 import ir.courseplanner.app.update.UpdateChecker
+import ir.courseplanner.app.update.UpdateDownloadState
+import ir.courseplanner.app.update.UpdateFailure
 import ir.courseplanner.app.update.UpdatePromptGate
 import ir.courseplanner.app.util.JalaliDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -53,7 +62,9 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 
 enum class AppDestination {
@@ -69,7 +80,9 @@ enum class AppDestination {
     /** Full page: choose the final status of every course and archive the term. */
     END_TERM,
     /** Full page: archived terms (name, courses, statuses, grades, credits). */
-    ACADEMIC_RECORDS
+    ACADEMIC_RECORDS,
+    /** Full page: recorded absences per course, editable in place. */
+    ATTENDANCE
 }
 
 data class ManualSessionInput(
@@ -194,7 +207,11 @@ class CoursePlannerViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
     // Defaults to the real updater because most unit tests construct the
     // ViewModel by hand; Hilt resolves the binding in production.
-    private val updateChecker: UpdateChecker = UpdateChecker()
+    private val updateChecker: UpdateChecker = UpdateChecker(),
+    private val apkDownloader: ApkDownloader = ApkDownloader(),
+    // Tests override this to return canned metadata; production inspects the
+    // archive with the platform PackageManager (ApkVerifier.read).
+    private val apkInspector: ApkInspector = ApkInspector()
 ) : AndroidViewModel(application) {
 
     val userPreferences: StateFlow<UserPreferences> = preferencesManager.preferences
@@ -799,6 +816,11 @@ class CoursePlannerViewModel @Inject constructor(
 
     fun openAcademicRecords() {
         _currentDestination.value = AppDestination.ACADEMIC_RECORDS
+    }
+
+    /** Home attendance card → the editable absence page. */
+    fun openAttendance() {
+        _currentDestination.value = AppDestination.ATTENDANCE
     }
 
     fun setEndTermStatus(courseId: Long, status: TermCourseStatus) {
@@ -1832,6 +1854,21 @@ class CoursePlannerViewModel @Inject constructor(
     private val _availableUpdate = MutableStateFlow<AvailableUpdate?>(null)
     val availableUpdate: StateFlow<AvailableUpdate?> = _availableUpdate.asStateFlow()
 
+    /**
+     * In-app download progress for the offered update.
+     *
+     * Lives in the ViewModel (not the dialog) so the transfer survives
+     * recomposition and rotation: closing the dialog is the only thing that
+     * cancels it, and it is cancelled explicitly via [cancelUpdateDownload] /
+     * [dismissUpdatePrompt].
+     */
+    private val _updateDownload = MutableStateFlow<UpdateDownloadState>(UpdateDownloadState.Idle)
+    val updateDownload: StateFlow<UpdateDownloadState> = _updateDownload.asStateFlow()
+
+    // The single in-flight transfer. Kept so a second tap cannot start a parallel
+    // download, and so cancelling actually stops the network read.
+    private var updateDownloadJob: Job? = null
+
     // Guards against a second check in the same process. The prompt is a
     // once-per-cold-start, one-shot operation — recomposition must never re-run it.
     private var updateCheckStarted = false
@@ -1866,39 +1903,123 @@ class CoursePlannerViewModel @Inject constructor(
     }
 
     /**
-     * Dismisses the prompt without downloading.
+     * Dismisses the prompt without installing.
      *
      * The version is recorded as prompted, so "بعداً" really does mean "not again
-     * for this release" and the dialog cannot become a startup annoyance.
+     * for this release" and the dialog cannot become a startup annoyance. Any
+     * in-flight download is cancelled and its partial file deleted, and a
+     * finished archive is discarded too: the cache is not an install queue.
      */
     fun dismissUpdatePrompt() {
+        cancelUpdateDownload()
         val update = _availableUpdate.value
         _availableUpdate.value = null
-        if (update != null) {
-            viewModelScope.launch {
-                preferencesManager.setLastPromptedUpdateVersionSync(update.version.versionName)
-            }
-        }
+        if (update != null) markPromptSeen(update)
     }
 
     /**
-     * Records that the user chose "دانلود". The prompt is also marked as seen so
-     * returning from the browser does not immediately re-offer the same version.
+     * Starts the in-app download of the offered release.
+     *
+     * The prompt stays on screen and turns into the progress view instead of
+     * closing. The version is recorded as prompted immediately: a download that
+     * outlives the process must not re-prompt the user on the next start.
      */
-    fun onUpdateDownloadRequested() {
-        val update = _availableUpdate.value
-        _availableUpdate.value = null
-        if (update != null) {
-            viewModelScope.launch {
-                preferencesManager.setLastPromptedUpdateVersionSync(update.version.versionName)
+    fun startUpdateDownload() {
+        val update = _availableUpdate.value ?: return
+        if (updateDownloadJob?.isActive == true) return
+        markPromptSeen(update)
+
+        val target = updateApkFile(update)
+        _updateDownload.value = UpdateDownloadState.Downloading(bytes = 0L, total = null)
+        updateDownloadJob = viewModelScope.launch {
+            try {
+                val apk = apkDownloader.download(
+                    url = update.downloadUrl,
+                    expectedSha256 = update.sha256,
+                    target = target
+                ) { progress ->
+                    _updateDownload.value =
+                        UpdateDownloadState.Downloading(progress.bytes, progress.total)
+                }
+                val app = getApplication<Application>()
+                val info = withContext(Dispatchers.IO) {
+                    apkInspector.read(app, apk)
+                }
+                val failure = ApkVerifier.validate(
+                    info = info,
+                    expectedPackage = app.packageName,
+                    currentVersionCode = BuildConfig.VERSION_CODE.toLong()
+                )
+                if (failure != null) {
+                    apk.delete()
+                    _updateDownload.value = UpdateDownloadState.Failed(failure)
+                    return@launch
+                }
+                _updateDownload.value = UpdateDownloadState.Ready(apk)
+            } catch (cancellation: CancellationException) {
+                // cancelUpdateDownload() owns the state transition.
+                throw cancellation
+            } catch (failure: DownloadException) {
+                _updateDownload.value = UpdateDownloadState.Failed(failure.failure)
+            } catch (failure: Exception) {
+                _updateDownload.value = UpdateDownloadState.Failed(UpdateFailure.UNKNOWN)
             }
         }
     }
 
+    /** Cancels an in-flight transfer and returns the dialog to its idle state. */
+    fun cancelUpdateDownload() {
+        updateDownloadJob?.cancel()
+        updateDownloadJob = null
+        discardDownloadedUpdate()
+        _updateDownload.value = UpdateDownloadState.Idle
+    }
+
     /**
-     * Reports a message the user must actually see (currently only: no browser
-     * could open the update link). Same snackbar path as internal results, so the
-     * existing flag-then-text ordering guarantee still applies.
+     * Called after the system installer has been opened: the prompt has served
+     * its purpose, so it closes.
+     *
+     * The verified APK is deliberately NOT deleted here. The installer reads the
+     * `content://` URI asynchronously, so deleting the file right after
+     * `startActivity` can make Android report a broken package. The cache entry
+     * is replaced or dropped by the next download instead, and the OS may evict
+     * it at any time.
+     */
+    fun onUpdateInstallerLaunched() {
+        val update = _availableUpdate.value
+        updateDownloadJob = null
+        _updateDownload.value = UpdateDownloadState.Idle
+        _availableUpdate.value = null
+        if (update != null) markPromptSeen(update)
+    }
+
+    private fun discardDownloadedUpdate() {
+        (_updateDownload.value as? UpdateDownloadState.Ready)?.apk?.delete()
+    }
+
+    /** Cache slot for the offered release; the FileProvider exposes this folder. */
+    private fun updateApkFile(update: AvailableUpdate): File {
+        val directory = File(getApplication<Application>().cacheDir, UPDATE_CACHE_DIR)
+        val name = "TermChin-${update.version.versionName}.apk"
+        // Drop archives from other versions/attempts, but keep this version's
+        // `.part` file: a retry after a dropped connection resumes from it
+        // instead of downloading the whole APK again.
+        directory.listFiles()?.forEach { file ->
+            if (!file.name.startsWith(name)) file.delete()
+        }
+        return File(directory, name)
+    }
+
+    private fun markPromptSeen(update: AvailableUpdate) {
+        viewModelScope.launch {
+            preferencesManager.setLastPromptedUpdateVersionSync(update.version.versionName)
+        }
+    }
+
+    /**
+     * Reports a message the user must actually see (an installer that could not
+     * be opened). Same snackbar path as internal results, so the existing
+     * flag-then-text ordering guarantee still applies.
      */
     fun showUserFacingMessage(message: String, isError: Boolean = false) {
         if (isError) showError(message) else showInfo(message)
@@ -1911,5 +2032,11 @@ class CoursePlannerViewModel @Inject constructor(
     companion object {
         /** Home dashboard clock cadence: countdowns stay minute-accurate. */
         const val DASHBOARD_TICK_MS = 30_000L
+
+        /**
+         * Cache folder holding the downloaded APK. Must stay in sync with
+         * `res/xml/update_file_paths.xml`, the only path the FileProvider serves.
+         */
+        const val UPDATE_CACHE_DIR = "updates"
     }
 }

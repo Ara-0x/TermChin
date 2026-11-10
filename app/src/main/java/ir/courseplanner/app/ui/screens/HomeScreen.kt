@@ -14,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,6 +50,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,8 +68,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -88,6 +94,8 @@ import ir.courseplanner.app.ui.components.EndTermConfirmDialog
 import ir.courseplanner.app.ui.components.TimetableItem
 import ir.courseplanner.app.ui.components.WeeklyTimetable
 import ir.courseplanner.app.ui.theme.TermChinDesign
+import ir.courseplanner.app.ui.theme.isDarkTheme
+import ir.courseplanner.app.ui.theme.tinted
 import ir.courseplanner.app.util.JalaliDate
 import ir.courseplanner.app.util.TimetableExporter
 import kotlinx.coroutines.delay
@@ -261,6 +269,19 @@ fun HomeScreen(
             )
         }
 
+        // Cumulative absences sit next to today's marking rows: recording and
+        // reviewing live in the same context instead of being separated by the
+        // timetable. Presence is never shown — only the number that can hurt.
+        if (hasEnrolled) {
+            AttendanceSummaryCard(
+                enrolledSections = enrolledSections,
+                statsByCourse = attendanceByCourse,
+                absenceLimit = preferences.absenceLimit,
+                onOpenAttendance = { viewModel.openAttendance() },
+                modifier = Modifier.dashboardEntrance(4)
+            )
+        }
+
         // D. Needs attention — rendered only when something is actionable.
         if (attentionItems.isNotEmpty()) {
             AttentionCard(
@@ -312,7 +333,6 @@ fun HomeScreen(
                         .bringIntoViewRequester(examSectionRequester),
                     shape = TermChinDesign.CardShape,
                     color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = TermChinDesign.CardElevation,
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
                         if (hasExamConflict) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
@@ -507,6 +527,7 @@ fun HomeScreen(
                         sections = enrolledSections,
                         initialDay = now.appDayIdx,
                         highlightedDay = now.appDayIdx,
+                        todayEpochDay = now.epochDay,
                         showThursday = preferences.showThursday,
                         density = preferences.timetableDensity,
                         currentParity = weekInfo?.parity,
@@ -524,16 +545,6 @@ fun HomeScreen(
             SecondaryDocumentsLine(
                 count = visibleDocumentCount,
                 onOpen = { viewModel.navigateTo(AppDestination.DOCUMENTS) },
-                modifier = Modifier.dashboardEntrance(8)
-            )
-        }
-
-        if (hasEnrolled) {
-            AttendanceSummaryCard(
-                enrolledSections = enrolledSections,
-                statsByCourse = attendanceByCourse,
-                absenceLimit = preferences.absenceLimit,
-                onOpenSchedule = { viewModel.navigateTo(AppDestination.SCHEDULE) },
                 modifier = Modifier.dashboardEntrance(8)
             )
         }
@@ -930,22 +941,28 @@ private fun InactiveTermCard(
 /**
  * Staggered entrance for the dashboard blocks: each section fades in and
  * lifts a few pixels, offset by [index], so Home assembles itself instead of
- * snapping into place. Runs once (finite, no infinite transitions) and only
- * changes the visual transform — layout and semantics stay put.
+ * snapping into place.
+ *
+ * The stagger is capped hard (max 150 ms, 220 ms of motion): a long cascade
+ * hides real content behind animation and makes the first tap feel slow.
+ * Previews and screenshot tests render the settled state, and the transform
+ * only ever touches alpha/translation — layout and semantics stay put.
  */
 @Composable
 private fun Modifier.dashboardEntrance(index: Int): Modifier {
+    if (LocalInspectionMode.current) return this
     val progress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        if (index > 0) delay(index * 45L)
+        val delayMs = minOf(index * 30L, 150L)
+        if (delayMs > 0) delay(delayMs)
         progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
         )
     }
     return this.graphicsLayer {
         alpha = progress.value
-        translationY = (1f - progress.value) * 24.dp.toPx()
+        translationY = (1f - progress.value) * 16.dp.toPx()
     }
 }
 
@@ -954,6 +971,7 @@ private fun Modifier.dashboardEntrance(index: Int): Modifier {
  * Jalali date and the academic week all answer "where am I right now", so
  * they share one card instead of stacking two near-identical surfaces.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DashboardHeader(
     studentName: String,
@@ -982,71 +1000,81 @@ internal fun DashboardHeader(
         }
     }
     val weekLabel = if (weekInfo != null) {
-        "هفته ${JalaliDate.toFaDigits(weekInfo.number)} (${weekInfo.parity.titleFa})"
+        "هفته ${JalaliDate.toFaDigits(weekInfo.number)}، ${weekInfo.parity.titleFa}"
     } else {
         "هفته نامشخص"
     }
-    Card(
+    val metaLine = buildString {
+        append(semesterName)
+        if (major.isNotBlank()) {
+            append(" • ")
+            append(major)
+        }
+    }
+    val creditsLabel = if (creditTarget > 0) {
+        "${JalaliDate.toFaDigits(credits)} از ${JalaliDate.toFaDigits(creditTarget)} واحد"
+    } else {
+        "${JalaliDate.toFaDigits(credits)} واحد"
+    }
+    // Calm tonal header: a tinted surface instead of a saturated colour block.
+    // The student's actual day — class times and warnings — is the loudest
+    // thing on the screen; the greeting sets context quietly. The colour is
+    // hoisted so the chips can derive their own layer from it.
+    val headerColor = MaterialTheme.colorScheme.tinted(
+        MaterialTheme.colorScheme.primaryContainer,
+        0.55f
+    )
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("home_header_card"),
         shape = TermChinDesign.CardShape,
-        // A confident colour block instead of a faint tint: the greeting is the
-        // first thing the student sees, so it owns the theme's primary colour.
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        color = headerColor,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         text = greetingFa(now.nowMinutes, studentName),
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() }
                     )
 
                     Text(
-                        text = buildString {
-                            append(semesterName)
-                            if (major.isNotBlank()) {
-                                append(" • ")
-                                append(major)
-                            }
-                            append(" • ")
-                            append(JalaliDate.toFaDigits(credits))
-                            append(" واحد")
-                            if (creditTarget > 0) {
-                                append(" از ")
-                                append(JalaliDate.toFaDigits(creditTarget))
-                            }
-                        },
+                        text = metaLine,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Box {
                     IconButton(
@@ -1058,7 +1086,7 @@ internal fun DashboardHeader(
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "مدیریت ترم",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                     DropdownMenu(
@@ -1101,70 +1129,75 @@ internal fun DashboardHeader(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                }
             }
 
-            // Date + academic week: the two time facts the standalone date card
-            // used to carry, folded into the greeting block.
-            Row(
+            // The two time facts that used to compete with the greeting: the
+            // academic week and the credit load, both as quiet chips. A week
+            // number belongs to a running term only — after «پایان ترم» the
+            // archived week would be stale, so the chip is removed and the
+            // InactiveTermCard below explains what happened.
+            FlowRow(
                 modifier = Modifier.testTag("home_header_date_row"),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Surface(
-                    shape = TermChinDesign.PillShape,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Event,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = TermChinDesign.PillShape,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
-                ) {
-                    Text(
-                        text = weekLabel,
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        maxLines = 1,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                if (isTermActive) {
+                    HeaderChip(
+                        containerColor = headerColor,
+                        icon = Icons.Default.Event,
+                        text = weekLabel
                     )
                 }
+                HeaderChip(containerColor = headerColor, text = creditsLabel)
             }
+        }
+    }
+}
+
+/**
+ * Quiet chip used inside the header: one layer lighter than [containerColor],
+ * with the accent reserved for the leading glyph. In light mode that means
+ * blending toward the page surface; in dark mode a small white overlay —
+ * Material's elevation convention — so the chip still reads as raised instead
+ * of turning into a near-black hole punched in the tinted card.
+ */
+@Composable
+private fun HeaderChip(
+    containerColor: Color,
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    val chipColor = if (isDarkTheme()) {
+        lerp(containerColor, Color.White, 0.12f)
+    } else {
+        lerp(containerColor, MaterialTheme.colorScheme.surface, 0.62f)
+    }
+    Surface(
+        shape = TermChinDesign.PillShape,
+        // A touch lighter than the header it sits on, but still an opaque
+        // colour so it never picks up the host window's tone.
+        color = chipColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1185,7 +1218,7 @@ internal fun GuidedEmptyState(
             .testTag("home_empty_state"),
         shape = TermChinDesign.CardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
@@ -1227,12 +1260,18 @@ internal fun GuidedEmptyState(
                 actionLabel = "تنظیمات و ورود داده",
                 onAction = onOpenSettings
             )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            )
             GuidedStepRow(
                 number = "۲",
                 title = "انتخاب درس‌ها",
                 subtitle = "درس‌ها را به برنامه اضافه کنید",
                 actionLabel = "مدیریت درس‌ها",
                 onAction = onOpenCourses
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
             )
             GuidedStepRow(
                 number = "۳",
@@ -1254,61 +1293,53 @@ private fun GuidedStepRow(
     onAction: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = TermChinDesign.RowShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        ),
-        modifier = modifier.fillMaxWidth()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.size(30.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(30.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = number,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = title,
+                    text = number,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (actionLabel != null && onAction != null) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
-                        onClick = onAction,
-                        shape = TermChinDesign.ControlShape,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 14.dp,
-                            vertical = 6.dp
-                        ),
-                        modifier = Modifier.height(TermChinDesign.MinTouchHeight)
-                    ) {
-                        Text(actionLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                    }
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (actionLabel != null && onAction != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Button(
+                    onClick = onAction,
+                    shape = TermChinDesign.ControlShape,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 14.dp,
+                        vertical = 6.dp
+                    ),
+                    modifier = Modifier.height(TermChinDesign.MinTouchHeight)
+                ) {
+                    Text(actionLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
             }
         }
