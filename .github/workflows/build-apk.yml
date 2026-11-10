@@ -132,7 +132,23 @@ jobs:
 
       # Tests gate the APK: a red suite must never produce a release artifact.
       - name: Unit tests (must pass before assembling)
+        id: unit_tests
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      # A red suite must be diagnosable without a rerun. Gradle always writes
+      # the HTML report and the JUnit XML for the run that failed; attach them
+      # to the run so the exact failing test and its stack trace survive the
+      # ephemeral runner. Only uploaded when this step is the one that failed.
+      - name: Upload unit test report (on failure)
+        if: failure() && steps.unit_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            app/build/reports/tests/testDebugUnitTest
+            app/build/test-results/testDebugUnitTest
+          if-no-files-found: warn
+          retention-days: 14
 
       # Room exports every schema version to app/schemas. A database bump
       # without the matching JSON (or with a stale one) must fail here, before
